@@ -36,6 +36,16 @@ test("movie relay handles real HTTP bodies, ranges and redirect validation", asy
         "content-encoding": "gzip",
       });
       res.end("not gzip");
+    } else if (req.url === "/ts-as-html") {
+      // Videm's segment host serves MPEG-TS video bytes labeled as text/html.
+      res.writeHead(200, { "content-type": "text/html; charset=UTF-8" });
+      res.end(
+        Buffer.concat([
+          Buffer.from([0x47, 0x40, 0x00, 0x30, 0xa6, 0x00]),
+          Buffer.alloc(600, 0),
+          Buffer.from("segment-payload"),
+        ]),
+      );
     } else if (req.url === "/redirect") {
       res.writeHead(302, { location: "./html" });
       res.end();
@@ -171,6 +181,26 @@ test("movie relay handles real HTTP bodies, ranges and redirect validation", asy
       const result = await app.inject(path("/bad-compression"));
       assert.equal(result.statusCode, 502);
       assert.ok(result.body.toLowerCase().includes("decode"));
+    },
+  );
+  await t.test(
+    "binary segments mislabeled as text/html keep their exact bytes",
+    async () => {
+      const result = await app.inject(path("/ts-as-html"));
+      assert.equal(result.statusCode, 200);
+      assert.ok(
+        String(result.headers["content-type"]).includes(
+          "application/octet-stream",
+        ),
+      );
+      assert.deepEqual(
+        result.rawPayload,
+        Buffer.concat([
+          Buffer.from([0x47, 0x40, 0x00, 0x30, 0xa6, 0x00]),
+          Buffer.alloc(600, 0),
+          Buffer.from("segment-payload"),
+        ]),
+      );
     },
   );
 });

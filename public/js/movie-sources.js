@@ -19,23 +19,16 @@ var MOVIES_SOURCES = [
     },
   },
   {
-    // Videm (2Embed's default player) serves its embed documents to the
-    // VPS but rejects every api.php call the player needs to start video
-    // (sources/race/play/subs) with 403 {"error":"unavailable"} to
-    // datacenter egress — verified 2026-09-07, when the same calls
-    // returned 200 from a residential connection. Header tweaks cannot
-    // fix an egress-IP block, so this source loads direct like the VidSrc
-    // entry above: the visitor's browser passes the check itself.
-    // Trade-off: ads run and the provider sees the visitor IP.
-    name: "2Embed (2embed.cc) • direct",
-    direct: true,
+    name: "2Embed (2embed.cc)",
     url: function (t, id, s, e) {
       // 2Embed's TV endpoint expects its parameters after a
       // literal ampersand. With a normal `?s=...`, it silently
       // ignores the selection and always serves S1 E1.
-      return t === "movie"
-        ? "https://www.2embed.cc/embed/" + id
-        : "https://www.2embed.cc/embedtv/" + id + "&s=" + s + "&e=" + e;
+      var upstream =
+        t === "movie"
+          ? "https://www.2embed.cc/embed/" + id
+          : "https://www.2embed.cc/embedtv/" + id + "&s=" + s + "&e=" + e;
+      return "/movie-proxy?url=" + encodeURIComponent(upstream);
     },
   },
   {

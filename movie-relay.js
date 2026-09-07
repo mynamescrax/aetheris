@@ -659,11 +659,14 @@ export function registerMovieRelay(
       }
       reply.removeHeader("content-length");
 
-      // Guard against binary payloads mislabeled as text — some CDNs send
-      // media/segments with a text-ish or missing content-type, which would
-      // otherwise fall into the rewriters below and render as garbage in the
-      // browser. NUL bytes in the probe are a strong binary indicator.
-      if (!isHtml && !isM3u8 && decompressed.slice(0, 512).includes(0x00)) {
+      // Guard against binary payloads mislabeled as text — Videm's current
+      // segment host serves MPEG-TS video bytes as text/html, and decoding
+      // those bytes to a UTF-8 string for the rewriters below irreversibly
+      // corrupts them (replacement characters), so playback stalls even
+      // though every request returns 200. NUL bytes in the probe are a
+      // strong binary indicator for any text-ish content-type, so bypass
+      // the rewriters and serve the original bytes untouched.
+      if (decompressed.slice(0, 512).includes(0x00)) {
         return reply.type("application/octet-stream").send(decompressed);
       }
 
