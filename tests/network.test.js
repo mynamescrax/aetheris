@@ -149,6 +149,10 @@ test("movie proxy client repairs provider-prefixed absolute relay URLs", () => {
     client.includes('querySelector("base'),
     "relative provider URLs must resolve against the provider base tag",
   );
+  assert.ok(
+    client.includes("declaredOrigin"),
+    "stale pages must not resolve provider URLs against our own origin",
+  );
 });
 
 test("compression is decoded correctly and oversized/broken text is rejected", () => {

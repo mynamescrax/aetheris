@@ -4,7 +4,21 @@
 
   var PROXY_ROUTE = "/movie-proxy";
   var targetUrl = window.__MOVIE_PROXY_TARGET__ || location.href;
-  var targetOrigin = window.__MOVIE_PROXY_ORIGIN__ || location.origin;
+  // Never resolve provider URLs against our own origin: a stale cached page
+  // can miss __MOVIE_PROXY_ORIGIN__, and resolving its <base href="/"> then
+  // sends provider API calls back to us (our /api.php 404s) instead of
+  // upstream. Derive the origin from the target URL whenever the declared
+  // one is absent or points at ourselves.
+  var declaredOrigin = window.__MOVIE_PROXY_ORIGIN__ || "";
+  var targetOrigin = (function () {
+    if (declaredOrigin && declaredOrigin !== location.origin)
+      return declaredOrigin;
+    try {
+      return new URL(targetUrl).origin;
+    } catch (e) {
+      return location.origin;
+    }
+  })();
 
   // Providers such as Videm serve their player with `<base href="/">`, so a
   // request for `api.php` means the site root in their own context. Resolving
