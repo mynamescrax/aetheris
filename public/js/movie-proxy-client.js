@@ -6,6 +6,29 @@
   var targetUrl = window.__MOVIE_PROXY_TARGET__ || location.href;
   var targetOrigin = window.__MOVIE_PROXY_ORIGIN__ || location.origin;
 
+  // Providers such as Videm serve their player with `<base href="/">`, so a
+  // request for `api.php` means the site root in their own context. Resolving
+  // only against the proxied document URL would send it to
+  // /embed/.../api.php instead, which answers with an HTML error page rather
+  // than JSON — and the player then reports "No content available". Mirror
+  // the provider's own resolution by honoring their base tag (anchored on
+  // the upstream origin); pages without one keep document-URL resolution.
+  var upstreamBase = null;
+  var baseResolved = false;
+  function resolveBase() {
+    if (!baseResolved) {
+      baseResolved = true;
+      try {
+        var baseEl = document.querySelector("base[href]");
+        var baseHref = baseEl && baseEl.getAttribute("href");
+        if (baseHref) upstreamBase = new URL(baseHref, targetOrigin).href;
+      } catch (e) {
+        upstreamBase = null;
+      }
+    }
+    return upstreamBase || targetUrl;
+  }
+
   function debug(label, url, out) {
     try {
       if (window.__MOVIE_PROXY_DEBUG__)
@@ -67,7 +90,7 @@
     if (trimmed === "about:blank" || trimmed.charAt(0) === "#") return rawUrl;
 
     try {
-      var absUrl = new URL(trimmed, targetUrl).href;
+      var absUrl = new URL(trimmed, resolveBase()).href;
       var r = ref || targetUrl;
       var out =
         location.origin +
