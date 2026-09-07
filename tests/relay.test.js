@@ -27,7 +27,7 @@ test("movie relay handles real HTTP bodies, ranges and redirect validation", asy
       });
       res.end(
         zlib.gzipSync(
-          '<!doctype html><html><head></head><body><iframe src="./child"></iframe></body></html>',
+          '<!doctype html><html><head></head><body><iframe src="about:blank" data-src="./child"></iframe></body></html>',
         ),
       );
     } else if (req.url === "/bad-compression") {
@@ -123,6 +123,7 @@ test("movie relay handles real HTTP bodies, ranges and redirect validation", asy
           encodeURIComponent(`http://relay-fixture.test:${port}/child`),
         ),
       );
+      assert.ok(result.body.includes('src="about:blank"'));
       for (const name of [
         "set-cookie",
         "clear-site-data",

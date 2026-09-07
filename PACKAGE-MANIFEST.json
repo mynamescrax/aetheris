@@ -125,8 +125,8 @@
     },
     {
       "path": "movie-relay.js",
-      "sha256": "658a988119e68ef441e6ce484a036b6a9a165dd184a36c12ddac8484d1e8c573",
-      "bytes": 27768,
+      "sha256": "7c5b2ea907a66c7b691271884f940ab82a25c19e921384924626b346a30e6bce",
+      "bytes": 27803,
       "status": "modified"
     },
     {
@@ -527,8 +527,8 @@
     },
     {
       "path": "tests/relay.test.js",
-      "sha256": "0b36251c3089df5a051e04726e3f296b7aaff5deda80265cc62616973557e192",
-      "bytes": 5771,
+      "sha256": "e1864bc5473a21221e9b01ba493256b149e5e97d3fa15d00ef1856252f8707eb",
+      "bytes": 5854,
       "status": "added"
     },
     {

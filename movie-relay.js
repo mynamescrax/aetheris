@@ -116,6 +116,7 @@ function rewriteHtml(html, targetUrl) {
       decoded.startsWith("data:") ||
       decoded.startsWith("blob:") ||
       decoded.startsWith("javascript:") ||
+      decoded === "about:blank" ||
       decoded.startsWith(PROXY_ROUTE) ||
       decoded.startsWith("#") ||
       decoded.startsWith("/js/movie-proxy-client.js")
