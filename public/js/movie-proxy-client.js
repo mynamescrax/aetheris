@@ -26,6 +26,14 @@
   function toProxyUrl(rawUrl, ref) {
     if (!rawUrl || typeof rawUrl !== "string") return rawUrl;
     var trimmed = decodeEntities(rawUrl.trim());
+    // Some embed scripts blindly prepend their CDN base to an iframe URL.
+    // Recover our absolute relay URL from values such as
+    // https://cdn.example/e/https://aetheris.win/movie-proxy?url=...
+    var absoluteProxy = location.origin + PROXY_ROUTE;
+    var embeddedProxyIndex = trimmed.indexOf(absoluteProxy);
+    if (embeddedProxyIndex > 0) {
+      return trimmed.slice(embeddedProxyIndex);
+    }
     if (
       trimmed.startsWith("data:") ||
       trimmed.startsWith("blob:") ||
@@ -46,6 +54,7 @@
       var absUrl = new URL(trimmed, targetUrl).href;
       var r = ref || targetUrl;
       var out =
+        location.origin +
         PROXY_ROUTE +
         "?url=" +
         encodeURIComponent(absUrl) +

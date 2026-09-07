@@ -15,7 +15,7 @@
     "server-debug.log"
   ],
   "verification": {
-    "node_tests_passed_including_subtests": 26,
+    "node_tests_passed_including_subtests": 27,
     "browser_main_scenarios_passed": 23,
     "browser_additional_scenarios_passed": 6,
     "read_limitations": "QA.md"
@@ -125,7 +125,7 @@
     },
     {
       "path": "movie-relay.js",
-      "sha256": "f8efb6f6146de1ae9b61cf21eb5d83cf6999798c4de9305c847bbea24d8a7486",
+      "sha256": "47ba2c3307224624a79a0281b26c33a723ba2d05e79bc78066dc84517c348ec1",
       "bytes": 28585,
       "status": "modified"
     },
@@ -389,8 +389,8 @@
     },
     {
       "path": "public/js/movie-proxy-client.js",
-      "sha256": "6b89c7d24f0bb3eed382d9014fe4878828ef7bdf63aaa01622510654d628490b",
-      "bytes": 3744,
+      "sha256": "ad177c1fa585f0ec6c2c6f1dba0f8277fdb34f5b156642cdf43ea3900af69280",
+      "bytes": 4177,
       "status": "modified"
     },
     {
@@ -521,8 +521,8 @@
     },
     {
       "path": "tests/network.test.js",
-      "sha256": "d528bfb99c63f5fbbb70c08c89e3a5b99ba2bb3e0a7f8da1c9cfc29d06f7205a",
-      "bytes": 4685,
+      "sha256": "70071c1060414c4a6ec40e67ada044f05ba099ac79a137945038f66f48fff284",
+      "bytes": 5110,
       "status": "added"
     },
     {

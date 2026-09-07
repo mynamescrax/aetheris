@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import zlib from "node:zlib";
+import fs from "node:fs";
 import {
   isPublicAddress,
   resolvePublicUrl,
@@ -132,6 +133,16 @@ test("HTML and JavaScript use the upstream document/module directory", () => {
   assert.ok(
     js.includes(encodeURIComponent("https://provider.example/assets/lib.js")),
   );
+});
+
+test("movie proxy client repairs provider-prefixed absolute relay URLs", () => {
+  const client = fs.readFileSync(
+    new URL("../public/js/movie-proxy-client.js", import.meta.url),
+    "utf8",
+  );
+  assert.ok(client.includes("trimmed.indexOf(absoluteProxy)"));
+  assert.ok(client.includes("trimmed.slice(embeddedProxyIndex)"));
+  assert.match(client, /location\.origin\s*\+\s*PROXY_ROUTE/);
 });
 
 test("compression is decoded correctly and oversized/broken text is rejected", () => {
