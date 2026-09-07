@@ -538,6 +538,12 @@ export function registerMovieRelay(
         "strict-transport-security",
         "etag",
         "content-md5",
+        // Relayed documents and API payloads embed per-visit tokens and the
+        // currently injected client version. Never let browsers, edge caches,
+        // or middleboxes persist them: a stale player document executes stale
+        // provider URLs long after the relay moved on.
+        "last-modified",
+        "expires",
       ];
 
       for (const [k, v] of Object.entries(upstreamRes.headers)) {
@@ -684,6 +690,13 @@ export function registerMovieRelay(
       if (decompressed.slice(0, 512).includes(0x00)) {
         return reply.type("application/octet-stream").send(decompressed);
       }
+
+      // See filterHeaders: relayed text must never be cached anywhere.
+      reply.header(
+        "Cache-Control",
+        "no-store, no-cache, must-revalidate, max-age=0",
+      );
+      reply.header("Pragma", "no-cache");
 
       const rawBody = decompressed.toString("utf-8");
 

@@ -146,8 +146,14 @@ test("movie relay handles real HTTP bodies, ranges and redirect validation", asy
         "service-worker-allowed",
         "content-encoding",
         "etag",
+        "last-modified",
+        "expires",
       ])
         assert.equal(result.headers[name], undefined, name);
+      assert.ok(
+        String(result.headers["cache-control"]).includes("no-store"),
+        "relayed documents must never be cached",
+      );
     },
   );
   await t.test(
