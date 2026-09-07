@@ -476,6 +476,9 @@ export function registerMovieRelay(
             );
           });
         } catch (err) {
+          console.warn(
+            `[movie-proxy] upstream error ${currentUrl.host}${currentUrl.pathname}: ${err.message}`,
+          );
           reply.code(502).send(`Upstream request error: ${err.message}`);
           return;
         }
@@ -591,6 +594,18 @@ export function registerMovieRelay(
         !cleanPath.match(
           /\.(png|jpe?g|gif|webp|avif|ico|mp4|webm|mp3|m4a|ts|aac)$/,
         );
+
+      // One concise log line per text-ish or failed upstream response so a
+      // stuck player session can be diagnosed from `pm2 logs` (endpoint,
+      // title params, status). The query is truncated before any token
+      // material and binary segments stay quiet to avoid log spam.
+      const isTextual = isHtml || isM3u8 || isJson || isJs || isCss || isPlain;
+      if (isTextual || upstreamRes.statusCode >= 400) {
+        const query = currentUrl.search.slice(0, 48);
+        console.log(
+          `[movie-proxy] ${req.method} ${upstreamRes.statusCode} ${currentUrl.host}${currentUrl.pathname}${query} ct=${contentType.split(";")[0] || "-"}`,
+        );
+      }
 
       // Fast path: clearly non-text payloads (video/audio segments, images,
       // fonts, blobs) are streamed raw without buffering so playback stays
