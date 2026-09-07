@@ -93,7 +93,7 @@ function isRealHtml(text) {
   );
 }
 
-function rewriteHtml(html, targetUrl) {
+function rewriteHtml(html, targetUrl, proxyOrigin) {
   const baseUrl = new URL(unwrapProxyUrl(targetUrl.href));
   const origin = baseUrl.origin;
   const href = baseUrl.href;
@@ -131,7 +131,10 @@ function rewriteHtml(html, targetUrl) {
       // prefix first puts that suffix after our `referer` query parameter
       // and produces malformed requests such as `autoplay=trueus.png`.
       if (abs.startsWith("https://flagcdn.com/w40/")) return match;
-      const proxied = `${PROXY_ROUTE}?url=${encodeURIComponent(abs)}&referer=${encodeURIComponent(href)}`;
+      // Use an absolute URL because some players prepend their own CDN base
+      // to iframe attributes. A root-relative proxy path can otherwise become
+      // https://provider.example/e//movie-proxy?... and bypass this relay.
+      const proxied = `${proxyOrigin}${PROXY_ROUTE}?url=${encodeURIComponent(abs)}&referer=${encodeURIComponent(href)}`;
       return `${attr}=${quote}${proxied}${quote}`;
     } catch {
       return match;
@@ -346,6 +349,20 @@ export function registerMovieRelay(
       }
 
       rawTarget = unwrapProxyUrl(rawTarget);
+
+      const forwardedProto = req.headers["x-forwarded-proto"];
+      const requestedProto = Array.isArray(forwardedProto)
+        ? forwardedProto[0]
+        : forwardedProto?.split(",")[0];
+      const proxyProtocol = requestedProto === "https" ? "https" : req.protocol;
+      let proxyOrigin;
+      try {
+        proxyOrigin = new URL(
+          `${proxyProtocol}://${req.headers.host || req.hostname}`,
+        ).origin;
+      } catch {
+        return reply.code(400).send("Invalid request host");
+      }
 
       if (rawTarget === "about:blank") {
         reply
@@ -662,7 +679,7 @@ export function registerMovieRelay(
         (trimmedStart.startsWith("{") || trimmedStart.startsWith("["));
 
       if (isHtml && isRealHtml(rawBody)) {
-        const rewritten = rewriteHtml(rawBody, currentUrl);
+        const rewritten = rewriteHtml(rawBody, currentUrl, proxyOrigin);
         reply.type("text/html; charset=utf-8");
         reply.raw.setHeader("Content-Type", "text/html; charset=utf-8");
         reply.header("content-length", Buffer.byteLength(rewritten));

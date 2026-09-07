@@ -27,7 +27,7 @@ test("movie relay handles real HTTP bodies, ranges and redirect validation", asy
       });
       res.end(
         zlib.gzipSync(
-          '<!doctype html><html><head></head><body><iframe src="about:blank" data-src="./child"></iframe></body></html>',
+          '<!doctype html><html><head><base href="https://foreign-base.test/e/"></head><body><iframe src="about:blank" data-src="./child"></iframe></body></html>',
         ),
       );
     } else if (req.url === "/bad-compression") {
@@ -124,6 +124,12 @@ test("movie relay handles real HTTP bodies, ranges and redirect validation", asy
         ),
       );
       assert.ok(result.body.includes('src="about:blank"'));
+      assert.ok(
+        result.body.includes(
+          `data-src="http://localhost/movie-proxy?url=${encodeURIComponent(`http://relay-fixture.test:${port}/child`)}`,
+        ),
+        "rewritten iframe URLs must be absolute so a foreign base cannot capture them",
+      );
       for (const name of [
         "set-cookie",
         "clear-site-data",
