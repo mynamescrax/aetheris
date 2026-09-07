@@ -146,7 +146,7 @@ function rewriteHtml(html, targetUrl, proxyOrigin) {
     rewriteAttr,
   );
 
-  const scriptTag = `<script>window.__MOVIE_PROXY_TARGET__=${JSON.stringify(href).replace(/</g, "\\u003c")};window.__MOVIE_PROXY_ORIGIN__=${JSON.stringify(origin).replace(/</g, "\\u003c")};</script><script src="/js/movie-proxy-client.js?v=20260907.2"></script>`;
+  const scriptTag = `<script>window.__MOVIE_PROXY_TARGET__=${JSON.stringify(href).replace(/</g, "\\u003c")};window.__MOVIE_PROXY_ORIGIN__=${JSON.stringify(origin).replace(/</g, "\\u003c")};</script><script src="/js/movie-proxy-client.js?v=20260907.3"></script>`;
 
   if (/<head[^>]*>/i.test(cleaned)) {
     cleaned = cleaned.replace(/(<head[^>]*>)/i, `$1\n${scriptTag}`);

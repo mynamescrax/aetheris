@@ -141,7 +141,9 @@ test("movie proxy client repairs provider-prefixed absolute relay URLs", () => {
     "utf8",
   );
   assert.ok(client.includes("trimmed.indexOf(absoluteProxy)"));
-  assert.ok(client.includes("trimmed.slice(embeddedProxyIndex)"));
+  assert.ok(client.includes("var providerPrefix = trimmed.slice"));
+  assert.ok(client.includes("originalTarget.pathname.replace"));
+  assert.ok(client.includes("toProxyUrl(transformedTarget, ref)"));
   assert.match(client, /location\.origin\s*\+\s*PROXY_ROUTE/);
 });
 

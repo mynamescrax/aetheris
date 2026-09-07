@@ -32,7 +32,23 @@
     var absoluteProxy = location.origin + PROXY_ROUTE;
     var embeddedProxyIndex = trimmed.indexOf(absoluteProxy);
     if (embeddedProxyIndex > 0) {
-      return trimmed.slice(embeddedProxyIndex);
+      var providerPrefix = trimmed.slice(0, embeddedProxyIndex);
+      var embeddedProxy = trimmed.slice(embeddedProxyIndex);
+      try {
+        // Preserve intentional transformations such as
+        // https://2vcdn.skin/e/ + /token while removing the accidentally
+        // embedded Aetheris relay wrapper around that original token path.
+        var embeddedTarget = new URL(embeddedProxy).searchParams.get("url");
+        var originalTarget = new URL(embeddedTarget);
+        var transformedTarget =
+          providerPrefix +
+          originalTarget.pathname.replace(/^\/+/, "") +
+          originalTarget.search +
+          originalTarget.hash;
+        return toProxyUrl(transformedTarget, ref);
+      } catch (e) {
+        return embeddedProxy;
+      }
     }
     if (
       trimmed.startsWith("data:") ||
