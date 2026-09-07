@@ -146,7 +146,7 @@ function rewriteHtml(html, targetUrl, proxyOrigin) {
     rewriteAttr,
   );
 
-  const scriptTag = `<script>window.__MOVIE_PROXY_TARGET__=${JSON.stringify(href).replace(/</g, "\\u003c")};window.__MOVIE_PROXY_ORIGIN__=${JSON.stringify(origin).replace(/</g, "\\u003c")};</script><script src="/js/movie-proxy-client.js?v=20260907.5"></script>`;
+  const scriptTag = `<script>window.__MOVIE_PROXY_TARGET__=${JSON.stringify(href).replace(/</g, "\\u003c")};window.__MOVIE_PROXY_ORIGIN__=${JSON.stringify(origin).replace(/</g, "\\u003c")};</script><script src="/js/movie-proxy-client.js?v=20260907.6">`;
 
   if (/<head[^>]*>/i.test(cleaned)) {
     cleaned = cleaned.replace(/(<head[^>]*>)/i, `$1\n${scriptTag}`);
@@ -794,6 +794,17 @@ export function registerMovieRelay(
         referer: "https://videm.xyz/",
       };
       return handleMovieProxy(req, reply);
+    });
+
+    // Diagnostic beacon fired once by the injected relay client on startup.
+    // Reports which client version executes in the visitor's browser and how
+    // it resolves provider URLs, so a stuck session can be diagnosed from
+    // `pm2 logs`. Carries no tokens or user data.
+    fastify.get("/movie-ping", (req, reply) => {
+      console.log(
+        `[movie-ping] v=${req.query.v || "?"} origin=${req.query.origin || "?"} sample=${req.query.sample || "?"}`,
+      );
+      reply.code(204).send();
     });
   });
 }

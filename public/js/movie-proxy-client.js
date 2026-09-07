@@ -43,6 +43,22 @@
     return upstreamBase || targetUrl;
   }
 
+  // One-shot diagnostic beacon: reports which client version is executing
+  // and how it resolves provider URLs, so relay sessions can be diagnosed
+  // from `pm2 logs`. Same-origin image ping; any failure stays silent.
+  try {
+    var pingSample = "";
+    try {
+      pingSample = new URL("api.php?a=ping", resolveBase()).href;
+    } catch (e) {}
+    var pingImg = new Image();
+    pingImg.src =
+      "/movie-ping?v=20260907.6&origin=" +
+      encodeURIComponent(targetOrigin || "none") +
+      "&sample=" +
+      encodeURIComponent(pingSample);
+  } catch (e) {}
+
   function debug(label, url, out) {
     try {
       if (window.__MOVIE_PROXY_DEBUG__)
