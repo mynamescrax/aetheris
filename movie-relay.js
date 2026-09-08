@@ -183,7 +183,7 @@ function rewriteHtml(html, targetUrl, proxyOrigin) {
     }
   }
 
-  const scriptTag = `<script>window.__MOVIE_PROXY_TARGET__=${JSON.stringify(href).replace(/</g, "\\u003c")};window.__MOVIE_PROXY_ORIGIN__=${JSON.stringify(origin).replace(/</g, "\\u003c")};</script><script src="/js/movie-proxy-client.js?v=20260907.7"></script>`;
+  const scriptTag = `<script>window.__MOVIE_PROXY_TARGET__=${JSON.stringify(href).replace(/</g, "\\u003c")};window.__MOVIE_PROXY_ORIGIN__=${JSON.stringify(origin).replace(/</g, "\\u003c")};</script><script src="/js/movie-proxy-client.js?v=20260907.8"></script>`;
 
   if (/<head[^>]*>/i.test(cleaned)) {
     cleaned = cleaned.replace(/(<head[^>]*>)/i, `$1\n${scriptTag}`);
@@ -852,7 +852,7 @@ export function registerMovieRelay(
     // `pm2 logs`. Carries no tokens or user data.
     fastify.get("/movie-ping", (req, reply) => {
       console.log(
-        `[movie-ping] v=${req.query.v || "?"} origin=${req.query.origin || "?"} sample=${req.query.sample || "?"}`,
+        `[movie-ping] v=${req.query.v || "?"} origin=${req.query.origin || "?"} sample=${req.query.sample || "?"}${req.query.err ? ` ERR=${String(req.query.err).slice(0, 300)}` : ""}`,
       );
       reply.code(204).send();
     });

@@ -64,10 +64,44 @@
     } catch (e) {}
     var pingImg = new Image();
     pingImg.src =
-      "/movie-ping?v=20260907.7&origin=" +
+      "/movie-ping?v=20260907.8&origin=" +
       encodeURIComponent(targetOrigin || "none") +
       "&sample=" +
       encodeURIComponent(pingSample);
+  } catch (e) {}
+
+  // Temporary playback diagnostic: beacon browser-side script errors back
+  // so a silently-stuck provider player (page loads, assets 200, but no
+  // media requests) can be diagnosed from `pm2 logs` without devtools
+  // access on the viewer's device. Same-origin image ping, no loop risk
+  // (Image src is not hooked below). Remove once playback is stable.
+  try {
+    var errBeacon = function (msg) {
+      try {
+        var img = new Image();
+        img.src =
+          "/movie-ping?v=20260907.8&origin=" +
+          encodeURIComponent(targetOrigin || "none") +
+          "&err=" +
+          encodeURIComponent(String(msg).slice(0, 300));
+      } catch (e) {}
+    };
+    window.addEventListener("error", function (e) {
+      errBeacon(
+        (e.message || "error") +
+          " @ " +
+          (e.filename || "?") +
+          ":" +
+          (e.lineno || "?"),
+      );
+    });
+    window.addEventListener("unhandledrejection", function (e) {
+      var reason = e.reason;
+      errBeacon(
+        "rejection: " +
+          String((reason && reason.message) || reason || "?").slice(0, 200),
+      );
+    });
   } catch (e) {}
 
   function debug(label, url, out) {
