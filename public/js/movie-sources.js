@@ -42,6 +42,10 @@ var MOVIES_SOURCES = [
     },
   },
   {
+    // Verified 2026-09-08: full chain works through the relay from the VPS
+    // (vidsrc.to → vsembed.ru → cloudorchestranova.com → per-host
+    // generate.php token → comityofcognomen.site playlists/segments, all
+    // 200). Default source.
     name: "VidSrc.to (vidsrc.to)",
     url: function (t, id, s, e) {
       var upstream =
