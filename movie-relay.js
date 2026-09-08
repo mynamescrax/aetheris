@@ -163,7 +163,16 @@ function rewriteHtml(html, targetUrl, proxyOrigin) {
       // Use an absolute URL because some players prepend their own CDN base
       // to iframe attributes. A root-relative proxy path can otherwise become
       // https://provider.example/e//movie-proxy?... and bypass this relay.
-      const proxied = `${proxyOrigin}${PROXY_ROUTE}?url=${encodeURIComponent(abs)}&referer=${encodeURIComponent(href)}`;
+      let proxied = `${proxyOrigin}${PROXY_ROUTE}?url=${encodeURIComponent(abs)}&referer=${encodeURIComponent(href)}`;
+      // Self-hosted JWPlayer ("unlimited" key, as used by 2Embed's swish
+      // player) locates its base path by scanning script `.src` URLs for a
+      // literal `/jwplayer.js`. Proxied URLs percent-encode the upstream
+      // path, so the lookup fails and setup throws "Could not locate
+      // jwplayer.js script tag" (seen via the error beacon). A fragment
+      // restores the literal without changing the request (fragments are
+      // never sent to the server).
+      if (/\/jwplayer\.js$/i.test(new URL(abs).pathname))
+        proxied += "#/jwplayer.js";
       return `${attr}=${quote}${proxied}${quote}`;
     } catch {
       return match;
@@ -182,6 +191,17 @@ function rewriteHtml(html, targetUrl, proxyOrigin) {
       cleaned = `${upstreamBaseTag}\n${cleaned}`;
     }
   }
+
+  // 2Embed's swish player (2vcdn.skin) packs its boot code with stream links
+  // `links.hls2/3/4` and configures JWPlayer with the single source
+  // `links.hls4||links.hls3||links.hls2`. The hls4 master currently lists
+  // only storyboard images, so that single source always dies. Prefer hls3
+  // (verified real video segments) while keeping hls4 as a JWPlayer-level
+  // fallback source. No-op when the pattern is absent.
+  cleaned = cleaned.replace(
+    /\[{file:links\.hls4\|\|links\.hls3\|\|links\.hls2,type:(["'])hls\1}\]/g,
+    '[{file:links.hls3||links.hls2,type:$1hls$1},{file:links.hls4,type:$1hls$1}]',
+  );
 
   const scriptTag = `<script>window.__MOVIE_PROXY_TARGET__=${JSON.stringify(href).replace(/</g, "\\u003c")};window.__MOVIE_PROXY_ORIGIN__=${JSON.stringify(origin).replace(/</g, "\\u003c")};</script><script src="/js/movie-proxy-client.js?v=20260907.8"></script>`;
 

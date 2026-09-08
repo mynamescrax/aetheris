@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import zlib from "node:zlib";
 import Fastify from "fastify";
-import { registerMovieRelay } from "../movie-relay.js";
+import { registerMovieRelay, rewriteHtml } from "../movie-relay.js";
 
 test("movie relay handles real HTTP bodies, ranges and redirect validation", async (t) => {
   const checked = [];
@@ -225,4 +225,44 @@ test("movie relay handles real HTTP bodies, ranges and redirect validation", asy
       );
     },
   );
+});
+
+test("rewriteHtml keeps self-hosted JWPlayer locatable and prefers working 2vcdn renditions", async (t) => {
+  const target = new URL("https://2vcdn.skin/e/1e2f5rfkmjtj");
+  await t.test("jwplayer script keeps a literal /jwplayer.js match", () => {
+    const out = rewriteHtml(
+      '<!doctype html><html><head></head><body><script src="/player/jw8/jwplayer.js?v=7"></script></body></html>',
+      target,
+      "http://localhost",
+    );
+    // JWPlayer finds its base by scanning script `.src` for `/jwplayer.js`;
+    // the proxied URL percent-encodes the path, so a fragment restores it.
+    assert.ok(out.includes("#/jwplayer.js"));
+    const src = out.match(/<script[^>]*src="([^"]*movie-proxy\?url=[^"]*)"/)[1];
+    assert.ok(new URL(src, "http://localhost").pathname === "/movie-proxy");
+  });
+  await t.test("2vcdn packed boot prefers hls3 with hls4 as fallback", () => {
+    const single =
+      'sources:[{file:links.hls4||links.hls3||links.hls2,type:"hls"}]';
+    const out = rewriteHtml(
+      `<!doctype html><html><head></head><body><script>${single}</script></body></html>`,
+      target,
+      "http://localhost",
+    );
+    assert.ok(
+      out.includes(
+        'sources:[{file:links.hls3||links.hls2,type:"hls"},{file:links.hls4,type:"hls"}]',
+      ),
+    );
+    assert.ok(!out.includes(single));
+  });
+  await t.test("pages without the packed pattern pass through", () => {
+    const out = rewriteHtml(
+      "<!doctype html><html><head></head><body><p>plain</p></body></html>",
+      target,
+      "http://localhost",
+    );
+    assert.ok(out.includes("<p>plain</p>"));
+    assert.ok(!out.includes("links.hls"));
+  });
 });
