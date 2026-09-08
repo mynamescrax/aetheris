@@ -31,6 +31,48 @@
   var focusBeforeModal = null;
   var overflowBeforeModal = "";
 
+  // Debug logging for movies/TV (listing + playback). Console always;
+  // lifecycle moments also beacon to /movie-ping so a session can be
+  // followed in server logs without devtools on the viewer's device.
+  // Beacon carries only TMDB ids + provider index + URL hosts — never
+  // provider URLs, tokens, or queries.
+  function dbg() {
+    try {
+      console.log.apply(console, ["[movies]"].concat([].slice.call(arguments)));
+    } catch (e) {}
+  }
+
+  function uiBeacon(params) {
+    try {
+      var q = "?ui=1";
+      for (var k in params) {
+        if (Object.prototype.hasOwnProperty.call(params, k))
+          q += "&" + k + "=" + encodeURIComponent(params[k]);
+      }
+      new Image().src = "/movie-ping" + q;
+    } catch (e) {}
+  }
+
+  function urlHost(url) {
+    try {
+      return new URL(url, location.href).host;
+    } catch (e) {
+      return "?";
+    }
+  }
+
+  // Capture-phase: resource load failures (broken posters, dead provider
+  // assets — Safari renders those as "?") never reach window.onerror.
+  window.addEventListener(
+    "error",
+    function (e) {
+      var t = e.target;
+      if (t && t !== window && (t.src || t.href))
+        dbg("resource failed:", t.tagName, (t.src || t.href).slice(0, 160));
+    },
+    true,
+  );
+
   async function json(url, controller) {
     var timer = setTimeout(function () {
       controller.abort();
@@ -143,10 +185,12 @@
     more.textContent = "Loading…";
     retry.hidden = true;
     status.textContent = query ? "Searching…" : "Loading…";
+    dbg("listing:", currentType, query ? "q=" + query : "trending", "page=" + page);
     try {
       var data = await json(url, controller);
       if (version !== listingVersion) return;
       var rows = Array.isArray(data.results) ? data.results : [];
+      dbg("listing ok:", rows.length, "raw,", data.total_pages + " pages");
       rows = rows.filter(function (item) {
         return item && item.id && item.media_type !== "person";
       });
@@ -170,6 +214,7 @@
         : "No results found. Try a different search.";
     } catch (_) {
       if (version !== listingVersion) return;
+      dbg("listing FAILED:", currentType, query || "(trending)");
       status.textContent =
         "Could not load " +
         (query ? "search results" : "titles") +
@@ -249,8 +294,10 @@
       season.disabled = false;
       loadSeason();
     } catch (_) {
-      if (version === playerVersion && currentItem === item)
+      if (version === playerVersion && currentItem === item) {
+        dbg("seasons FAILED for tmdb=" + item.id);
         showEpisodeError("Could not load seasons.", loadTvDetails);
+      }
     }
   }
 
@@ -309,10 +356,15 @@
         episodes.appendChild(button);
       });
       if (list.length) episodes.querySelector("button").click();
-      else episodes.textContent = "No episodes are available for this season.";
+      else {
+        dbg("no episodes for tmdb=" + item.id, "season=" + selectedSeason);
+        episodes.textContent = "No episodes are available for this season.";
+      }
     } catch (_) {
-      if (version === seasonVersion && currentItem === item)
+      if (version === seasonVersion && currentItem === item) {
+        dbg("episodes FAILED for tmdb=" + item.id, "season=" + selectedSeason);
         showEpisodeError("Could not load episodes.", loadSeason);
+      }
     }
   }
 
@@ -322,6 +374,7 @@
     var provider = MOVIES_SOURCES[index];
     if (!provider) return;
     var selection = currentEpisode || { season: 1, episode: 1 };
+    var kindAtPlay = currentItem.type;
     var url = provider.url(
       currentItem.type,
       currentItem.id,
@@ -334,15 +387,36 @@
     hint.textContent = provider.direct
       ? "Direct source: this provider receives your IP address and may show ads."
       : "If playback is unavailable, try another source. Provider loading does not confirm playback.";
+    dbg(
+      "play:",
+      provider.name,
+      currentItem.type,
+      "tmdb=" + currentItem.id,
+      currentItem.type === "tv"
+        ? "s=" + selection.season + "e=" + selection.episode
+        : "",
+      "via=" + urlHost(url),
+    );
+    uiBeacon({
+      ev: "play",
+      src: String(index),
+      kind: currentItem.type,
+      id: String(currentItem.id),
+      host: urlHost(url),
+    });
     player.onload = function () {
       clearTimeout(playerTimer);
       playerStatus.classList.add("hidden");
+      dbg("player frame loaded:", urlHost(player.src));
+      uiBeacon({ ev: "loaded", src: String(index), kind: kindAtPlay });
     };
     player.src = url;
     playerTimer = setTimeout(function () {
       playerStatus.classList.add("hidden");
       hint.textContent =
         "This provider is slow or blocked. You can try another source.";
+      dbg("player frame SLOW (20s, no load event):", provider.name);
+      uiBeacon({ ev: "timeout", src: String(index) });
     }, 20000);
   }
 
@@ -381,6 +455,8 @@
     source.disabled = type === "tv";
     document.getElementById("epBar").classList.toggle("visible", type === "tv");
     hint.textContent = "";
+    dbg("open:", type, "tmdb=" + id, JSON.stringify(title), "defaultSrc=" + source.value);
+    uiBeacon({ ev: "open", kind: type, id: String(id) });
     document.getElementById("modalClose").focus();
     if (type === "tv") loadTvDetails();
     else setIframe();
@@ -428,6 +504,7 @@
   });
   source.addEventListener("change", function () {
     Aetheris.storage.setItem("movieSourceIdx", source.value);
+    dbg("source switched to:", source.value, (MOVIES_SOURCES[Number(source.value)] || {}).name);
     setIframe();
   });
   season.addEventListener("change", loadSeason);

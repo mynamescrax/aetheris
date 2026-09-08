@@ -851,9 +851,14 @@ export function registerMovieRelay(
     // it resolves provider URLs, so a stuck session can be diagnosed from
     // `pm2 logs`. Carries no tokens or user data.
     fastify.get("/movie-ping", (req, reply) => {
-      console.log(
-        `[movie-ping] v=${req.query.v || "?"} origin=${req.query.origin || "?"} sample=${req.query.sample || "?"}${req.query.err ? ` ERR=${String(req.query.err).slice(0, 300)}` : ""}`,
-      );
+      const q = req.query;
+      let line = `[movie-ping] v=${q.v || "?"} origin=${q.origin || "?"} sample=${q.sample || "?"}`;
+      if (q.err) line += ` ERR=${String(q.err).slice(0, 300)}`;
+      // UI lifecycle beacons from movies-ui.js (open/play/loaded/timeout).
+      // Carries only TMDB ids + provider index + URL hosts, no tokens.
+      if (q.ui)
+        line += ` UI ev=${q.ev || "?"} src=${q.src || "?"} kind=${q.kind || "?"} id=${q.id || "?"}${q.host ? ` host=${q.host}` : ""}`;
+      console.log(line);
       reply.code(204).send();
     });
   });
