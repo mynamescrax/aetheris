@@ -241,20 +241,22 @@ test("rewriteHtml keeps self-hosted JWPlayer locatable and prefers working 2vcdn
     const src = out.match(/<script[^>]*src="([^"]*movie-proxy\?url=[^"]*)"/)[1];
     assert.ok(new URL(src, "http://localhost").pathname === "/movie-proxy");
   });
-  await t.test("2vcdn packed boot prefers hls3 with hls4 as fallback", () => {
-    const single =
-      'sources:[{file:links.hls4||links.hls3||links.hls2,type:"hls"}]';
+  await t.test("packed provider boot code passes through untouched", () => {
+    // 2vcdn-style packers encode identifiers in transit, so the relay must
+    // not mangle the block: script tags stay balanced and the payload that
+    // reaches the browser still unpacks (player-side fallback intact).
+    const packed =
+      'eval(function(p,a,c,k,e,d){x=links.hls9}("a|b".split("|")))';
     const out = rewriteHtml(
-      `<!doctype html><html><head></head><body><script>${single}</script></body></html>`,
+      `<!doctype html><html><head></head><body><script>${packed}</script></body></html>`,
       target,
       "http://localhost",
     );
-    assert.ok(
-      out.includes(
-        'sources:[{file:links.hls3||links.hls2,type:"hls"},{file:links.hls4,type:"hls"}]',
-      ),
+    assert.ok(out.includes(packed));
+    assert.equal(
+      out.match(/<script(?=[\s>])/g)?.length,
+      out.match(/<\/script>/g)?.length,
     );
-    assert.ok(!out.includes(single));
   });
   await t.test("pages without the packed pattern pass through", () => {
     const out = rewriteHtml(

@@ -192,16 +192,13 @@ function rewriteHtml(html, targetUrl, proxyOrigin) {
     }
   }
 
-  // 2Embed's swish player (2vcdn.skin) packs its boot code with stream links
-  // `links.hls2/3/4` and configures JWPlayer with the single source
-  // `links.hls4||links.hls3||links.hls2`. The hls4 master currently lists
-  // only storyboard images, so that single source always dies. Prefer hls3
-  // (verified real video segments) while keeping hls4 as a JWPlayer-level
-  // fallback source. No-op when the pattern is absent.
-  cleaned = cleaned.replace(
-    /\[{file:links\.hls4\|\|links\.hls3\|\|links\.hls2,type:(["'])hls\1}\]/g,
-    '[{file:links.hls3||links.hls2,type:$1hls$1},{file:links.hls4,type:$1hls$1}]',
-  );
+  // NOTE on 2Embed's swish player (2vcdn.skin): its boot code is Dean
+  // Edwards-packed per request, so server-side string surgery on the
+  // `links.hls4||links.hls3||links.hls2` expression is not possible (the
+  // identifiers are encoded in transit). No surgery is needed either: the
+  // player listens for its own errors and switches hls4 (currently a
+  // storyboard-only master) to hls3 (verified video) itself. The only
+  // server-side piece it needs is the JWPlayer fragment above.
 
   const scriptTag = `<script>window.__MOVIE_PROXY_TARGET__=${JSON.stringify(href).replace(/</g, "\\u003c")};window.__MOVIE_PROXY_ORIGIN__=${JSON.stringify(origin).replace(/</g, "\\u003c")};</script><script src="/js/movie-proxy-client.js?v=20260907.8"></script>`;
 
