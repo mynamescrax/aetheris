@@ -451,7 +451,7 @@
       Number.isInteger(saved) &&
       MOVIES_SOURCES[saved]
         ? String(saved)
-        : "3";
+        : "1";
     source.disabled = type === "tv";
     document.getElementById("epBar").classList.toggle("visible", type === "tv");
     hint.textContent = "";
