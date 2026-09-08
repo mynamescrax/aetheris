@@ -86,9 +86,10 @@ These were observed on 2026-09-03 and must be rechecked because providers change
   `{"code":1004,"error":"domain forbidden"}` (`403`) to the production VPS
   regardless of Referer/Origin/UA (verified 2026-09-08 via full curl replay
   of the signed chain from the VPS; no cookies involved anywhere). Same
-  upstream-block category as `streamingnow.mov`/`vidsrcme.ru`: 2Embed is now
-  `direct: true` in `MOVIES_SOURCES` per the 2026-09-03 fix direction.
-  Recheck, providers change.
+  upstream-block category as `streamingnow.mov`/`vidsrcme.ru`. 2Embed was
+  briefly `direct: true` on 2026-09-08 but was reverted to proxied the same
+  day per user preference, so proxied Videm playback stalls on the segment
+  `403`s until the CDN unblocks the VPS. Recheck, providers change.
 - A prior attempted movie fix was fully reverted. Commits `3cf60bbe` through
   `8cfd2243` document that rollback; do not reintroduce that design.
 
