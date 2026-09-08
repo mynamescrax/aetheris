@@ -27,15 +27,26 @@
   // than JSON — and the player then reports "No content available". Mirror
   // the provider's own resolution by honoring their base tag (anchored on
   // the upstream origin); pages without one keep document-URL resolution.
+  // The negative lookup is deliberately NOT cached: this script is injected
+  // right after <head>, so the provider's <base> tag may not be parsed yet
+  // on the first call. Re-query until one is found, then pin it.
   var upstreamBase = null;
   var baseResolved = false;
   function resolveBase() {
     if (!baseResolved) {
-      baseResolved = true;
       try {
         var baseEl = document.querySelector("base[href]");
         var baseHref = baseEl && baseEl.getAttribute("href");
-        if (baseHref) upstreamBase = new URL(baseHref, targetOrigin).href;
+        if (baseHref) {
+          var resolved = new URL(baseHref, targetOrigin).href;
+          // A stale cached page may carry a base pointing at ourselves
+          // (older relay versions proxied <base>); never honor those, or
+          // every relative provider URL collapses onto Aetheris and 404s.
+          if (new URL(resolved).origin !== location.origin) {
+            upstreamBase = resolved;
+            baseResolved = true;
+          }
+        }
       } catch (e) {
         upstreamBase = null;
       }
@@ -53,7 +64,7 @@
     } catch (e) {}
     var pingImg = new Image();
     pingImg.src =
-      "/movie-ping?v=20260907.6&origin=" +
+      "/movie-ping?v=20260907.7&origin=" +
       encodeURIComponent(targetOrigin || "none") +
       "&sample=" +
       encodeURIComponent(pingSample);
@@ -204,6 +215,29 @@
         enumerable: true,
       });
     }
+  } catch (e) {}
+
+  // Overwrite subtitle track and source src. Videm assigns track URLs
+  // directly (`tr.src = 'api.php?a=sub&ref=...'`); without this the URL
+  // resolves natively against the proxy document and 404s on Aetheris
+  // instead of reaching the provider.
+  try {
+    ["HTMLTrackElement", "HTMLSourceElement"].forEach(function (name) {
+      var ctor = window[name];
+      if (!ctor || !ctor.prototype) return;
+      var desc = Object.getOwnPropertyDescriptor(ctor.prototype, "src");
+      if (!desc || !desc.set) return;
+      Object.defineProperty(ctor.prototype, "src", {
+        get: function () {
+          return desc.get.call(this);
+        },
+        set: function (val) {
+          desc.set.call(this, toProxyUrl(val));
+        },
+        configurable: true,
+        enumerable: true,
+      });
+    });
   } catch (e) {}
 
   // Prevent popups

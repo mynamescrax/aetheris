@@ -27,7 +27,8 @@ test("movie relay handles real HTTP bodies, ranges and redirect validation", asy
       });
       res.end(
         zlib.gzipSync(
-          '<!doctype html><html><head><base href="https://foreign-base.test/e/"></head><body><iframe src="about:blank" data-src="./child"></iframe></body></html>',
+          // Root-relative base mirrors Videm's player (`<base href="/">`).
+          '<!doctype html><html><head><base href="/"></head><body><iframe src="about:blank" data-src="./child"></iframe></body></html>',
         ),
       );
     } else if (req.url === "/bad-compression") {
@@ -128,6 +129,21 @@ test("movie relay handles real HTTP bodies, ranges and redirect validation", asy
       const result = await app.inject(path("/html"));
       assert.equal(result.statusCode, 200);
       assert.ok(result.body.includes("/js/movie-proxy-client.js"));
+      assert.equal(
+        result.body.match(/<script(?=[\s>])/g)?.length,
+        result.body.match(/<\/script>/g)?.length,
+        "every injected script tag must be closed or the provider page breaks",
+      );
+      assert.ok(
+        result.body.includes(
+          `<base href="http://relay-fixture.test:${port}/">`,
+        ),
+        "provider base must stay anchored upstream, never proxied onto ourselves",
+      );
+      assert.ok(
+        !/<base[^>]*movie-proxy/.test(result.body),
+        "a proxied base tag collapses relative provider URLs onto Aetheris",
+      );
       assert.ok(
         result.body.includes(
           encodeURIComponent(`http://relay-fixture.test:${port}/child`),

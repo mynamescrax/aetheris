@@ -109,6 +109,35 @@ function rewriteHtml(html, targetUrl, proxyOrigin) {
   );
   cleaned = cleaned.replace(/"autoStart"\s*:\s*false/g, '"autoStart":true');
 
+  // The provider's own URL resolution must survive relaying. Pages such as
+  // Videm's player ship `<base href="/">`, and relative API calls
+  // (`fetch('api.php?a=race...')`), track URLs, workers, and beacons all
+  // resolve against it. If the base tag were proxied like any other href,
+  // native resolution would merge those paths onto our own origin
+  // (https://aetheris.win/api.php → 404) and poison the relay client's own
+  // base-tag lookup the same way. So the original base is lifted out here,
+  // anchored on the upstream origin, and re-inserted AFTER the generic
+  // src/href rewrite below so it is never proxied. Absolute provider bases
+  // are preserved as-is; pages without a base tag are left alone.
+  let upstreamBaseTag = null;
+  const baseTagMatch = cleaned.match(/<base\b[^>]*>/i);
+  if (baseTagMatch) {
+    const hrefMatch = baseTagMatch[0].match(/\bhref\s*=\s*(["'])(.*?)\1/i);
+    const targetMatch = baseTagMatch[0].match(/\btarget\s*=\s*(["'])(.*?)\1/i);
+    let resolved = `${origin}/`;
+    try {
+      const raw = hrefMatch ? decodeEntities(hrefMatch[2].trim()) : "/";
+      resolved = new URL(raw || "/", origin).href;
+    } catch {
+      /* keep the origin-root fallback */
+    }
+    upstreamBaseTag =
+      `<base href="${resolved}"` +
+      (targetMatch ? ` target="${targetMatch[2]}"` : "") +
+      ">";
+    cleaned = cleaned.replace(/<base\b[^>]*>/gi, "");
+  }
+
   const rewriteAttr = (match, attr, quote, val) => {
     if (!val) return match;
     const decoded = unwrapProxyUrl(val);
@@ -146,7 +175,15 @@ function rewriteHtml(html, targetUrl, proxyOrigin) {
     rewriteAttr,
   );
 
-  const scriptTag = `<script>window.__MOVIE_PROXY_TARGET__=${JSON.stringify(href).replace(/</g, "\\u003c")};window.__MOVIE_PROXY_ORIGIN__=${JSON.stringify(origin).replace(/</g, "\\u003c")};</script><script src="/js/movie-proxy-client.js?v=20260907.6">`;
+  if (upstreamBaseTag) {
+    if (/<head[^>]*>/i.test(cleaned)) {
+      cleaned = cleaned.replace(/(<head[^>]*>)/i, `$1\n${upstreamBaseTag}`);
+    } else {
+      cleaned = `${upstreamBaseTag}\n${cleaned}`;
+    }
+  }
+
+  const scriptTag = `<script>window.__MOVIE_PROXY_TARGET__=${JSON.stringify(href).replace(/</g, "\\u003c")};window.__MOVIE_PROXY_ORIGIN__=${JSON.stringify(origin).replace(/</g, "\\u003c")};</script><script src="/js/movie-proxy-client.js?v=20260907.7"></script>`;
 
   if (/<head[^>]*>/i.test(cleaned)) {
     cleaned = cleaned.replace(/(<head[^>]*>)/i, `$1\n${scriptTag}`);
