@@ -79,6 +79,16 @@ These were observed on 2026-09-03 and must be rechecked because providers change
   (`direct: true` in `MOVIES_SOURCES`, no proxy, no `blockAds`) for
   challenged providers; keep proxying everything else.
   Observed 2026-09-03 from a local connection; recheck, providers change.
+- `www.2embed.cc` → `videm.xyz` (`Server VNE`): the embed page, `api.php`
+  (`race`/`play`/`sources`, all `200 application/json`) and `_stream`
+  playlists proxy fine through the relay, but every media segment (ByteDance
+  ImageX CDN, `p16-ttam-va.ibyteimg.com`) returns
+  `{"code":1004,"error":"domain forbidden"}` (`403`) to the production VPS
+  regardless of Referer/Origin/UA (verified 2026-09-08 via full curl replay
+  of the signed chain from the VPS; no cookies involved anywhere). Same
+  upstream-block category as `streamingnow.mov`/`vidsrcme.ru`: 2Embed is now
+  `direct: true` in `MOVIES_SOURCES` per the 2026-09-03 fix direction.
+  Recheck, providers change.
 - A prior attempted movie fix was fully reverted. Commits `3cf60bbe` through
   `8cfd2243` document that rollback; do not reintroduce that design.
 

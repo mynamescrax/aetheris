@@ -19,16 +19,22 @@ var MOVIES_SOURCES = [
     },
   },
   {
-    name: "2Embed (2embed.cc)",
+    // Videm's segment CDN (ByteDance ImageX, p16-ttam-va.ibyteimg.com)
+    // answers the VPS with `{"code":1004,"error":"domain forbidden"}`
+    // regardless of Referer/Origin/UA (verified 2026-09-08), so the proxied
+    // player stalls after the API chain succeeds. Same upstream-block
+    // category as vidsrcme.ru: load direct so the real browser fetches
+    // segments itself. Trade-off: ads run and the provider sees the
+    // visitor IP (uBlock helps).
+    name: "2Embed (2embed.cc) • direct",
+    direct: true,
     url: function (t, id, s, e) {
       // 2Embed's TV endpoint expects its parameters after a
       // literal ampersand. With a normal `?s=...`, it silently
       // ignores the selection and always serves S1 E1.
-      var upstream =
-        t === "movie"
-          ? "https://www.2embed.cc/embed/" + id
-          : "https://www.2embed.cc/embedtv/" + id + "&s=" + s + "&e=" + e;
-      return "/movie-proxy?url=" + encodeURIComponent(upstream);
+      return t === "movie"
+        ? "https://www.2embed.cc/embed/" + id
+        : "https://www.2embed.cc/embedtv/" + id + "&s=" + s + "&e=" + e;
     },
   },
   {
