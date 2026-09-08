@@ -64,7 +64,7 @@
     } catch (e) {}
     var pingImg = new Image();
     pingImg.src =
-      "/movie-ping?v=20260907.8&origin=" +
+      "/movie-ping?v=20260907.9&origin=" +
       encodeURIComponent(targetOrigin || "none") +
       "&sample=" +
       encodeURIComponent(pingSample);
@@ -80,7 +80,7 @@
       try {
         var img = new Image();
         img.src =
-          "/movie-ping?v=20260907.8&origin=" +
+          "/movie-ping?v=20260907.9&origin=" +
           encodeURIComponent(targetOrigin || "none") +
           "&err=" +
           encodeURIComponent(String(msg).slice(0, 300));
@@ -249,28 +249,45 @@
         enumerable: true,
       });
     }
+    var mediaSetAttr = Element.prototype.setAttribute;
+    mediaProto.setAttribute = function (attrName, val) {
+      if (String(attrName).toLowerCase() === "src" && val) {
+        val = toProxyUrl(val);
+      }
+      return mediaSetAttr.call(this, attrName, val);
+    };
   } catch (e) {}
 
   // Overwrite subtitle track and source src. Videm assigns track URLs
   // directly (`tr.src = 'api.php?a=sub&ref=...'`); without this the URL
   // resolves natively against the proxy document and 404s on Aetheris
   // instead of reaching the provider.
+  // setAttribute variants are covered too: players on the native-HLS path
+  // (iOS Safari) may set media URLs via setAttribute instead of the IDL.
   try {
     ["HTMLTrackElement", "HTMLSourceElement"].forEach(function (name) {
       var ctor = window[name];
       if (!ctor || !ctor.prototype) return;
       var desc = Object.getOwnPropertyDescriptor(ctor.prototype, "src");
-      if (!desc || !desc.set) return;
-      Object.defineProperty(ctor.prototype, "src", {
-        get: function () {
-          return desc.get.call(this);
-        },
-        set: function (val) {
-          desc.set.call(this, toProxyUrl(val));
-        },
-        configurable: true,
-        enumerable: true,
-      });
+      if (desc && desc.set) {
+        Object.defineProperty(ctor.prototype, "src", {
+          get: function () {
+            return desc.get.call(this);
+          },
+          set: function (val) {
+            desc.set.call(this, toProxyUrl(val));
+          },
+          configurable: true,
+          enumerable: true,
+        });
+      }
+      var protoSetAttr = Element.prototype.setAttribute;
+      ctor.prototype.setAttribute = function (attrName, val) {
+        if (String(attrName).toLowerCase() === "src" && val) {
+          val = toProxyUrl(val);
+        }
+        return protoSetAttr.call(this, attrName, val);
+      };
     });
   } catch (e) {}
 

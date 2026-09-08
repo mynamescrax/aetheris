@@ -227,7 +227,7 @@ test("movie relay handles real HTTP bodies, ranges and redirect validation", asy
   );
 });
 
-test("rewriteHtml keeps self-hosted JWPlayer locatable and prefers working 2vcdn renditions", async (t) => {
+test("rewriteHtml keeps self-hosted JWPlayer locatable", async (t) => {
   const target = new URL("https://2vcdn.skin/e/1e2f5rfkmjtj");
   await t.test("jwplayer script keeps a literal /jwplayer.js match", () => {
     const out = rewriteHtml(
@@ -240,6 +240,38 @@ test("rewriteHtml keeps self-hosted JWPlayer locatable and prefers working 2vcdn
     assert.ok(out.includes("#/jwplayer.js"));
     const src = out.match(/<script[^>]*src="([^"]*movie-proxy\?url=[^"]*)"/)[1];
     assert.ok(new URL(src, "http://localhost").pathname === "/movie-proxy");
+  });
+  await t.test("jQuery is injected only when the page calls $ without it", () => {
+    const needy =
+      '<!doctype html><html><head></head><body><script>$.ajaxSetup({});</script></body></html>';
+    const withJq = rewriteHtml(needy, target, "http://localhost");
+    // The injected URL is percent-encoded inside url=, so match the tail.
+    assert.ok(withJq.includes("2Fjquery.min.js"));
+    assert.ok(withJq.includes("/movie-proxy?url="));
+
+    const shipped =
+      '<!doctype html><html><head><script src="https://cdn/x/jquery.min.js"></script></head><body><script>$.ajaxSetup({});</script></body></html>';
+    assert.equal(
+      rewriteHtml(shipped, target, "http://localhost").match(/jquery\.min\.js/g)
+        .length,
+      1,
+      "must not duplicate a shipped jQuery",
+    );
+
+    const ownDollar =
+      '<!doctype html><html><head></head><body><script>var $=function(s){return document.querySelector(s)};$( "a" );</script></body></html>';
+    assert.ok(
+      !rewriteHtml(ownDollar, target, "http://localhost").includes(
+        "jquery.min.js",
+      ),
+      "must not clobber a page-owned $ helper",
+    );
+
+    const plain =
+      "<!doctype html><html><head></head><body><p>costs $ . Next</p></body></html>";
+    assert.ok(
+      !rewriteHtml(plain, target, "http://localhost").includes("jquery.min.js"),
+    );
   });
   await t.test("packed provider boot code passes through untouched", () => {
     // 2vcdn-style packers encode identifiers in transit, so the relay must

@@ -200,12 +200,33 @@ function rewriteHtml(html, targetUrl, proxyOrigin) {
   // storyboard-only master) to hls3 (verified video) itself. The only
   // server-side piece it needs is the JWPlayer fragment above.
 
-  const scriptTag = `<script>window.__MOVIE_PROXY_TARGET__=${JSON.stringify(href).replace(/</g, "\\u003c")};window.__MOVIE_PROXY_ORIGIN__=${JSON.stringify(origin).replace(/</g, "\\u003c")};</script><script src="/js/movie-proxy-client.js?v=20260907.8"></script>`;
+  const scriptTag = `<script>window.__MOVIE_PROXY_TARGET__=${JSON.stringify(href).replace(/</g, "\\u003c")};window.__MOVIE_PROXY_ORIGIN__=${JSON.stringify(origin).replace(/</g, "\\u003c")};</script><script src="/js/movie-proxy-client.js?v=20260907.9"></script>`;
+
+  // Some provider players (2vcdn.skin's packed boot) call jQuery (`$`)
+  // at top level without loading it. The resulting ReferenceError aborts
+  // the rest of their boot block — including their own error-fallback
+  // switching — so playback silently never starts (seen via error beacon
+  // as "Can't find variable: $"). Inject full jQuery (slim lacks ajax,
+  // which the boot also uses) ahead of body scripts when the page calls
+  // `$` but ships no jQuery. Synchronous head injection guarantees `$`
+  // exists before any body inline script runs. The `$`-call test matches
+  // packed sources too (punctuation survives the packer). A dot must
+  // follow `$` immediately (`$.ajax`); prose like "costs $ . Next"
+  // must not trigger injection.
+  let jqueryTag = "";
+  if (
+    !/<script[^>]*jquery[^>]*>/i.test(cleaned) &&
+    (/\$\s*\(|\$\./.test(cleaned)) &&
+    !/(var|let|const|function)\s+\$[^a-zA-Z0-9_$]|window\.\$\s*=/.test(cleaned)
+  ) {
+    const jqueryUrl = `${proxyOrigin}${PROXY_ROUTE}?url=${encodeURIComponent("https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js")}&referer=${encodeURIComponent(href)}`;
+    jqueryTag = `<script src="${jqueryUrl}"></script>`;
+  }
 
   if (/<head[^>]*>/i.test(cleaned)) {
-    cleaned = cleaned.replace(/(<head[^>]*>)/i, `$1\n${scriptTag}`);
+    cleaned = cleaned.replace(/(<head[^>]*>)/i, `$1\n${scriptTag}\n${jqueryTag}`);
   } else {
-    cleaned = scriptTag + "\n" + cleaned;
+    cleaned = scriptTag + "\n" + jqueryTag + "\n" + cleaned;
   }
 
   return cleaned;
