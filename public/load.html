@@ -553,12 +553,32 @@
 
       function openinnewtab() {
         var iframe = document.querySelector("#game-frame iframe");
-        if (!iframe || !iframe.src) {
+        if (!iframe) {
           alert("No game loaded yet.");
           return;
         }
 
-        var gameurl = location.origin + "/index.html#load" + location.search;
+        // Open the game itself, not another copy of this player page.
+        // The live location also follows navigation inside the game;
+        // fall back to the src attribute when it can't be read.
+        var gameurl = "";
+        try {
+          var livehref =
+            iframe.contentWindow && iframe.contentWindow.location.href;
+          if (livehref && livehref !== "about:blank") gameurl = livehref;
+        } catch (e) {}
+        if (!gameurl) gameurl = iframe.src || iframe.getAttribute("src") || "";
+        if (!gameurl || gameurl === "about:blank") {
+          alert("No game loaded yet.");
+          return;
+        }
+
+        // Proxied (/~/sj/...) URLs only route under this tab's Controller,
+        // so they can't load in a bare new tab — reopen those through the
+        // player shell, which boots its own proxy.
+        if (gameurl.indexOf("/~/sj/") !== -1) {
+          gameurl = location.origin + "/index.html#load" + location.search;
+        }
         var tabtitle = localStorage.getItem("tabName") || "Google Docs";
         var tabicon =
           localStorage.getItem("tabIcon") ||
