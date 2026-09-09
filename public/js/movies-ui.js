@@ -185,7 +185,12 @@
     more.textContent = "Loading…";
     retry.hidden = true;
     status.textContent = query ? "Searching…" : "Loading…";
-    dbg("listing:", currentType, query ? "q=" + query : "trending", "page=" + page);
+    dbg(
+      "listing:",
+      currentType,
+      query ? "q=" + query : "trending",
+      "page=" + page,
+    );
     try {
       var data = await json(url, controller);
       if (version !== listingVersion) return;
@@ -384,9 +389,8 @@
     clearTimeout(playerTimer);
     playerStatus.textContent = "Loading provider…";
     playerStatus.classList.remove("hidden");
-    hint.textContent = provider.direct
-      ? "Direct source: this provider receives your IP address and may show ads."
-      : "If playback is unavailable, try another source. Provider loading does not confirm playback.";
+    hint.textContent =
+      "Proxy-only playback. If playback is unavailable, try another source; provider loading does not confirm playback.";
     dbg(
       "play:",
       provider.name,
@@ -445,17 +449,31 @@
       option.textContent = provider.name;
       source.appendChild(option);
     });
+    // 2Embed's current media hosts reject the VPS egress. Migrate sessions
+    // that predate the proxy-only default so iPads do not remain pinned to a
+    // provider that can load its UI but cannot deliver video segments.
+    var sourceDefaultVersion = "proxy-only-20260908";
+    var savedVersion = Aetheris.storage.getItem("movieSourceVersion");
     var saved = Number(Aetheris.storage.getItem("movieSourceIdx"));
     source.value =
+      savedVersion === sourceDefaultVersion &&
       Aetheris.storage.getItem("movieSourceIdx") !== null &&
       Number.isInteger(saved) &&
       MOVIES_SOURCES[saved]
         ? String(saved)
-        : "1";
+        : "3";
+    Aetheris.storage.setItem("movieSourceVersion", sourceDefaultVersion);
+    Aetheris.storage.setItem("movieSourceIdx", source.value);
     source.disabled = type === "tv";
     document.getElementById("epBar").classList.toggle("visible", type === "tv");
     hint.textContent = "";
-    dbg("open:", type, "tmdb=" + id, JSON.stringify(title), "defaultSrc=" + source.value);
+    dbg(
+      "open:",
+      type,
+      "tmdb=" + id,
+      JSON.stringify(title),
+      "defaultSrc=" + source.value,
+    );
     uiBeacon({ ev: "open", kind: type, id: String(id) });
     document.getElementById("modalClose").focus();
     if (type === "tv") loadTvDetails();
@@ -504,7 +522,11 @@
   });
   source.addEventListener("change", function () {
     Aetheris.storage.setItem("movieSourceIdx", source.value);
-    dbg("source switched to:", source.value, (MOVIES_SOURCES[Number(source.value)] || {}).name);
+    dbg(
+      "source switched to:",
+      source.value,
+      (MOVIES_SOURCES[Number(source.value)] || {}).name,
+    );
     setIframe();
   });
   season.addEventListener("change", loadSeason);

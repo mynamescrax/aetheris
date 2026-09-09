@@ -5,17 +5,15 @@ var TMDB_API = "https://api.themoviedb.org/3";
 
 var MOVIES_SOURCES = [
   {
-    // Cloudflare-challenges non-browser clients on its media CDN
-    // (see CLAUDE.md findings), so this source loads direct: the
-    // real browser passes the challenge itself. Trade-off: ads
-    // run and the provider sees the visitor IP (uBlock helps).
-    name: "VidSrc (vidsrcme.ru) • direct",
-    direct: true,
+    // Keep this source behind the relay too. Its media CDN currently
+    // challenges the VPS, but falling back to a direct embed would expose
+    // the viewer and violate the movie player's proxy-only boundary.
+    name: "VidSrc (vidsrcme.ru)",
     url: function (t, id, s, e) {
-      return (
+      var upstream =
         "https://vidsrcme.ru/embed/" +
-        (t === "movie" ? "movie/" + id : "tv/" + id + "/" + s + "/" + e)
-      );
+        (t === "movie" ? "movie/" + id : "tv/" + id + "/" + s + "/" + e);
+      return "/movie-proxy?url=" + encodeURIComponent(upstream);
     },
   },
   {

@@ -116,13 +116,21 @@ test("HLS rewrites initialization, audio, subtitles, keys and media segments", (
 
 test("HTML and JavaScript use the upstream document/module directory", () => {
   const html = rewriteHtml(
-    '<html><head></head><body><iframe src="./embed"></iframe></body></html>',
+    '<html><head><style>.hero{background:url("/poster.jpg")}</style></head><body style="background-image:url(./loading.gif)"><iframe src="./embed"></iframe></body></html>',
     new URL("https://provider.example/path/index.html"),
   );
   assert.ok(
     html.includes(encodeURIComponent("https://provider.example/path/embed")),
   );
   assert.ok(html.includes("/js/movie-proxy-client.js"));
+  assert.ok(
+    html.includes(encodeURIComponent("https://provider.example/poster.jpg")),
+  );
+  assert.ok(
+    html.includes(
+      encodeURIComponent("https://provider.example/path/loading.gif"),
+    ),
+  );
   const js = rewriteJsImports(
     'import("./chunk.js"); export {x} from "./lib.js";',
     new URL("https://provider.example/assets/index.js"),
@@ -153,6 +161,29 @@ test("movie proxy client repairs provider-prefixed absolute relay URLs", () => {
     client.includes("declaredOrigin"),
     "stale pages must not resolve provider URLs against our own origin",
   );
+  for (const api of [
+    "HTMLScriptElement",
+    "HTMLImageElement",
+    "HTMLLinkElement",
+    "sendBeacon",
+    "Worker",
+    "EventSource",
+  ]) {
+    assert.ok(client.includes(api), `${api} requests must stay proxied`);
+  }
+  assert.ok(
+    client.includes('localCandidate.pathname === "/movie-ping"'),
+    "relay-owned diagnostics must remain local",
+  );
+});
+
+test("all movie providers are configured as proxy-only", () => {
+  const sources = fs.readFileSync(
+    new URL("../public/js/movie-sources.js", import.meta.url),
+    "utf8",
+  );
+  assert.doesNotMatch(sources, /\bdirect\s*:\s*true\b/);
+  assert.doesNotMatch(sources, /return\s+["']https?:\/\//);
 });
 
 test("compression is decoded correctly and oversized/broken text is rejected", () => {

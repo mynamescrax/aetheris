@@ -170,6 +170,14 @@ test("movie relay handles real HTTP bodies, ranges and redirect validation", asy
         String(result.headers["cache-control"]).includes("no-store"),
         "relayed documents must never be cached",
       );
+      const csp = String(result.headers["content-security-policy"]);
+      assert.ok(csp.includes("connect-src 'self'"));
+      assert.ok(csp.includes("media-src 'self'"));
+      assert.ok(csp.includes("frame-src 'self'"));
+      assert.ok(
+        !csp.includes("https: *"),
+        "relayed documents must fail closed instead of allowing direct upstream traffic",
+      );
     },
   );
   await t.test(
@@ -241,38 +249,44 @@ test("rewriteHtml keeps self-hosted JWPlayer locatable", async (t) => {
     const src = out.match(/<script[^>]*src="([^"]*movie-proxy\?url=[^"]*)"/)[1];
     assert.ok(new URL(src, "http://localhost").pathname === "/movie-proxy");
   });
-  await t.test("jQuery is injected only when the page calls $ without it", () => {
-    const needy =
-      '<!doctype html><html><head></head><body><script>$.ajaxSetup({});</script></body></html>';
-    const withJq = rewriteHtml(needy, target, "http://localhost");
-    // The injected URL is percent-encoded inside url=, so match the tail.
-    assert.ok(withJq.includes("2Fjquery.min.js"));
-    assert.ok(withJq.includes("/movie-proxy?url="));
+  await t.test(
+    "jQuery is injected only when the page calls $ without it",
+    () => {
+      const needy =
+        "<!doctype html><html><head></head><body><script>$.ajaxSetup({});</script></body></html>";
+      const withJq = rewriteHtml(needy, target, "http://localhost");
+      // The injected URL is percent-encoded inside url=, so match the tail.
+      assert.ok(withJq.includes("2Fjquery.min.js"));
+      assert.ok(withJq.includes("/movie-proxy?url="));
 
-    const shipped =
-      '<!doctype html><html><head><script src="https://cdn/x/jquery.min.js"></script></head><body><script>$.ajaxSetup({});</script></body></html>';
-    assert.equal(
-      rewriteHtml(shipped, target, "http://localhost").match(/jquery\.min\.js/g)
-        .length,
-      1,
-      "must not duplicate a shipped jQuery",
-    );
+      const shipped =
+        '<!doctype html><html><head><script src="https://cdn/x/jquery.min.js"></script></head><body><script>$.ajaxSetup({});</script></body></html>';
+      assert.equal(
+        rewriteHtml(shipped, target, "http://localhost").match(
+          /jquery\.min\.js/g,
+        ).length,
+        1,
+        "must not duplicate a shipped jQuery",
+      );
 
-    const ownDollar =
-      '<!doctype html><html><head></head><body><script>var $=function(s){return document.querySelector(s)};$( "a" );</script></body></html>';
-    assert.ok(
-      !rewriteHtml(ownDollar, target, "http://localhost").includes(
-        "jquery.min.js",
-      ),
-      "must not clobber a page-owned $ helper",
-    );
+      const ownDollar =
+        '<!doctype html><html><head></head><body><script>var $=function(s){return document.querySelector(s)};$( "a" );</script></body></html>';
+      assert.ok(
+        !rewriteHtml(ownDollar, target, "http://localhost").includes(
+          "jquery.min.js",
+        ),
+        "must not clobber a page-owned $ helper",
+      );
 
-    const plain =
-      "<!doctype html><html><head></head><body><p>costs $ . Next</p></body></html>";
-    assert.ok(
-      !rewriteHtml(plain, target, "http://localhost").includes("jquery.min.js"),
-    );
-  });
+      const plain =
+        "<!doctype html><html><head></head><body><p>costs $ . Next</p></body></html>";
+      assert.ok(
+        !rewriteHtml(plain, target, "http://localhost").includes(
+          "jquery.min.js",
+        ),
+      );
+    },
+  );
   await t.test("packed provider boot code passes through untouched", () => {
     // 2vcdn-style packers encode identifiers in transit, so the relay must
     // not mangle the block: script tags stay balanced and the payload that

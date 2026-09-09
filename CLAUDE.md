@@ -75,9 +75,9 @@ These were observed on 2026-09-03 and must be rechecked because providers change
   `master.m3u8` into `401`, and reloads the player document in a loop.
   Header tweaks cannot fix a Cloudflare browser challenge; treat as an
   upstream block (same category as the `streamingnow.mov` VPS `403`).
-  Fix direction chosen 2026-09-03: per-source direct-embed fallback
-  (`direct: true` in `MOVIES_SOURCES`, no proxy, no `blockAds`) for
-  challenged providers; keep proxying everything else.
+  Direct-embed fallback was removed 2026-09-08. Every movie provider now
+  goes through `/movie-proxy`; challenged providers remain unavailable until
+  their CDN accepts the VPS egress or a second server-side egress is added.
   Observed 2026-09-03 from a local connection; recheck, providers change.
 - `www.2embed.cc` → `videm.xyz` (`Server VNE`): the embed page, `api.php`
   (`race`/`play`/`sources`, all `200 application/json`) and `_stream`
@@ -94,7 +94,9 @@ These were observed on 2026-09-03 and must be rechecked because providers change
   answers Cloudflare "blocked" to the VPS IP), while the residential
   browser passes the ones that are alive. VidSrc.to is the default working
   source. If a 2Embed server recovers VPS access, no code change is needed.
-  Recheck, providers change.
+  Recheck, providers change. Because all three were still failing, the
+  proxy-only VidSrc.to source replaced 2Embed as the default on 2026-09-08;
+  2Embed remains selectable for recovery checks.
 - A prior attempted movie fix was fully reverted. Commits `3cf60bbe` through
   `8cfd2243` document that rollback; do not reintroduce that design.
 

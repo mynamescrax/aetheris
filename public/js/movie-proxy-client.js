@@ -164,6 +164,20 @@
     }
     if (trimmed === "about:blank" || trimmed.charAt(0) === "#") return rawUrl;
 
+    // These are relay-owned control requests injected by this client. All
+    // other same-origin-looking paths belong to the upstream document and
+    // must be resolved against its base before being sent through the relay.
+    try {
+      var localCandidate = new URL(trimmed, location.href);
+      if (
+        localCandidate.origin === location.origin &&
+        (localCandidate.pathname === "/movie-ping" ||
+          localCandidate.pathname === "/js/movie-proxy-client.js")
+      ) {
+        return rawUrl;
+      }
+    } catch (e) {}
+
     try {
       var absUrl = new URL(trimmed, resolveBase()).href;
       var r = ref || targetUrl;
@@ -290,6 +304,84 @@
       };
     });
   } catch (e) {}
+
+  // Providers dynamically create scripts, images, links, forms, and embeds.
+  // Static HTML rewriting cannot see those assignments, so hook their URL
+  // properties and setAttribute calls before they can contact upstream.
+  function hookUrlElement(constructorName, properties) {
+    try {
+      var ctor = window[constructorName];
+      if (!ctor || !ctor.prototype) return;
+      properties.forEach(function (property) {
+        var descriptor = Object.getOwnPropertyDescriptor(
+          ctor.prototype,
+          property,
+        );
+        if (descriptor && descriptor.set) {
+          Object.defineProperty(ctor.prototype, property, {
+            get: descriptor.get
+              ? function () {
+                  return descriptor.get.call(this);
+                }
+              : undefined,
+            set: function (val) {
+              descriptor.set.call(this, toProxyUrl(val));
+            },
+            configurable: true,
+            enumerable: descriptor.enumerable,
+          });
+        }
+      });
+      var originalSetAttribute = Element.prototype.setAttribute;
+      ctor.prototype.setAttribute = function (name, val) {
+        if (properties.indexOf(String(name).toLowerCase()) !== -1 && val) {
+          val = toProxyUrl(val);
+        }
+        return originalSetAttribute.call(this, name, val);
+      };
+    } catch (e) {}
+  }
+
+  [
+    ["HTMLScriptElement", ["src"]],
+    ["HTMLImageElement", ["src"]],
+    ["HTMLLinkElement", ["href"]],
+    ["HTMLAnchorElement", ["href"]],
+    ["HTMLAreaElement", ["href"]],
+    ["HTMLObjectElement", ["data"]],
+    ["HTMLEmbedElement", ["src"]],
+    ["HTMLFormElement", ["action"]],
+    ["HTMLInputElement", ["src", "formaction"]],
+    ["HTMLButtonElement", ["formaction"]],
+  ].forEach(function (entry) {
+    hookUrlElement(entry[0], entry[1]);
+  });
+
+  // sendBeacon is commonly used with root-relative provider endpoints and is
+  // not routed through fetch. Keep it inside the same proxy boundary.
+  try {
+    var originalSendBeacon = navigator.sendBeacon;
+    if (originalSendBeacon) {
+      navigator.sendBeacon = function (url, data) {
+        return originalSendBeacon.call(this, toProxyUrl(String(url)), data);
+      };
+    }
+  } catch (e) {}
+
+  // Worker/EventSource constructors also perform network requests without
+  // using fetch or XHR.
+  function hookUrlConstructor(name) {
+    try {
+      var Original = window[name];
+      if (!Original) return;
+      var Wrapped = function (url, options) {
+        return new Original(toProxyUrl(String(url)), options);
+      };
+      Wrapped.prototype = Original.prototype;
+      window[name] = Wrapped;
+    } catch (e) {}
+  }
+  ["Worker", "SharedWorker", "EventSource"].forEach(hookUrlConstructor);
 
   // Prevent popups
   window.open = function () {

@@ -184,6 +184,18 @@ function rewriteHtml(html, targetUrl, proxyOrigin) {
     rewriteAttr,
   );
 
+  // Provider posters and loading backdrops are often embedded in inline CSS
+  // rather than src/href attributes. Rewrite both style blocks and style
+  // attributes so even those image requests stay on the relay origin.
+  cleaned = cleaned.replace(
+    /(<style\b[^>]*>)([\s\S]*?)(<\/style>)/gi,
+    (match, open, css, close) => open + rewriteCss(css, baseUrl) + close,
+  );
+  cleaned = cleaned.replace(
+    /\bstyle=(["'])([\s\S]*?)\1/gi,
+    (match, quote, css) => `style=${quote}${rewriteCss(css, baseUrl)}${quote}`,
+  );
+
   if (upstreamBaseTag) {
     if (/<head[^>]*>/i.test(cleaned)) {
       cleaned = cleaned.replace(/(<head[^>]*>)/i, `$1\n${upstreamBaseTag}`);
@@ -200,7 +212,7 @@ function rewriteHtml(html, targetUrl, proxyOrigin) {
   // storyboard-only master) to hls3 (verified video) itself. The only
   // server-side piece it needs is the JWPlayer fragment above.
 
-  const scriptTag = `<script>window.__MOVIE_PROXY_TARGET__=${JSON.stringify(href).replace(/</g, "\\u003c")};window.__MOVIE_PROXY_ORIGIN__=${JSON.stringify(origin).replace(/</g, "\\u003c")};</script><script src="/js/movie-proxy-client.js?v=20260907.9"></script>`;
+  const scriptTag = `<script>window.__MOVIE_PROXY_TARGET__=${JSON.stringify(href).replace(/</g, "\\u003c")};window.__MOVIE_PROXY_ORIGIN__=${JSON.stringify(origin).replace(/</g, "\\u003c")};</script><script src="/js/movie-proxy-client.js?v=20260908.1"></script>`;
 
   // Some provider players (2vcdn.skin's packed boot) call jQuery (`$`)
   // at top level without loading it. The resulting ReferenceError aborts
@@ -216,7 +228,7 @@ function rewriteHtml(html, targetUrl, proxyOrigin) {
   let jqueryTag = "";
   if (
     !/<script[^>]*jquery[^>]*>/i.test(cleaned) &&
-    (/\$\s*\(|\$\./.test(cleaned)) &&
+    /\$\s*\(|\$\./.test(cleaned) &&
     !/(var|let|const|function)\s+\$[^a-zA-Z0-9_$]|window\.\$\s*=/.test(cleaned)
   ) {
     const jqueryUrl = `${proxyOrigin}${PROXY_ROUTE}?url=${encodeURIComponent("https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.3/jquery.min.js")}&referer=${encodeURIComponent(href)}`;
@@ -224,7 +236,10 @@ function rewriteHtml(html, targetUrl, proxyOrigin) {
   }
 
   if (/<head[^>]*>/i.test(cleaned)) {
-    cleaned = cleaned.replace(/(<head[^>]*>)/i, `$1\n${scriptTag}\n${jqueryTag}`);
+    cleaned = cleaned.replace(
+      /(<head[^>]*>)/i,
+      `$1\n${scriptTag}\n${jqueryTag}`,
+    );
   } else {
     cleaned = scriptTag + "\n" + jqueryTag + "\n" + cleaned;
   }
@@ -276,18 +291,38 @@ function rewriteM3u8(playlistText, targetUrl) {
 function rewriteCss(cssText, targetUrl) {
   const baseUrl = new URL(unwrapProxyUrl(targetUrl.href));
   const href = baseUrl.href;
-  return cssText.replace(/url\((["']?)([^"']+?)\1\)/gi, (match, quote, url) => {
-    const trimmed = url.trim();
-    if (!trimmed || trimmed.startsWith("data:") || trimmed.startsWith("blob:"))
-      return match;
-    try {
-      const abs = new URL(unwrapProxyUrl(trimmed), href).href;
-      const proxied = `${PROXY_ROUTE}?url=${encodeURIComponent(abs)}&referer=${encodeURIComponent(href)}`;
-      return `url(${quote}${proxied}${quote})`;
-    } catch {
-      return match;
-    }
-  });
+  let rewritten = cssText.replace(
+    /url\((["']?)([^"']+?)\1\)/gi,
+    (match, quote, url) => {
+      const trimmed = url.trim();
+      if (
+        !trimmed ||
+        trimmed.startsWith("data:") ||
+        trimmed.startsWith("blob:")
+      )
+        return match;
+      try {
+        const abs = new URL(unwrapProxyUrl(trimmed), href).href;
+        const proxied = `${PROXY_ROUTE}?url=${encodeURIComponent(abs)}&referer=${encodeURIComponent(href)}`;
+        return `url(${quote}${proxied}${quote})`;
+      } catch {
+        return match;
+      }
+    },
+  );
+  rewritten = rewritten.replace(
+    /(@import\s+)(["'])([^"']+)\2/gi,
+    (match, prefix, quote, url) => {
+      try {
+        const abs = new URL(unwrapProxyUrl(url.trim()), href).href;
+        const proxied = `${PROXY_ROUTE}?url=${encodeURIComponent(abs)}&referer=${encodeURIComponent(href)}`;
+        return `${prefix}${quote}${proxied}${quote}`;
+      } catch {
+        return match;
+      }
+    },
+  );
+  return rewritten;
 }
 
 function rewriteJsImports(jsText, targetUrl) {
@@ -788,6 +823,13 @@ export function registerMovieRelay(
         const rewritten = rewriteHtml(rawBody, currentUrl, proxyOrigin);
         reply.type("text/html; charset=utf-8");
         reply.raw.setHeader("Content-Type", "text/html; charset=utf-8");
+        // Rewriting handles normal and dynamically assigned provider URLs.
+        // CSP is the fail-closed boundary: if an unusual browser API escapes
+        // those hooks, it may contact only this relay origin, never upstream.
+        reply.header(
+          "Content-Security-Policy",
+          "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; connect-src 'self' blob:; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; frame-src 'self' blob:; worker-src 'self' blob:; form-action 'self'; base-uri https:",
+        );
         reply.header("content-length", Buffer.byteLength(rewritten));
         reply.send(rewritten);
       } else if (isHtml) {
@@ -796,6 +838,10 @@ export function registerMovieRelay(
         // octet-stream which would trigger a browser download.
         reply.type("text/html; charset=utf-8");
         reply.raw.setHeader("Content-Type", "text/html; charset=utf-8");
+        reply.header(
+          "Content-Security-Policy",
+          "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; connect-src 'self' blob:; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; frame-src 'self' blob:; worker-src 'self' blob:; form-action 'self'; base-uri https:",
+        );
         reply.header("content-length", Buffer.byteLength(rawBody));
         reply.send(rawBody);
       } else if (isM3u8 || sniffM3u8) {

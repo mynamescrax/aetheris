@@ -3697,6 +3697,16 @@
     ]
   },
   {
+    "id": "lethalcompany",
+    "title": "Lethal Company",
+    "html": "assets/games/lethalcompany.html",
+    "image": "assets/images/lethalcompany.jpg",
+    "source": "aetheris",
+    "tags": [
+      "Action"
+    ]
+  },
+  {
     "id": "whosyourdaddy",
     "title": "Who's Your Daddy?",
     "html": "assets/games/whosyourdaddy.html",
