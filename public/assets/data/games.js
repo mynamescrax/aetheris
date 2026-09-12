@@ -32,6 +32,13 @@ function normalizegame(rawgame, fallbacksource) {
 
   if (!game.source) game.source = fallbacksource || "unknown";
 
+  if (Array.isArray(game.tags))
+    game.tags = game.tags.filter(function (tag) {
+      return (
+        typeof tag !== "string" || tag.toLowerCase() !== "epstein"
+      );
+    });
+
   if (game.id === undefined || game.id === null || game.id === "") {
     game.id = game.url || game.html || game.source + "-" + slugify(game.title);
   } else {
@@ -108,7 +115,7 @@ async function getcachedgames() {
         var v = get.result;
         finish(
           v &&
-            v.schema === 3 &&
+            v.schema === 4 &&
             Array.isArray(v.data) &&
             v.data.length &&
             Date.now() - v.ts >= 0 &&
@@ -135,7 +142,7 @@ async function setcachedgames(data) {
   try {
     var tx = db.transaction(GAMES_STORE, "readwrite");
     tx.objectStore(GAMES_STORE).put(
-      { schema: 3, ts: Date.now(), data: data },
+      { schema: 4, ts: Date.now(), data: data },
       GAMES_IDB_KEY,
     );
     tx.oncomplete = function () {

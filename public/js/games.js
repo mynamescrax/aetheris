@@ -156,7 +156,9 @@
       if (source.value !== "all" && game.source !== source.value) return;
       if (Array.isArray(game.tags))
         game.tags.forEach(function (tag) {
-          if (typeof tag === "string") tags.add(tag);
+          if (typeof tag !== "string") return;
+          if (tag.toLowerCase() === "epstein") return;
+          tags.add(tag);
         });
     });
     activeTags.forEach(function (tag) {
