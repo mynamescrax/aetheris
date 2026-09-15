@@ -22,6 +22,7 @@
 
     <script src="register-sw.js?v=20260907.1" defer></script>
     <script defer src="./js/preload.js?v=20260907.1"></script>
+    <script defer src="./js/backup.js?v=20260915.1"></script>
     <script src="./js/dm-shared.js?v=20260907.1"></script>
 
     <script src="./js/theme.js?v=20260907.1"></script>
@@ -80,6 +81,41 @@
         </ul>
         <div class="update-modal-footer">
           <button id="updatemodalclose">aight</button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="backupmodal"
+      class="update-modal-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="backupmodaltitle"
+      style="z-index: 20000"
+    >
+      <div class="update-modal">
+        <h2 id="backupmodaltitle">backup now</h2>
+        <p>site goes down or gets blocked? your game data is gone.</p>
+        <div
+          style="
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 1rem;
+          "
+        >
+          <button id="backupdownload">download backup</button>
+          <button id="backupdrive">save to google drive</button>
+          <button id="backuprestore">restore backup...</button>
+          <input
+            id="backupfile"
+            type="file"
+            accept="application/json,.json"
+            style="display: none"
+          />
+        </div>
+        <div class="update-modal-footer">
+          <button id="backupmodalclose">aight</button>
         </div>
       </div>
     </div>
