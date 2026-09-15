@@ -6,7 +6,7 @@
 <!-- Created with https://packager.turbowarp.org/ -->
 <html>
 <head>
-  <base href="https://cdn.jsdelivr.net/gh/genizy/google-class@latest/btd6/">
+  <base href="https://cdn.jsdelivr.net/gh/bubblfan/google-class@latest/btd6/">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <!-- We only include this to explicitly loosen the CSP of various packager environments. It does not provide any security. -->
@@ -284,7 +284,7 @@
             storage.AssetType.Sound,
             storage.AssetType.Font
           ].filter(i => i),
-          (asset) => new URL('https://cdn.jsdelivr.net/gh/genizy/google-class@main/btd6/assets/' + asset.assetId + '.' + asset.dataFormat).href
+          (asset) => new URL('https://cdn.jsdelivr.net/gh/bubblfan/google-class@main/btd6/assets/' + asset.assetId + '.' + asset.dataFormat).href
         );
         return () => new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();

@@ -1,6 +1,7 @@
-<html>
+<!DOCTYPE html>
 
-<!-- Ultimate Game Stash file--> 
+
+<!-- Ultimate Game Stash file-->
 <!-- For the regularly updating doc go to https://docs.google.com/document/d/1_FmH3BlSBQI7FGgAQL59-ZPe8eCxs35wel6JUyVaG8Q/ -->
 
 
@@ -8,7 +9,7 @@
     <script>
       window.gameconfig = {
         name: "Cooking Mama 3 - Shop & Chop (USA)",
-        url: "https://cdn.jsdelivr.net/gh/bubbls/ugss@1cae41a76b11b998223f997d7f0d98137f76cfa5/Cooking%20Mama%203%20-%20Shop%20%26%20Chop%20(USA)%20(1)/Cooking%20Mama%203%20-%20Shop%20%26%20Chop%20(USA).nds",
+        url: "https://cdn.jsdelivr.net/gh/bubbls/ugss@e27ad66eda838f123bfb1aff7958bbda703283f5/Cooking%20Mama%203%20-%20Shop%20%26%20Chop%20(USA)%20(1)/Cooking%20Mama%203%20-%20Shop%20%26%20Chop%20(USA).nds",
         core: "nds",
         min: 1,
         max: 4,
@@ -40,7 +41,8 @@
       function getParts(file, start, end) {
         let parts = [];
         for (let i = start; i <= end; i++) {
-          parts.push(file + ".part" + i);
+          let padded = String(i).padStart((end+"").length, '0');
+          parts.push(file + ".part" + padded);
         }
         return parts;
       }
@@ -106,11 +108,11 @@
           EJS_gameName = window.gameconfig.name;
           EJS_color = "#0064ff";
           EJS_startOnLoaded = true;
-          EJS_pathtodata = "https://cdn.jsdelivr.net/gh/genizy/emu@master/";
+          EJS_pathtodata = "https://cdn.jsdelivr.net/gh/bubblfan/emu@master/";
           EJS_gameUrl = gameUrl;
           const script = document.createElement("script");
           script.src =
-            "https://cdn.jsdelivr.net/gh/genizy/emu@master/loader.js";
+            "https://cdn.jsdelivr.net/gh/bubblfan/emu@master/loader.js";
           document.body.appendChild(script);
         })
         .catch((error) => {
@@ -120,4 +122,4 @@
         });
     </script>
   </body>
-</html> 
+</html>

@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 
 
-<!-- Ultimate Game Stash file--> 
+<!-- Ultimate Game Stash file-->
 <!-- For the regularly updating doc go to https://docs.google.com/document/d/1_FmH3BlSBQI7FGgAQL59-ZPe8eCxs35wel6JUyVaG8Q/ -->
 
 
   <head>
     <script>
       window.gameconfig = {
-        name: "about:blank",
+        name: "Crash Bandicoot 2 - Cortex Strikes Back",
         url: "https://cdn.jsdelivr.net/gh/ap-math-class/exams@main/psx/crash2/Crash%20Bandicoot%202%20-%20Cortex%20Strikes%20Back.iso",
         core: "psx",
         min: 1,
-        max: 5
+        max: 5,
       };
     </script>
     <script>
@@ -46,7 +46,6 @@
         }
         return parts;
       }
-getParts("asd.js", 0, 100)
     </script>
     <style>
       body,
@@ -109,11 +108,11 @@ getParts("asd.js", 0, 100)
           EJS_gameName = window.gameconfig.name;
           EJS_color = "#0064ff";
           EJS_startOnLoaded = true;
-          EJS_pathtodata = "https://cdn.jsdelivr.net/gh/genizy/emu@master/";
+          EJS_pathtodata = "https://cdn.jsdelivr.net/gh/bubblfan/emu@master/";
           EJS_gameUrl = gameUrl;
           const script = document.createElement("script");
           script.src =
-            "https://cdn.jsdelivr.net/gh/genizy/emu@master/loader.js";
+            "https://cdn.jsdelivr.net/gh/bubblfan/emu@master/loader.js";
           document.body.appendChild(script);
         })
         .catch((error) => {
@@ -123,4 +122,4 @@ getParts("asd.js", 0, 100)
         });
     </script>
   </body>
-</html> 
+</html>

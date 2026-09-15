@@ -1,12 +1,18 @@
-<html>
+<!DOCTYPE html>
+
+
+<!-- Ultimate Game Stash file-->
+<!-- For the regularly updating doc go to https://docs.google.com/document/d/1_FmH3BlSBQI7FGgAQL59-ZPe8eCxs35wel6JUyVaG8Q/ -->
+
+
   <head>
     <script>
       window.gameconfig = {
-        name: "Phoenix Wright - Ace Attorney",
-        url: "https://cdn.jsdelivr.net/gh/genizy/emujs@main/aceattorney/Phoenix%20Wright%20-%20Ace%20Attorney%20(USA).zip",
+        name: "Phoenix Wright - Ace Attorney (USA)",
+        url: "https://cdn.jsdelivr.net/gh/bubbls/ugss@e27ad66eda838f123bfb1aff7958bbda703283f5/Phoenix%20Wright%20-%20Ace%20Attorney%20(USA)/Phoenix%20Wright%20-%20Ace%20Attorney%20(USA).nds",
         core: "nds",
         min: 1,
-        max: 2,
+        max: 4,
       };
     </script>
     <script>
@@ -35,7 +41,8 @@
       function getParts(file, start, end) {
         let parts = [];
         for (let i = start; i <= end; i++) {
-          parts.push(file + ".part" + i);
+          let padded = String(i).padStart((end+"").length, '0');
+          parts.push(file + ".part" + padded);
         }
         return parts;
       }
@@ -81,11 +88,10 @@
         window.gameconfig.min,
         window.gameconfig.max
       );
-      const progressElement = document.getElementById("loading-progress");
       var totalParts = parts.length;
-      progressElement.textContent = `Loading: 0/${totalParts}`;
 
       function updateLoadingProgress(loaded) {
+        const progressElement = document.getElementById("loading-progress");
         if (loaded === 0) {
           progressElement.textContent = "Loading: 0/0";
         } else {
@@ -102,11 +108,11 @@
           EJS_gameName = window.gameconfig.name;
           EJS_color = "#0064ff";
           EJS_startOnLoaded = true;
-          EJS_pathtodata = "https://cdn.jsdelivr.net/gh/genizy/emu@master/";
+          EJS_pathtodata = "https://cdn.jsdelivr.net/gh/bubblfan/emu@master/";
           EJS_gameUrl = gameUrl;
           const script = document.createElement("script");
           script.src =
-            "https://cdn.jsdelivr.net/gh/genizy/emu@master/loader.js";
+            "https://cdn.jsdelivr.net/gh/bubblfan/emu@master/loader.js";
           document.body.appendChild(script);
         })
         .catch((error) => {

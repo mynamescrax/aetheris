@@ -328,6 +328,18 @@ https:// {
 		}
 	}
 
+	handle_path /game-assets/ultrapool/* {
+		rewrite * /ParrrotVR/ultrapoolwebport/main{path}
+		reverse_proxy raw.githubusercontent.com:443 {
+			header_up Host raw.githubusercontent.com
+			header_down -Content-Disposition
+			header_down -X-Content-Type-Options
+			transport http {
+				tls
+			}
+		}
+	}
+
 
 	# Online counter
 	@sse path /online

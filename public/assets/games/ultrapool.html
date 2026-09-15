@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 	<head>
-		<base href="https://cdn.jsdelivr.net/gh/genizy/ultrapoolwebport-nothreads@main/">
+		<base href="/game-assets/ultrapool/">
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
+		<script src="coi-serviceworker.js"></script>
 		<title>Ultrapool</title>
 		<style>
 html, body, #canvas {
@@ -90,47 +91,12 @@ body {
 	text-align: center;
 	z-index: 1;
 }
- #loading-text {
-  font-weight: bold;
-  background: linear-gradient(
-    270deg,
-    #ff0000,
-    #ff7f00,
-    #ffff00,
-    #00ff00,
-    #0000ff,
-    #4b0082,
-    #8f00ff
-  );
-  background-size: 400% 400%;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: rainbow 3s ease infinite;
-}
-
-@keyframes rainbow {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
 		</style>
 		<link id="-gd-engine-icon" rel="icon" type="image/png" href="index2.icon.png" />
 <link rel="apple-touch-icon" href="index2.apple-touch-icon.png"/>
 
 	</head>
 	<body>
-		<div
-		id="loading-text"
-		style="
-			color: white;
-			font-size: 48px;
-			font-family: cursive;
-			text-align: center;
-			margin-top: 20px;
-		"
-	>
-		LOADING...
-	</div>
 		<canvas id="canvas">
 			Your browser does not support the canvas tag.
 		</canvas>
@@ -145,14 +111,69 @@ body {
 			<div id="status-notice"></div>
 		</div>
 
-		<script src="main.js"></script>
+		<script>
+const CHUNKED_FILES = {
+	"index2.pck": [
+		"index2.pck.part000","index2.pck.part001","index2.pck.part002","index2.pck.part003","index2.pck.part004",
+		"index2.pck.part005","index2.pck.part006","index2.pck.part007","index2.pck.part008","index2.pck.part009"
+	],
+	"index2.wasm": ["index2.wasm.part000","index2.wasm.part001"]
+};
+
+(function () {
+	const nativeFetch = window.fetch.bind(window);
+
+	function toUrlString(resource) {
+		if (typeof resource === 'string') return resource;
+		if (resource instanceof URL) return resource.toString();
+		if (resource && typeof resource.url === 'string') return resource.url;
+		return '';
+	}
+
+	window.fetch = async function (resource, init) {
+		const requestUrl = toUrlString(resource);
+		const stripped = requestUrl.split('#')[0].split('?')[0];
+		const slash = stripped.lastIndexOf('/');
+		const dir = slash >= 0 ? stripped.slice(0, slash + 1) : '';
+		const fileName = slash >= 0 ? stripped.slice(slash + 1) : stripped;
+		const parts = CHUNKED_FILES[fileName];
+		if (!parts) return nativeFetch(resource, init);
+
+		const buffers = [];
+		let total = 0;
+		for (const part of parts) {
+			const partResp = await nativeFetch(dir + part, init);
+			if (!partResp.ok) throw new Error(`Missing chunk ${part} for ${fileName}`);
+			const buf = await partResp.arrayBuffer();
+			total += buf.byteLength;
+			buffers.push(new Uint8Array(buf));
+		}
+
+		const merged = new Uint8Array(total);
+		let offset = 0;
+		for (const b of buffers) {
+			merged.set(b, offset);
+			offset += b.byteLength;
+		}
+
+		return new Response(merged, {
+			status: 200,
+			statusText: 'OK',
+			headers: {
+				'Content-Type': 'application/octet-stream',
+				'Content-Length': String(total),
+			},
+		});
+	};
+}());
+		</script>
 		<script src="index2.js"></script>
 		<script>
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":false,"executable":"index2","experimentalVK":false,"fileSizes":{"index2.pck":225046572,"index2.wasm":37685705},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index2","experimentalVK":false,"fileSizes":{"index2.pck":233172924,"index2.wasm":35739700},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
 const GODOT_THREADS_ENABLED = false;
 const engine = new Engine(GODOT_CONFIG);
 
-window.godotrunfunction = function() {
+(function () {
 	const statusOverlay = document.getElementById('status');
 	const statusProgress = document.getElementById('status-progress');
 	const statusNotice = document.getElementById('status-notice');
@@ -248,11 +269,9 @@ window.godotrunfunction = function() {
 			},
 		}).then(() => {
 			setStatusMode('hidden');
-			document.querySelector("#loading-text").remove();
 		}, displayFailureNotice);
 	}
-};
+}());
 		</script>
 	</body>
 </html>
-

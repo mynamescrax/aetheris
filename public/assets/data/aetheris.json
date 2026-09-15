@@ -342,16 +342,6 @@
     ]
   },
   {
-    "id": "crashbandicoot",
-    "title": "Crash Bandicoot",
-    "html": "assets/games/crashbandicoot.html",
-    "image": "assets/images/crashbandicoot.webp",
-    "source": "aetheris",
-    "tags": [
-      "Skill"
-    ]
-  },
-  {
     "id": "crashbandicoot3",
     "title": "Crash Bandicoot 3",
     "html": "assets/games/crashbandicoot3.html",
@@ -587,16 +577,6 @@
     "source": "aetheris",
     "tags": [
       "Action"
-    ]
-  },
-  {
-    "id": "fifa11",
-    "title": "FIFA 11",
-    "html": "assets/games/fifa11.html",
-    "image": "assets/images/fifa11.png",
-    "source": "aetheris",
-    "tags": [
-      "Sports"
     ]
   },
   {
@@ -1378,17 +1358,6 @@
     ]
   },
   {
-    "id": "minecraftindev",
-    "title": "Minecraft Indev",
-    "html": "assets/games/minecraftindev.html",
-    "image": "assets/images/minecraftindev.png",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action"
-    ]
-  },
-  {
     "id": "adarkroom",
     "title": "A Dark Room",
     "html": "assets/games/ADarkRoom.html",
@@ -1460,54 +1429,10 @@
     ]
   },
   {
-    "id": "minecraftbeta1.7.3",
-    "title": "Minecraft Beta 1.7.3",
-    "html": "assets/games/minecraftbeta1.7.3.html",
-    "image": "assets/images/minecraftbeta1.7.3.png",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action"
-    ]
-  },
-  {
-    "id": "minecraftbeta1.3",
-    "title": "Minecraft Beta 1.3",
-    "html": "assets/games/minecraftbeta1.3.html",
-    "image": "assets/images/minecraftbeta1.3.png",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action"
-    ]
-  },
-  {
-    "id": "minecraftalpha1.2.6",
-    "title": "Minecraft Alpha 1.2.6",
-    "html": "assets/games/minecraftalpha1.2.6.html",
-    "image": "assets/images/minecraftalpha1.2.6.png",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action"
-    ]
-  },
-  {
     "id": "minecraft1.5.2",
     "title": "Minecraft 1.5.2",
     "html": "assets/games/minecraft1.5.2.html",
     "image": "assets/images/minecraft1.5.2.png",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action"
-    ]
-  },
-  {
-    "id": "minecraft1.21.4",
-    "title": "Minecraft 1.21.4",
-    "html": "assets/games/minecraft1.21.4.html",
-    "image": "assets/images/minecraft1.21.4.png",
     "source": "aetheris",
     "tags": [
       "Strategy",
@@ -1651,7 +1576,7 @@
   {
     "id": "snowrider3d",
     "title": "Snow Rider 3D",
-    "html": "assets/games/snowrider3d.html",
+    "html": "assets/games/Snow Rider 3D.html",
     "image": "assets/images/snowrider3d.png",
     "source": "aetheris",
     "tags": [
@@ -1903,30 +1828,10 @@
     ]
   },
   {
-    "id": "fifa10",
-    "title": "FIFA 10",
-    "html": "assets/games/fifa10.html",
-    "image": "assets/images/fifa10.png",
-    "source": "aetheris",
-    "tags": [
-      "Sports"
-    ]
-  },
-  {
     "id": "silenthill",
     "title": "Silent Hill",
     "html": "assets/games/silenthill.html",
     "image": "assets/images/silenthill.png",
-    "source": "aetheris",
-    "tags": [
-      "Action"
-    ]
-  },
-  {
-    "id": "kirbysuperstarultra",
-    "title": "Kirby Super Star Ultra",
-    "html": "assets/games/kirbysuperstarultra.html",
-    "image": "assets/images/kirbysuperstarultra.png",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -1960,16 +1865,6 @@
     "source": "aetheris",
     "tags": [
       "Skill"
-    ]
-  },
-  {
-    "id": "metalgearsolid",
-    "title": "Metal Gear Solid",
-    "html": "assets/games/metalgearsolid.html",
-    "image": "assets/images/metalgearsolid.png",
-    "source": "aetheris",
-    "tags": [
-      "Action"
     ]
   },
   {
@@ -2060,26 +1955,6 @@
     "source": "aetheris",
     "tags": [
       "Strategy"
-    ]
-  },
-  {
-    "id": "breathofthewildnds",
-    "title": "Breath of the Wild NDS",
-    "html": "assets/games/breathofthewildnds.html",
-    "image": "assets/images/breathofthewildnds.png",
-    "source": "aetheris",
-    "tags": [
-      "Skill"
-    ]
-  },
-  {
-    "id": "pokemonheartgold",
-    "title": "Pokemon Heart Gold",
-    "html": "assets/games/pokemonheartgold.html",
-    "image": "assets/images/pokemonheartgold.png",
-    "source": "aetheris",
-    "tags": [
-      "Skill"
     ]
   },
   {
@@ -2414,7 +2289,7 @@
   {
     "id": "thebackrooms2d",
     "title": "The Backrooms 2D",
-    "html": "assets/games/backrooms2D.html",
+    "html": "assets/games/thebackrooms2D.html",
     "image": "assets/images/backrooms2D.webp",
     "source": "aetheris",
     "tags": [
@@ -2462,7 +2337,7 @@
     ]
   },
   {
-    "id": "as",
+    "id": "ahoysurvival",
     "title": "Ahoy Survival",
     "html": "assets/games/ahoysurvival.html",
     "image": "assets/images/ahoysurvival.jpg",
@@ -2670,46 +2545,6 @@
     "title": "8 Ball Classic",
     "html": "assets/games/8ballclassic.html",
     "image": "assets/images/8ballclassic.png",
-    "source": "aetheris",
-    "tags": [
-      "Action"
-    ]
-  },
-  {
-    "id": "phoenixwrightaceattorneytrialsandtribulations",
-    "title": "Phoenix Wright: Ace Attorney - Trials and Tribulations",
-    "html": "assets/games/phoenixwrightaceattorneytrialsandtribulations.html",
-    "image": "assets/images/phoenixwrightaceattorneytrialsandtribulations.png",
-    "source": "aetheris",
-    "tags": [
-      "Action"
-    ]
-  },
-  {
-    "id": "aceattorneyinvestigationsmilesedgeworth",
-    "title": "Ace Attorney Investigations: Miles Edgeworth",
-    "html": "assets/games/aceattorneyinvestigationsmilesedgeworth.html",
-    "image": "assets/images/aceattorneyinvestigationsmilesedgeworth.png",
-    "source": "aetheris",
-    "tags": [
-      "Action"
-    ]
-  },
-  {
-    "id": "phoenixwrightaceattorneyjusticeforall",
-    "title": "Phoenix Wright: Ace Attorney - Justice for All",
-    "html": "assets/games/phoenixwrightaceattorneyjusticeforall.html",
-    "image": "assets/images/phoenixwrightaceattorneyjusticeforall.png",
-    "source": "aetheris",
-    "tags": [
-      "Action"
-    ]
-  },
-  {
-    "id": "apollojusticeaceattorney",
-    "title": "Apollo Justice: Ace Attorney",
-    "html": "assets/games/apollojusticeaceattorney.html",
-    "image": "assets/images/apollojusticeaceattorney.png",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -3717,16 +3552,6 @@
     ]
   },
   {
-    "id": "vibrobbin",
-    "title": "Vib-robbin",
-    "html": "assets/games/vibrobbin.html",
-    "image": "assets/images/vibrobbin.png",
-    "source": "aetheris",
-    "tags": [
-      "Strategy"
-    ]
-  },
-  {
     "id": "helltaker",
     "title": "Helltaker",
     "html": "assets/games/helltaker.html",
@@ -3741,16 +3566,6 @@
     "title": "Cell Machine",
     "html": "assets/games/cellmachine.html",
     "image": "assets/images/cellmachine.png",
-    "source": "aetheris",
-    "tags": [
-      "Strategy"
-    ]
-  },
-  {
-    "id": "powerhover",
-    "title": "Power Hover",
-    "html": "assets/games/powerhover.html",
-    "image": "assets/images/powerhover.png",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -4412,16 +4227,6 @@
     "source": "aetheris",
     "tags": [
       "Action"
-    ]
-  },
-  {
-    "id": "killover",
-    "title": "Kill Over",
-    "html": "assets/games/killover.html",
-    "image": "assets/images/killover.jpg",
-    "source": "aetheris",
-    "tags": [
-      "Skill"
     ]
   },
   {
@@ -5385,7 +5190,7 @@
   {
     "id": "bergentruck201x",
     "title": "Bergentruck 201x",
-    "html": "assets/games/bergentruck201x.html",
+    "html": "assets/games/BERGENTRUCK 201x.html",
     "image": "assets/images/bergentruck201x.png",
     "source": "aetheris",
     "tags": [
@@ -6146,16 +5951,6 @@
     ]
   },
   {
-    "id": "hungrylamu",
-    "title": "Hungry Lamu",
-    "html": "assets/games/hungrylamu.html",
-    "image": "assets/images/hungrylamu.png",
-    "source": "aetheris",
-    "tags": [
-      "Skill"
-    ]
-  },
-  {
     "id": "hungrylamu2",
     "title": "Hungry Lamu 2",
     "html": "assets/games/hungrylamu2.html",
@@ -6227,8 +6022,8 @@
     ]
   },
   {
-    "id": "pizzatower",
-    "title": "Pizza Tower",
+    "id": "pizzatowerweb",
+    "title": "Pizza Tower (Web Port)",
     "html": "assets/games/pizzatower.html",
     "image": "assets/images/pizzatower.png",
     "source": "aetheris",
@@ -6262,16 +6057,6 @@
     "title": "People Playground",
     "html": "assets/games/peopleplayground.html",
     "image": "assets/images/peopleplayground.png",
-    "source": "aetheris",
-    "tags": [
-      "Action"
-    ]
-  },
-  {
-    "id": "residentevil",
-    "title": "Resident Evil",
-    "html": "assets/games/residentevil.html",
-    "image": "assets/images/residentevil.png",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -7482,7 +7267,7 @@
   {
     "id": "papaburgers",
     "title": "Papa's Burgeria",
-    "html": "assets/games/papaburgeria.html",
+    "html": "assets/games/papasburgeria.html",
     "image": "assets/images/burgeria.png",
     "source": "aetheris",
     "tags": [
@@ -7594,17 +7379,6 @@
     "html": "assets/games/sm64.html",
     "image": "assets/images/sm64.png",
     "tags": [
-      "Action"
-    ]
-  },
-  {
-    "id": "minecraft",
-    "title": "Minecraft Web",
-    "html": "assets/games/minecraft.html",
-    "image": "assets/images/mc.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
       "Action"
     ]
   },
@@ -7841,7 +7615,7 @@
   {
     "id": "helixjump",
     "title": "Helix Jump",
-    "html": "assets/games/helixjump.html",
+    "html": "assets/games/clhelixjump.html",
     "image": "assets/images/helixjump.webp",
     "source": "aetheris",
     "tags": [
@@ -8261,16 +8035,6 @@
     "source": "aetheris",
     "tags": [
       "Skill"
-    ]
-  },
-  {
-    "id": "gtavc",
-    "title": "Gta Vice City",
-    "html": "assets/games/gta.html",
-    "image": "assets/images/gtavc.jpg",
-    "source": "aetheris",
-    "tags": [
-      "Action"
     ]
   },
   {
