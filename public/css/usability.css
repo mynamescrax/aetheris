@@ -85,7 +85,8 @@ select {
   background: transparent;
   border: 1px solid var(--sidebar-border);
 }
-.immersive-mode .nav-handle {
+.immersive-mode .nav-handle,
+body.backup-open .nav-handle {
   display: none;
 }
 .nav-handle {

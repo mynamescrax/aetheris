@@ -491,6 +491,7 @@
       var navhandle = document.querySelector(".nav-handle");
 
       function setSidebar(open, restoreFocus) {
+        if (open && document.body.classList.contains("backup-open")) return;
         navcheck.checked = open;
         sidebar.inert = !open;
         document.querySelector(".sitewrap").inert = open;
@@ -569,6 +570,7 @@
         );
         setSidebar(false);
         document.body.classList.remove("immersive-mode");
+        document.body.classList.remove("backup-open");
         if (!fromHistory && location.hash !== "#" + route.route)
           history.pushState(null, "", "#" + route.route);
         if (requestedUrl === route.url) {
@@ -624,6 +626,7 @@
               : route.name,
           );
           document.body.classList.remove("immersive-mode");
+          document.body.classList.remove("backup-open");
         } catch (_) {}
       });
       gopage(location.hash.slice(1) || "home", true);
@@ -674,6 +677,12 @@
         if (msg.type === "navigate") gopage(msg.page);
         if (msg.type === "immersive-mode")
           document.body.classList.toggle("immersive-mode", msg.active === true);
+        if (msg.type === "backup-modal") {
+          var backupOpen = msg.active === true;
+          document.body.classList.toggle("backup-open", backupOpen);
+          navhandle.disabled = backupOpen;
+          if (backupOpen) setSidebar(false);
+        }
         if (msg.type === "performance-changed")
           document.documentElement.classList.toggle(
             "power-saving",

@@ -315,6 +315,17 @@
     } catch (e) {}
   }
 
+  function notifyParent(active) {
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage(
+          { type: "backup-modal", active: active === true },
+          location.origin,
+        );
+      }
+    } catch (e) {}
+  }
+
   // --- modal --------------------------------------------------------------
 
   function showBackupModal() {
@@ -323,6 +334,7 @@
     if (!backdrop) return;
 
     backdrop.style.display = "flex";
+    notifyParent(true);
 
     var remaining = CLOSE_DELAY_S;
     function tick() {
@@ -346,6 +358,7 @@
     function dismiss() {
       stampReminded();
       backdrop.style.display = "none";
+      notifyParent(false);
     }
 
     if (closebtn) closebtn.addEventListener("click", dismiss);
