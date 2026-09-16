@@ -2,7 +2,7 @@
 <html lang="en">
 
 <head>
-    <base href="https://cdn.jsdelivr.net/gh/bubblfan/soundboard@main/">
+    <base href="https://cdn.jsdelivr.net/gh/genizymath/soundboard@main/">
     <script>
         window.dataLayer = window.dataLayer || [];
 
@@ -17,6 +17,16 @@
     <script src="sounds.js" type="module"></script>
     <script src="main.js" type="module"></script>
     <link href="style.css" rel="stylesheet">
+    <style>
+        /* Upstream style.css still points these at the deleted genizy/soundboard
+           repo (403). Override with the moved genizymath/soundboard copies. */
+        .sound-image {
+            background-image: url('https://cdn.jsdelivr.net/gh/genizymath/soundboard@main/button.png');
+        }
+        .sound-image.pressed {
+            background-image: url('https://cdn.jsdelivr.net/gh/genizymath/soundboard@main/button_pressed.png');
+        }
+    </style>
 </head>
 
 <body>
