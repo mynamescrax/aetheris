@@ -21,7 +21,7 @@
     <script defer src="./js/preload.js?v=20260907.1"></script>
     <script defer src="./js/settings.js?v=20260907.1"></script>
     <script defer src="./js/data-transfer.js?v=20260907.1"></script>
-    <script defer src="./js/cache-reset.js?v=20260917.1"></script>
+    <script defer src="./js/cache-reset.js?v=20260917.2"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <script src="./js/navigation.js?v=20260907.1"></script>
@@ -404,6 +404,18 @@
             Reset cache
           </button>
         </div>
+
+        <h2>Site data</h2>
+        <h4>
+          Delete everything this site stored: game saves, favorites,
+          settings, caches, and the service worker. Export a backup first
+          if you want to keep anything.
+        </h4>
+        <div class="form-row">
+          <button onclick="clearsitedata(this)" class="secondary">
+            Clear site data
+          </button>
+        </div>
       </div>
 
       <div
@@ -439,6 +451,35 @@
         } finally {
           btn.disabled = false;
           btn.textContent = "Reset cache";
+        }
+      }
+
+      async function clearsitedata(btn) {
+        if (
+          !confirm(
+            "Delete ALL site data? This erases game saves, favorites, settings, and caches. Export a backup first if you want to keep anything.",
+          )
+        )
+          return;
+        if (
+          !confirm(
+            "Last chance — everything will be deleted and the page will reload. Continue?",
+          )
+        )
+          return;
+        btn.disabled = true;
+        btn.textContent = "Clearing…";
+        var status = document.getElementById("data-status");
+        try {
+          await AetherisCache.clearSiteData();
+          status.textContent = "All site data cleared. Reloading…";
+          setTimeout(function () {
+            window.location.replace("/");
+          }, 800);
+        } catch (error) {
+          status.textContent = error.message;
+          btn.disabled = false;
+          btn.textContent = "Clear site data";
         }
       }
 

@@ -138,6 +138,18 @@
       return clearDatabaseStores(name);
     });
   }
+  function failureMessage(results) {
+    return results
+      .filter(function (result) {
+        return result.status === "rejected";
+      })
+      .map(function (result) {
+        return result.reason && result.reason.message
+          ? result.reason.message
+          : String(result.reason);
+      })
+      .join(" ");
+  }
   async function reset() {
     var work = [];
     if (navigator.serviceWorker) {
@@ -186,15 +198,114 @@
     if (failures.length)
       throw new Error(
         "Reset was incomplete. " +
-          failures
-            .map(function (result) {
-              return result.reason && result.reason.message
-                ? result.reason.message
-                : String(result.reason);
-            })
-            .join(" ") +
+          failureMessage(results) +
           " Close other site tabs and retry.",
       );
   }
-  window.AetherisCache = { reset: reset, databaseNames: databases.slice() };
+
+  // Full wipe: every service worker, cache, IndexedDB database, storage
+  // area, and accessible cookie. Unlike reset() above this deliberately
+  // deletes game saves, favorites, and settings too — the settings page
+  // confirms twice and points at Export first.
+  function listAllDatabaseNames() {
+    var known = databases.slice();
+    if (!window.indexedDB || typeof indexedDB.databases !== "function")
+      return Promise.resolve(known);
+    return indexedDB
+      .databases()
+      .then(function (infos) {
+        (infos || []).forEach(function (info) {
+          if (info && info.name && known.indexOf(info.name) === -1)
+            known.push(info.name);
+        });
+        return known;
+      })
+      .catch(function () {
+        return known;
+      });
+  }
+
+  function clearWebStorage() {
+    try {
+      localStorage.clear();
+    } catch (_) {}
+    try {
+      sessionStorage.clear();
+    } catch (_) {}
+  }
+
+  function clearCookies() {
+    try {
+      var cookies = document.cookie ? document.cookie.split(";") : [];
+      cookies.forEach(function (cookie) {
+        var name = cookie.split("=")[0].replace(/^\s+|\s+$/g, "");
+        if (!name) return;
+        var expired =
+          name + "=; expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0;";
+        try {
+          document.cookie = expired + " path=/";
+        } catch (_) {}
+        try {
+          document.cookie = expired + " path=" + location.pathname;
+        } catch (_) {}
+      });
+    } catch (_) {}
+  }
+
+  async function clearSiteData() {
+    var work = [];
+    if (navigator.serviceWorker) {
+      work.push(
+        navigator.serviceWorker.getRegistrations().then(function (regs) {
+          return Promise.all(
+            regs.map(function (reg) {
+              return reg.unregister();
+            }),
+          );
+        }),
+      );
+    }
+    if (window.caches) {
+      work.push(
+        caches.keys().then(function (keys) {
+          return Promise.all(
+            keys.map(function (key) {
+              return caches.delete(key);
+            }),
+          );
+        }),
+      );
+    }
+    if (window.indexedDB) {
+      work.push(
+        listAllDatabaseNames().then(function (names) {
+          return Promise.allSettled(
+            names.map(function (name) {
+              return resetDatabase(name);
+            }),
+          ).then(function (results) {
+            var message = failureMessage(results);
+            if (message) throw new Error(message);
+          });
+        }),
+      );
+    }
+    var results = await Promise.allSettled(work);
+    clearWebStorage();
+    clearCookies();
+    var failures = results.filter(function (result) {
+      return result.status === "rejected";
+    });
+    if (failures.length)
+      throw new Error(
+        "Clear was incomplete. " +
+          failureMessage(results) +
+          " Close other site tabs and retry.",
+      );
+  }
+  window.AetherisCache = {
+    reset: reset,
+    clearSiteData: clearSiteData,
+    databaseNames: databases.slice(),
+  };
 })();
