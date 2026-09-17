@@ -200,6 +200,43 @@
     }
   }
 
+  // Unity/Godot web builds persist their filesystems (PlayerPrefs, saves)
+  // in IndexedDB FILE_DATA stores as {timestamp, mode, contents} records,
+  // and the engine compares entry timestamps to decide which direction to
+  // sync. Records whose timestamp degraded to null/a string (seen in the
+  // wild after old backup cycles) corrupt those comparisons: old progress
+  // keeps loading while new progress silently never persists. Repair means
+  // giving such records a real Date again — valid existing Dates (and valid
+  // ISO strings, converted in place to preserve their order) are untouched.
+  // Only FILE_DATA-shaped records (numeric mode) are eligible so no other
+  // game's schema can be affected.
+  function isUsableDate(value) {
+    // toString instead of instanceof: save values can arrive from another
+    // realm (game iframes), where instanceof Date is false for real Dates.
+    if (Object.prototype.toString.call(value) !== "[object Date]")
+      return false;
+    return !isNaN(value);
+  }
+
+  function normalizeTimestamp(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value))
+      return false;
+    if (typeof value.mode !== "number") return false;
+    if (!own(value, "timestamp")) {
+      value.timestamp = new Date();
+      return true;
+    }
+    var current = value.timestamp;
+    if (isUsableDate(current)) return false;
+    var fixed =
+      current === null || current === undefined
+        ? new Date()
+        : new Date(current);
+    if (isNaN(fixed)) fixed = new Date();
+    value.timestamp = fixed;
+    return true;
+  }
+
   function openDatabase(name, version, upgrade) {
     return new Promise(function (resolve, reject) {
       var settled = false;
@@ -413,6 +450,7 @@
       }
     }
     var databases = Object.create(null);
+    var repaired = 0;
     if (data.indexedDB) {
       if (Array.isArray(data.indexedDB) || typeof data.indexedDB !== "object")
         throw new Error("Invalid database section.");
@@ -458,14 +496,17 @@
                 return decode(key, legacy);
               }),
             values: values.map(function (value) {
-              return decode(value, legacy);
+              var decoded = decode(value, legacy);
+              if (storeName === "FILE_DATA" && normalizeTimestamp(decoded))
+                repaired++;
+              return decoded;
             }),
           };
         }
         databases[pair[0]] = prepared;
       }
     }
-    return { settings: settings, databases: databases };
+    return { settings: settings, databases: databases, repaired: repaired };
   }
 
   async function restoreDatabase(name, saved) {
@@ -592,6 +633,78 @@
     }
   }
 
+  // Repairs the live profile in place: scans every non-skipped database
+  // for FILE_DATA stores and rewrites records whose timestamp degraded
+  // (null/string/missing) as real Dates. Saves themselves are kept — only
+  // the timestamps the engines compare are fixed. Reload every game tab
+  // afterwards so the engines rebuild their in-memory state from disk.
+  async function repairSaves(progress) {
+    function note(stage) {
+      try {
+        if (typeof progress === "function") progress(stage);
+      } catch (_) {}
+    }
+    var checked = 0;
+    var fixed = 0;
+    var names = await listDatabases();
+    for (var n = 0; n < names.length; n++) {
+      var name = names[n];
+      note("Checking " + name + "…");
+      var db = null;
+      try {
+        db = await openDatabase(name);
+      } catch (error) {
+        if (error && error.name === "AbortError") continue;
+        throw error;
+      }
+      if (!db) continue;
+      try {
+        if (!db.objectStoreNames.contains("FILE_DATA")) continue;
+        checked++;
+        var rows = await new Promise(function (resolve, reject) {
+          var tx = db.transaction("FILE_DATA", "readonly");
+          var out = [];
+          tx.oncomplete = function () {
+            resolve(out);
+          };
+          tx.onerror = tx.onabort = function () {
+            reject(tx.error || new Error("Could not read " + name));
+          };
+          var store = tx.objectStore("FILE_DATA");
+          var cursor = store.openCursor();
+          cursor.onsuccess = function () {
+            var entry = cursor.result;
+            if (!entry) return;
+            out.push({ key: entry.primaryKey, value: entry.value });
+            entry.continue();
+          };
+          cursor.onerror = function () {
+            reject(cursor.error || new Error("Could not read " + name));
+          };
+        });
+        var todo = [];
+        rows.forEach(function (row) {
+          if (normalizeTimestamp(row.value)) todo.push(row);
+        });
+        if (!todo.length) continue;
+        await new Promise(function (resolve, reject) {
+          var tx = db.transaction("FILE_DATA", "readwrite");
+          tx.oncomplete = resolve;
+          tx.onerror = tx.onabort = function () {
+            reject(tx.error || new Error("Repair rolled back for " + name));
+          };
+          todo.forEach(function (row) {
+            tx.objectStore("FILE_DATA").put(row.value, row.key);
+          });
+        });
+        fixed += todo.length;
+      } finally {
+        db.close();
+      }
+    }
+    return { checked: checked, fixed: fixed };
+  }
+
   window.importdata = async function (event) {
     var file = event.target.files[0];
     event.target.value = "";
@@ -634,7 +747,11 @@
       status(
         "Import complete (" +
           restored +
-          " databases). Reload the page to apply settings.",
+          " databases" +
+          (data.repaired
+            ? ", " + data.repaired + " degraded save timestamp(s) repaired"
+            : "") +
+          "). Reload the page to apply settings.",
       );
     } catch (error) {
       status(
@@ -661,5 +778,7 @@
     prepare: prepareBackup,
     dump: dumpDatabase,
     restore: restoreDatabase,
+    repair: repairSaves,
+    normalizeTimestamp: normalizeTimestamp,
   };
 })();

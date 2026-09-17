@@ -20,7 +20,7 @@
     <script src="register-sw.js?v=20260907.1" defer></script>
     <script defer src="./js/preload.js?v=20260907.1"></script>
     <script defer src="./js/settings.js?v=20260907.1"></script>
-    <script defer src="./js/data-transfer.js?v=20260907.1"></script>
+    <script defer src="./js/data-transfer.js?v=20260917.1"></script>
     <script defer src="./js/cache-reset.js?v=20260917.3"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
@@ -416,6 +416,19 @@
             Clear site data
           </button>
         </div>
+
+        <h2>Game saves</h2>
+        <h4>
+          Unity and Godot games compare save timestamps to decide what to
+          keep. If old progress loads but new progress vanishes after a
+          reload, repair the timestamps. Your saves are kept — only the
+          broken timestamps are fixed. Reload your game tabs afterwards.
+        </h4>
+        <div class="form-row">
+          <button onclick="repairsaves(this)" class="secondary">
+            Repair saves
+          </button>
+        </div>
       </div>
 
       <div
@@ -484,6 +497,37 @@
           status.textContent = error.message;
           btn.disabled = false;
           btn.textContent = "Clear site data";
+        }
+      }
+
+      async function repairsaves(btn) {
+        if (
+          !confirm(
+            "Scan game-save databases for broken timestamps and fix them? Your saves are kept.",
+          )
+        )
+          return;
+        btn.disabled = true;
+        btn.textContent = "Repairing…";
+        var status = document.getElementById("data-status");
+        try {
+          var report = await AetherisBackup.repair(function (stage) {
+            status.textContent = stage;
+          });
+          status.textContent = report.fixed
+            ? "Repaired " +
+              report.fixed +
+              " save timestamp(s) in " +
+              report.checked +
+              " database(s). Reload your game tabs."
+            : "Checked " +
+              report.checked +
+              " save database(s). Timestamps look fine — reload your game tabs and test again.";
+        } catch (error) {
+          status.textContent = error.message;
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "Repair saves";
         }
       }
 
