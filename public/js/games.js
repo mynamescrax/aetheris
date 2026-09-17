@@ -8,13 +8,13 @@
   var limit = PAGE_SIZE;
   var sortByPlays = false;
   var playCounts = null;
-  var trending = { today: true, entries: [] };
+  var popularIds = [];
   var activeTags = new Set();
   var search = document.getElementById("search-box");
   var source = document.getElementById("source-filter");
   var main = document.getElementById("gamecards");
   var favGrid = document.getElementById("favoritedgames");
-  var popular = document.getElementById("trendinggames");
+  var popular = document.getElementById("populargames");
   var status = document.getElementById("games-status");
   var more = document.getElementById("games-more");
   var retry = document.getElementById("games-retry");
@@ -156,36 +156,19 @@
 
   function renderPopular() {
     if (!popular) return;
-    var label = document.getElementById("trending-label");
     var show =
       !search.value.trim() &&
       !activeTags.size &&
       (source.value === "aetheris" || source.value === "all");
     popular.replaceChildren();
-    if (show) {
-      trending.entries.forEach(function (entry, i) {
-        var game = byId[String(entry.id)];
-        if (!game) return;
-        var card = makeCard(game);
-        card.classList.add("trend-card");
-        var rank = document.createElement("span");
-        rank.className = "trend-rank";
-        rank.textContent = "#" + (i + 1);
-        rank.setAttribute("aria-hidden", "true");
-        var count = document.createElement("span");
-        count.className = "trend-plays";
-        count.textContent =
-          entry.plays + (trending.today ? " today" : " plays");
-        card.append(rank, count);
-        popular.appendChild(card);
+    if (show)
+      popularIds.forEach(function (id) {
+        if (byId[id]) popular.appendChild(makeCard(byId[id]));
       });
-      if (label)
-        label.textContent = trending.today
-          ? "🔥 Trending today"
-          : "🔥 Popular";
-    }
-    if (label)
-      label.style.display = popular.children.length ? "block" : "none";
+    document.getElementById("popular-label").style.display = popular.children
+      .length
+      ? "block"
+      : "none";
   }
 
   function render() {
@@ -353,23 +336,11 @@
 
   async function loadPopular() {
     try {
-      var response = await fetch("/api/plays/trending");
+      var response = await fetch("/api/plays/top");
       if (!response.ok) return;
       var data = await response.json();
-      if (data && Array.isArray(data.entries)) {
-        trending = {
-          today: data.today !== false,
-          entries: data.entries
-            .filter(function (e) {
-              return e && (typeof e.id === "string" || typeof e.id === "number");
-            })
-            .slice(0, 10)
-            .map(function (e) {
-              return { id: String(e.id), plays: Number(e.plays) || 0 };
-            }),
-        };
-        renderPopular();
-      }
+      popularIds = Array.isArray(data) ? data.slice(0, 10).map(String) : [];
+      renderPopular();
     } catch (_) {}
   }
 
