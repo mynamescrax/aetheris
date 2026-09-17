@@ -21,7 +21,7 @@
     <script defer src="./js/preload.js?v=20260907.1"></script>
     <script defer src="./js/settings.js?v=20260907.1"></script>
     <script defer src="./js/data-transfer.js?v=20260907.1"></script>
-    <script defer src="./js/cache-reset.js?v=20260917.2"></script>
+    <script defer src="./js/cache-reset.js?v=20260917.3"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <script src="./js/navigation.js?v=20260907.1"></script>
@@ -443,7 +443,9 @@
         btn.textContent = "Clearing…";
         var status = document.getElementById("data-status");
         try {
-          await AetherisCache.reset();
+          await AetherisCache.reset(function (stage) {
+            status.textContent = stage;
+          });
           status.textContent =
             "Proxy caches cleared. Reload the page to restart the proxy. Game saves and favorites were kept.";
         } catch (error) {
@@ -471,7 +473,9 @@
         btn.textContent = "Clearing…";
         var status = document.getElementById("data-status");
         try {
-          await AetherisCache.clearSiteData();
+          await AetherisCache.clearSiteData(function (stage) {
+            status.textContent = stage;
+          });
           status.textContent = "All site data cleared. Reloading…";
           setTimeout(function () {
             window.location.replace("/");

@@ -150,55 +150,120 @@
       })
       .join(" ");
   }
-  async function reset() {
-    var work = [];
-    if (navigator.serviceWorker) {
-      work.push(
-        navigator.serviceWorker
-          .getRegistrations()
-          .then(function (registrations) {
-            return Promise.all(
-              registrations
-                .filter(function (reg) {
-                  var worker = reg.active || reg.waiting || reg.installing;
-                  return (
-                    worker && new URL(worker.scriptURL).pathname === "/sw.js"
-                  );
-                })
-                .map(function (reg) {
-                  return reg.unregister();
-                }),
+  // Every browser API touched here (service-worker lookup, cache keys,
+  // IndexedDB open/transactions) can hang forever in a wedged profile or a
+  // cross-tab deadlock instead of resolving or rejecting — and a single
+  // never-settling promise used to stick the UI on "Clearing…" with no
+  // feedback at all. So every stage races against a timeout and names
+  // itself in the error, and reset()/clearSiteData() run their stages
+  // sequentially while reporting progress. They always settle.
+  function withTimeout(promise, ms, message) {
+    var timer;
+    var timeout = new Promise(function (_, reject) {
+      timer = setTimeout(function () {
+        reject(new Error(message));
+      }, ms);
+    });
+    return Promise.race([promise, timeout]).then(
+      function (value) {
+        clearTimeout(timer);
+        return value;
+      },
+      function (error) {
+        clearTimeout(timer);
+        throw error;
+      },
+    );
+  }
+
+  function notify(progress, stage) {
+    try {
+      if (typeof progress === "function") progress(stage);
+    } catch (_) {}
+  }
+
+  function unregisterServiceWorkers(all) {
+    return navigator.serviceWorker.getRegistrations().then(function (regs) {
+      return Promise.all(
+        regs
+          .filter(function (reg) {
+            if (all) return true;
+            var worker = reg.active || reg.waiting || reg.installing;
+            return (
+              worker && new URL(worker.scriptURL).pathname === "/sw.js"
             );
+          })
+          .map(function (reg) {
+            return reg.unregister();
           }),
       );
+    });
+  }
+
+  function deleteCaches(all) {
+    return caches.keys().then(function (keys) {
+      return Promise.all(
+        keys
+          .filter(function (key) {
+            if (all) return true;
+            return key === "__sw_meta__" || /^aetheris[-_]/i.test(key);
+          })
+          .map(function (key) {
+            return caches.delete(key);
+          }),
+      );
+    });
+  }
+
+  function resetDatabases(names) {
+    return Promise.allSettled(
+      names.map(function (name) {
+        return withTimeout(resetDatabase(name), 10000, name + " timed out");
+      }),
+    ).then(function (results) {
+      var message = failureMessage(results);
+      if (message) throw new Error(message);
+    });
+  }
+
+  async function reset(progress) {
+    var failures = [];
+    if (navigator.serviceWorker) {
+      notify(progress, "Clearing service worker…");
+      try {
+        await withTimeout(
+          unregisterServiceWorkers(false),
+          8000,
+          "Service worker lookup timed out",
+        );
+      } catch (error) {
+        failures.push(error);
+      }
     }
     if (window.caches) {
-      work.push(
-        caches.keys().then(function (keys) {
-          return Promise.all(
-            keys
-              .filter(function (key) {
-                return key === "__sw_meta__" || /^aetheris[-_]/i.test(key);
-              })
-              .map(function (key) {
-                return caches.delete(key);
-              }),
-          );
-        }),
-      );
+      notify(progress, "Clearing caches…");
+      try {
+        await withTimeout(deleteCaches(false), 8000, "Cache lookup timed out");
+      } catch (error) {
+        failures.push(error);
+      }
     }
-    if (window.indexedDB)
-      databases.forEach(function (name) {
-        work.push(resetDatabase(name));
-      });
-    var results = await Promise.allSettled(work);
-    var failures = results.filter(function (result) {
-      return result.status === "rejected";
-    });
+    if (window.indexedDB) {
+      notify(progress, "Clearing databases…");
+      try {
+        await resetDatabases(databases);
+      } catch (error) {
+        failures.push(error);
+      }
+    }
     if (failures.length)
       throw new Error(
         "Reset was incomplete. " +
-          failureMessage(results) +
+          failures
+            .map(function (error) {
+              return error && error.message ? error.message : String(error);
+            })
+            .join(" ") +
           " Close other site tabs and retry.",
       );
   }
@@ -252,54 +317,51 @@
     } catch (_) {}
   }
 
-  async function clearSiteData() {
-    var work = [];
+  async function clearSiteData(progress) {
+    var failures = [];
     if (navigator.serviceWorker) {
-      work.push(
-        navigator.serviceWorker.getRegistrations().then(function (regs) {
-          return Promise.all(
-            regs.map(function (reg) {
-              return reg.unregister();
-            }),
-          );
-        }),
-      );
+      notify(progress, "Removing service workers…");
+      try {
+        await withTimeout(
+          unregisterServiceWorkers(true),
+          8000,
+          "Service worker lookup timed out",
+        );
+      } catch (error) {
+        failures.push(error);
+      }
     }
     if (window.caches) {
-      work.push(
-        caches.keys().then(function (keys) {
-          return Promise.all(
-            keys.map(function (key) {
-              return caches.delete(key);
-            }),
-          );
-        }),
-      );
+      notify(progress, "Deleting caches…");
+      try {
+        await withTimeout(deleteCaches(true), 8000, "Cache lookup timed out");
+      } catch (error) {
+        failures.push(error);
+      }
     }
     if (window.indexedDB) {
-      work.push(
-        listAllDatabaseNames().then(function (names) {
-          return Promise.allSettled(
-            names.map(function (name) {
-              return resetDatabase(name);
-            }),
-          ).then(function (results) {
-            var message = failureMessage(results);
-            if (message) throw new Error(message);
-          });
-        }),
-      );
+      notify(progress, "Deleting databases…");
+      try {
+        await withTimeout(
+          listAllDatabaseNames().then(resetDatabases),
+          15000,
+          "Database lookup timed out",
+        );
+      } catch (error) {
+        failures.push(error);
+      }
     }
-    var results = await Promise.allSettled(work);
+    notify(progress, "Clearing storage…");
     clearWebStorage();
     clearCookies();
-    var failures = results.filter(function (result) {
-      return result.status === "rejected";
-    });
     if (failures.length)
       throw new Error(
         "Clear was incomplete. " +
-          failureMessage(results) +
+          failures
+            .map(function (error) {
+              return error && error.message ? error.message : String(error);
+            })
+            .join(" ") +
           " Close other site tabs and retry.",
       );
   }
