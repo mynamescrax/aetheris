@@ -18,9 +18,94 @@
   var status = document.getElementById("games-status");
   var more = document.getElementById("games-more");
   var retry = document.getElementById("games-retry");
+  var clearBtn = document.getElementById("games-clear");
   var random = document.getElementById("random-game-btn");
   var sort = document.getElementById("sort-plays-btn");
   var tagContainer = document.getElementById("tag-container");
+  var STATE_KEY = "aetheris-games-state";
+  var SCROLL_KEY = "aetheris-games-scroll";
+  var restoredScroll = null;
+
+  function saveState() {
+    try {
+      sessionStorage.setItem(
+        STATE_KEY,
+        JSON.stringify({
+          q: search.value,
+          src: source.value,
+          tags: Array.from(activeTags),
+          sort: sortByPlays,
+          limit: limit,
+        }),
+      );
+    } catch (_) {}
+  }
+
+  function restoreState() {
+    var s = null;
+    try {
+      s = JSON.parse(sessionStorage.getItem(STATE_KEY) || "null");
+    } catch (_) {
+      s = null;
+    }
+    if (!s || typeof s !== "object") return;
+    if (typeof s.q === "string") search.value = s.q;
+    if (
+      typeof s.src === "string" &&
+      Array.from(source.options).some(function (o) {
+        return o.value === s.src;
+      })
+    )
+      source.value = s.src;
+    if (Array.isArray(s.tags))
+      activeTags = new Set(
+        s.tags.filter(function (t) {
+          return typeof t === "string";
+        }),
+      );
+    if (typeof s.sort === "boolean") {
+      sortByPlays = s.sort;
+      sort.classList.toggle("sort-active", sortByPlays);
+      sort.setAttribute("aria-pressed", String(sortByPlays));
+    }
+    if (Number.isInteger(s.limit))
+      limit = Math.min(Math.max(s.limit, PAGE_SIZE), 2000);
+    try {
+      var y = Number(sessionStorage.getItem(SCROLL_KEY));
+      if (Number.isFinite(y) && y > 0) restoredScroll = y;
+    } catch (_) {}
+  }
+
+  function saveScroll() {
+    try {
+      sessionStorage.setItem(SCROLL_KEY, String(window.scrollY || 0));
+    } catch (_) {}
+  }
+
+  function toggleFavorite(game) {
+    var key = "favoritedGames";
+    var favs = Aetheris.readList(key);
+    var id = String(game.id);
+    var raw = game.rawid != null ? String(game.rawid) : null;
+    var has =
+      favs.indexOf(id) !== -1 || (raw !== null && favs.indexOf(raw) !== -1);
+    if (has) {
+      favs = favs.filter(function (favId) {
+        return favId !== id && (raw === null || favId !== raw);
+      });
+    } else {
+      favs.push(id);
+    }
+    if (!Aetheris.storage.setItem(key, JSON.stringify(favs))) {
+      status.textContent =
+        "Favorites could not be saved. Browser storage may be full or disabled.";
+      return;
+    }
+    favorites = favs;
+    var y = window.scrollY;
+    applyFilters(false);
+    if (typeof y === "number") window.scrollTo(0, y);
+  }
 
   function makeCard(game) {
     var card = document.createElement("a");
@@ -28,20 +113,37 @@
     card.href = "/load.html?game=" + encodeURIComponent(game.id);
     card.dataset.id = String(game.id);
     card.dataset.source = game.source || "aetheris";
+    var title = game.title || game.name || "Untitled";
     var img = document.createElement("img");
     img.loading = "lazy";
     img.decoding = "async";
     img.referrerPolicy = "no-referrer";
-    img.alt = "";
+    img.alt = title;
     img.src = game.image || game.img || Aetheris.placeholder;
     img.onerror = function () {
       img.onerror = null;
       img.src = Aetheris.placeholder;
     };
     var label = document.createElement("h4");
-    label.textContent = game.title || game.name || "Untitled";
+    label.textContent = title;
     card.title = label.textContent;
     card.append(img, label);
+    var fav = isFavorite(game);
+    var favBtn = document.createElement("button");
+    favBtn.type = "button";
+    favBtn.className = "card-fav";
+    favBtn.textContent = fav ? "★" : "☆";
+    favBtn.setAttribute("aria-pressed", String(fav));
+    favBtn.setAttribute(
+      "aria-label",
+      (fav ? "Remove from favorites: " : "Add to favorites: ") + title,
+    );
+    favBtn.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleFavorite(game);
+    });
+    card.appendChild(favBtn);
     return card;
   }
 
@@ -117,8 +219,11 @@
       !(window.gamesLoadErrors && window.gamesLoadErrors.length) &&
       !!catalog.length;
     more.hidden = visible >= filtered.length;
+    if (clearBtn)
+      clearBtn.hidden = !(catalog.length && !filtered.length);
     random.disabled = !filtered.length;
     renderPopular();
+    saveState();
   }
 
   function applyFilters(reset) {
@@ -199,9 +304,34 @@
     catalog.forEach(function (game) {
       byId[game.id] = game;
     });
+    restoreState();
     renderTags();
-    applyFilters();
+    if (sortByPlays && !playCounts) {
+      fetchPlayCounts().then(
+        function () {
+          applyFilters();
+        },
+        function () {
+          applyFilters();
+        },
+      );
+      applyFilters();
+    } else {
+      applyFilters();
+    }
+    if (restoredScroll !== null) {
+      requestAnimationFrame(function () {
+        window.scrollTo(0, restoredScroll);
+        restoredScroll = null;
+      });
+    }
     document.dispatchEvent(new Event("gamesrendered"));
+  }
+
+  async function fetchPlayCounts() {
+    var response = await fetch("/api/plays/counts");
+    if (!response.ok) throw new Error("Could not load play counts.");
+    playCounts = await response.json();
   }
 
   async function loadPopular() {
@@ -229,8 +359,22 @@
     render();
   });
   retry.addEventListener("click", function () {
-    location.reload();
+    if (Array.isArray(window.games) && window.games.length) build();
+    else location.reload();
   });
+  if (clearBtn)
+    clearBtn.addEventListener("click", function () {
+      search.value = "";
+      activeTags.clear();
+      source.value = "aetheris";
+      sortByPlays = false;
+      sort.classList.remove("sort-active");
+      sort.setAttribute("aria-pressed", "false");
+      limit = PAGE_SIZE;
+      renderTags();
+      applyFilters();
+      search.focus();
+    });
   random.addEventListener("click", function () {
     // Use ALL matching records, not just the first rendered page.
     applyFilters(false);
@@ -243,20 +387,25 @@
   });
   sort.addEventListener("click", async function () {
     sort.disabled = true;
+    sort.setAttribute("aria-busy", "true");
+    var prevSort = sortByPlays;
     try {
       if (!playCounts) {
-        var response = await fetch("/api/plays/counts");
-        if (!response.ok) throw new Error("Could not load play counts.");
-        playCounts = await response.json();
+        status.textContent = "Loading play counts…";
+        await fetchPlayCounts();
       }
       sortByPlays = !sortByPlays;
       sort.classList.toggle("sort-active", sortByPlays);
       sort.setAttribute("aria-pressed", String(sortByPlays));
       applyFilters();
     } catch (_) {
+      sortByPlays = prevSort;
+      sort.classList.toggle("sort-active", sortByPlays);
+      sort.setAttribute("aria-pressed", String(sortByPlays));
       status.textContent = "Play counts are unavailable. Please try again.";
     } finally {
       sort.disabled = false;
+      sort.removeAttribute("aria-busy");
     }
   });
   document
@@ -314,6 +463,26 @@
       favorites = Aetheris.readList("favoritedGames");
       applyFilters(false);
     }
+  });
+  // Keep scroll + filter state so Back from the player restores position.
+  var scrollTimer = null;
+  window.addEventListener(
+    "scroll",
+    function () {
+      clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(saveScroll, 200);
+    },
+    { passive: true },
+  );
+  document.addEventListener("click", function (event) {
+    if (event.target.closest(".card-item")) {
+      saveState();
+      saveScroll();
+    }
+  });
+  window.addEventListener("pagehide", function () {
+    saveState();
+    saveScroll();
   });
   if (window.gamesloaded) build();
   else window.addEventListener("gamesloaded", build, { once: true });
