@@ -238,36 +238,6 @@
         pointer-events: none;
       }
 
-      #nav-loading {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 12px;
-        background: rgba(10, 10, 15, 0.72);
-        color: var(--text-color, #e5e5e5);
-        font-family: system-ui, sans-serif;
-        font-size: 0.95rem;
-        z-index: 5;
-      }
-      #nav-loading[hidden] {
-        display: none;
-      }
-      #nav-loading-spinner {
-        width: 22px;
-        height: 22px;
-        border-radius: 50%;
-        border: 3px solid rgba(255, 255, 255, 0.2);
-        border-top-color: #fff;
-        animation: nav-spin 0.9s linear infinite;
-      }
-      @keyframes nav-spin {
-        to {
-          transform: rotate(360deg);
-        }
-      }
-
       iframe {
         border: 0;
         outline: none;
@@ -351,7 +321,7 @@
         }
       }
     </style>
-    <link rel="stylesheet" href="./css/usability.css?v=20260917.1" />
+    <link rel="stylesheet" href="./css/usability.css?v=20260907.1" />
   </head>
 
   <body class="app-mode">
@@ -500,10 +470,6 @@
     ></button>
 
     <div class="sitewrap">
-      <div id="nav-loading" hidden role="status">
-        <span id="nav-loading-spinner" aria-hidden="true"></span>
-        <span>Loading…</span>
-      </div>
       <iframe
         id="mainframe"
         class="embed-frame"
@@ -583,14 +549,6 @@
       var fadeTimer = null;
       var requestedUrl = mainframe.getAttribute("src");
       var navigating = false;
-      var navLoading = document.getElementById("nav-loading");
-
-      function showNavLoading() {
-        if (navLoading) navLoading.hidden = false;
-      }
-      function hideNavLoading() {
-        if (navLoading) navLoading.hidden = true;
-      }
 
       function updateActiveNav(name) {
         if (name === "load") name = "games";
@@ -616,10 +574,7 @@
         if (!fromHistory && location.hash !== "#" + route.route)
           history.pushState(null, "", "#" + route.route);
         if (requestedUrl === route.url) {
-          if (!navigating) {
-            mainframe.classList.remove("fading");
-            hideNavLoading();
-          }
+          if (!navigating) mainframe.classList.remove("fading");
           return;
         }
         clearTimeout(navigationTimer);
@@ -627,7 +582,6 @@
         requestedUrl = route.url;
         navigating = true;
         mainframe.classList.add("fading");
-        showNavLoading();
         navigationTimer = setTimeout(
           function () {
             navigationTimer = null;
@@ -639,7 +593,6 @@
             }
             fadeTimer = setTimeout(function () {
               mainframe.classList.remove("fading");
-              hideNavLoading();
             }, 1500);
           },
           matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 100,
@@ -655,7 +608,6 @@
       mainframe.addEventListener("load", function () {
         clearTimeout(fadeTimer);
         mainframe.classList.remove("fading");
-        hideNavLoading();
         try {
           var route = Aetheris.routeForUrl(
             mainframe.contentWindow.location.href,

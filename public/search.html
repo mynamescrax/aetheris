@@ -184,7 +184,7 @@
         }
       }
     </style>
-    <link rel="stylesheet" href="./css/usability.css?v=20260917.1" />
+    <link rel="stylesheet" href="./css/usability.css?v=20260907.1" />
   </head>
 
   <body>
@@ -216,27 +216,9 @@
       </div>
 
       <div id="frame-toolbar">
-        <button
-          onclick="toolbarfullscreen()"
-          title="Fullscreen"
-          aria-label="Fullscreen proxied page"
-        >
-          ⛶
-        </button>
-        <button
-          onclick="toolbarnewtab()"
-          title="Open in new tab"
-          aria-label="Open proxied page in new tab"
-        >
-          ↗
-        </button>
-        <button
-          onclick="toolbarrefresh()"
-          title="Refresh"
-          aria-label="Refresh proxied page"
-        >
-          ⟳
-        </button>
+        <button onclick="toolbarfullscreen()" title="Fullscreen">⛶</button>
+        <button onclick="toolbarnewtab()" title="Open in new tab">↗</button>
+        <button onclick="toolbarrefresh()" title="Refresh">⟳</button>
       </div>
 
       <div id="result-area">
@@ -321,7 +303,7 @@
         return p.createFrame(el);
       }
 
-      async function gourl(input, fromHistory) {
+      async function gourl(input) {
         var version = ++navigationVersion;
         clearTimeout(loadingTimer);
         var errorel = document.getElementById("sj-error");
@@ -335,21 +317,8 @@
 
         var finalurl = resolveurl(input);
         if (!finalurl) {
-          errorel.textContent = "Enter a URL or search query.";
+          errorel.textContent = "enter a url or search query.";
           return;
-        }
-
-        if (!fromHistory) {
-          try {
-            var next =
-              "search.html?q=" + encodeURIComponent(String(input).trim());
-            if (
-              location.search !==
-              "?" + next.slice("search.html?".length)
-            ) {
-              history.pushState({ q: input }, "", next);
-            }
-          } catch (_) {}
         }
 
         container.classList.add("results-open");
@@ -464,18 +433,12 @@
       }
 
       function toolbarrefresh() {
-        var errorel = document.getElementById("sj-error");
         if (currentframe && lasturl) {
           try {
             currentframe.reload();
           } catch (err) {
             console.error("refresh failed:", err);
-            if (errorel)
-              errorel.textContent =
-                "Refresh failed. Check your connection and try again.";
           }
-        } else if (errorel) {
-          errorel.textContent = "Nothing to refresh yet.";
         }
       }
 
@@ -490,15 +453,8 @@
       var q = urlparams.get("q");
       if (q) {
         document.getElementById("sj-address").value = q;
-        gourl(q, true);
+        gourl(q);
       }
-
-      window.addEventListener("popstate", function (e) {
-        var params = new URLSearchParams(window.location.search);
-        var next = params.get("q") || (e.state && e.state.q) || "";
-        document.getElementById("sj-address").value = next;
-        if (next) gourl(next, true);
-      });
     </script>
   </body>
 </html>

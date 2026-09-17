@@ -338,16 +338,7 @@ let flushtimer = null;
 function loadplays() {
   if (playscache) return playscache;
   try {
-    const raw = JSON.parse(readFileSync(playsfile, "utf8"));
-    // tolerate the { total, days } store shape written by an earlier
-    // build; only all-time totals are tracked now.
-    playscache =
-      raw && typeof raw === "object" && !Array.isArray(raw)
-        ? raw.total && typeof raw.total === "object"
-          ? raw.total
-          : raw
-        : {};
-    if (!playscache || typeof playscache !== "object") playscache = {};
+    playscache = JSON.parse(readFileSync(playsfile, "utf8"));
   } catch {
     playscache = {};
   }
