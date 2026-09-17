@@ -255,7 +255,7 @@
         }
       })();
     </script>
-    <link rel="stylesheet" href="./css/usability.css?v=20260907.1" />
+    <link rel="stylesheet" href="./css/usability.css?v=20260917.1" />
   </head>
 
   <body>
@@ -292,11 +292,7 @@
         <!-- Action buttons -->
         <div class="action-buttons" style="gap: 8px">
           <button
-            onclick="
-              location.href = new URLSearchParams(location.search).has('app')
-                ? '/apps.html'
-                : '/maths.html'
-            "
+            onclick="window.goback ? window.goback() : history.back()"
             aria-label="Back to library"
             title="Back"
             style="min-width: 44px; min-height: 44px; font-size: 20px"
@@ -382,7 +378,7 @@
 
     <script defer src="./register-sw.js?v=20260907.1"></script>
     <script defer src="./js/player-data.js?v=20260907.1"></script>
-    <script defer src="./js/load.js?v=20260907.1"></script>
+    <script defer src="./js/load.js?v=20260917.1"></script>
 
     <script>
       function downloadgame() {

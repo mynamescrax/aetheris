@@ -9,6 +9,50 @@
   var iframe = null;
   var started = false;
 
+  function goback() {
+    try {
+      if (
+        window.parent &&
+        window.parent !== window &&
+        typeof window.parent.navigateApp === "function"
+      ) {
+        window.parent.navigateApp(appid ? "apps" : "games");
+        return;
+      }
+    } catch (_) {}
+    if (window.history.length > 1) {
+      window.history.back();
+    } else {
+      location.href = appid ? "/apps.html" : "/maths.html";
+    }
+  }
+  window.goback = goback;
+
+  function showLoading(item) {
+    var container = document.getElementById("game-frame");
+    if (!container) return null;
+    container.replaceChildren();
+    var panel = document.createElement("div");
+    panel.className = "player-loading";
+    panel.setAttribute("role", "status");
+    var spinner = document.createElement("div");
+    spinner.className = "player-loading-spinner";
+    spinner.setAttribute("aria-hidden", "true");
+    var paragraph = document.createElement("p");
+    paragraph.textContent =
+      "Loading " + (item.title || item.name || (appid ? "app" : "game")) + "…";
+    var actions = document.createElement("div");
+    actions.className = "player-loading-actions";
+    var cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.textContent = appid ? "Back to apps" : "Back to games";
+    cancel.addEventListener("click", goback);
+    actions.appendChild(cancel);
+    panel.append(spinner, paragraph, actions);
+    container.appendChild(panel);
+    return panel;
+  }
+
   function message(text, error) {
     var container = document.getElementById("game-frame");
     if (!container) return;
@@ -23,11 +67,13 @@
       var retry = document.createElement("button");
       retry.textContent = "Try again";
       retry.addEventListener("click", function () {
-        location.reload();
+        started = false;
+        boot();
       });
-      var back = document.createElement("a");
-      back.href = appid ? "/apps.html" : "/maths.html";
+      var back = document.createElement("button");
+      back.type = "button";
       back.textContent = appid ? "Back to apps" : "Back to games";
+      back.addEventListener("click", goback);
       panel.append(retry, back);
     }
     container.appendChild(panel);
@@ -153,7 +199,13 @@
     }
 
     setupfavoritebutton(item);
-    container.innerHTML = "";
+    // Keep a visible loading state until the frame reports back. Clearing
+    // the container first is what made slow proxy boots look crashed.
+    var loading = showLoading(item);
+
+    function hideLoading() {
+      if (loading && loading.isConnected) loading.remove();
+    }
 
     var isexternal = new URL(url).origin !== location.origin;
 
@@ -165,9 +217,13 @@
       frameel.allow =
         "autoplay; fullscreen; encrypted-media; picture-in-picture";
       frameel.style.cssText = "width:100%;height:100%;border:0;";
+      frameel.addEventListener("load", hideLoading, { once: true });
       iframe = proxy.createFrame(frameel);
       container.appendChild(frameel);
       await window.aetherisProxy.go(iframe, url);
+      // Proxied frames don't always fire load after go(); fall back to
+      // hiding the spinner once navigation was accepted.
+      setTimeout(hideLoading, 3000);
     } else {
       var frame = document.createElement("iframe");
       frame.allowFullscreen = true;
@@ -213,6 +269,7 @@
 
       frame.src = url;
       frame.addEventListener("load", function () {
+        hideLoading();
         try {
           if (
             frame.contentDocument.querySelector(
