@@ -179,10 +179,15 @@
           </div>
         </div>
 
-        <div class="section-label" id="popular-label" style="display: none">
-          🔥 Popular
+        <div class="section-label" id="trending-label" style="display: none">
+          🔥 Trending today
         </div>
-        <div class="card-container" id="populargames"></div>
+        <div
+          class="trend-bar"
+          id="trendinggames"
+          role="list"
+          aria-label="Trending games"
+        ></div>
         <div class="section-label" id="favorites-label" style="display: none">
           Favorites
         </div>
@@ -193,6 +198,9 @@
         </p>
         <button id="games-more" type="button" class="library-more" hidden>
           Show more games
+        </button>
+        <button id="games-clear" type="button" class="library-more" hidden>
+          Clear search &amp; filters
         </button>
         <button id="games-retry" type="button" class="library-more" hidden>
           Retry loading catalog

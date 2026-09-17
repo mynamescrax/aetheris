@@ -292,11 +292,7 @@
         <!-- Action buttons -->
         <div class="action-buttons" style="gap: 8px">
           <button
-            onclick="
-              location.href = new URLSearchParams(location.search).has('app')
-                ? '/apps.html'
-                : '/maths.html'
-            "
+            onclick="window.goback ? window.goback() : history.back()"
             aria-label="Back to library"
             title="Back"
             style="min-width: 44px; min-height: 44px; font-size: 20px"

@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="./css/cards.css?v=20260907.1" />
     <link rel="stylesheet" href="./css/themes.css?v=20260907.1" />
     <link rel="stylesheet" href="./css/nav.css?v=20260907.1" />
+    <link rel="stylesheet" href="./css/games.css?v=20260907.2" />
     <script src="register-sw.js?v=20260907.1" defer></script>
     <script defer src="./js/preload.js?v=20260907.1"></script>
     <script defer src="./assets/data/apps.js?v=20260907.1"></script>
@@ -73,13 +74,30 @@
   <body>
     <div class="page-wrapper">
       <h1>Apps</h1>
-      <input
-        id="search-box"
-        type="search"
-        aria-label="Search apps"
-        placeholder="Search apps…"
-        autocomplete="off"
-      />
+      <div class="games-topbar">
+        <div class="games-search-wrap">
+          <input
+            id="search-box"
+            type="search"
+            aria-label="Search apps"
+            placeholder="Search apps..."
+            autocomplete="off"
+          />
+          <span class="search-focus-ring" aria-hidden="true"></span>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center">
+          <button
+            class="random-game-btn"
+            id="random-app-btn"
+            type="button"
+            aria-label="Open a random app"
+            title="Open a random app"
+            disabled
+          >
+            Random
+          </button>
+        </div>
+      </div>
       <div
         class="section-label"
         id="favorited-apps-label"
@@ -90,6 +108,15 @@
       <div class="card-container" id="favoritedapps"></div>
       <div class="card-container" id="appcards"></div>
       <p id="apps-status" class="library-status" role="status">Loading apps…</p>
+      <button id="apps-more" type="button" class="library-more" hidden>
+        Show more apps
+      </button>
+      <button id="apps-clear" type="button" class="library-more" hidden>
+        Clear search
+      </button>
+      <button id="apps-retry" type="button" class="library-more" hidden>
+        Retry loading catalog
+      </button>
     </div>
   </body>
 </html>

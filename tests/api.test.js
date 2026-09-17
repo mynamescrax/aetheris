@@ -304,3 +304,33 @@ test("account deletion removes counterpart conversations", async () => {
   assert.equal(inbox.data.conversations.length, 0);
   assert.equal(existsSync(join(runtime, "database", "testbob.json")), false);
 });
+
+test("play bumps feed today's trending list with an all-time fallback", async () => {
+  const catalog = JSON.parse(
+    readFileSync(join(root, "public/assets/data/aetheris.json"), "utf8"),
+  );
+  const id = String(catalog[0].id);
+  const bump = await api("/api/plays/" + encodeURIComponent(id), {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify({ deviceId: device() }),
+  });
+  assert.equal(bump.status, 200);
+  assert.equal(bump.data.ok, true);
+
+  const trending = await api("/api/plays/trending");
+  assert.equal(trending.status, 200);
+  assert.equal(trending.data.today, true);
+  assert.ok(Array.isArray(trending.data.entries));
+  assert.ok(
+    trending.data.entries.some(
+      (entry) => entry.id === id && entry.plays >= 1,
+    ),
+  );
+
+  // legacy all-time endpoints keep working on the migrated store
+  const top = await api("/api/plays/top");
+  assert.ok(top.data.includes(id));
+  const counts = await api("/api/plays/counts");
+  assert.ok(counts.data[id] >= 1);
+});

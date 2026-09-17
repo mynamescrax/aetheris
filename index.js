@@ -330,17 +330,49 @@ function isgame(id) {
 
 const playsfile = join(process.cwd(), "gameplays.json");
 const FLUSH_DELAY = 5_000;
+// daily buckets are pruned to bound file growth
+const DAY_KEEP = 14;
 
 let playscache = null;
 let playsdirty = false;
 let flushtimer = null;
 
+// plays store: { total: {id: count}, days: { "YYYY-MM-DD": {id: count} } }.
+// gameplays.json previously held a flat {id: count} map; that shape is
+// migrated on load so existing counts survive the upgrade.
+function daykey(date = new Date()) {
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${m}-${d}`;
+}
+
+function normalizeplays(raw) {
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    if (raw.total && typeof raw.total === "object") {
+      if (!raw.days || typeof raw.days !== "object" || Array.isArray(raw.days))
+        raw.days = {};
+      return raw;
+    }
+    return { total: raw, days: {} };
+  }
+  return { total: {}, days: {} };
+}
+
+function topentries(counts, n) {
+  return Object.entries(counts || {})
+    .filter(([id]) => isgame(id))
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, n);
+}
+
 function loadplays() {
   if (playscache) return playscache;
   try {
-    playscache = JSON.parse(readFileSync(playsfile, "utf8"));
+    playscache = normalizeplays(
+      JSON.parse(readFileSync(playsfile, "utf8")),
+    );
   } catch {
-    playscache = {};
+    playscache = { total: {}, days: {} };
   }
   return playscache;
 }
@@ -368,12 +400,23 @@ function scheduleflush() {
 
 function bumpplay(id) {
   const plays = loadplays();
-  plays[id] = (plays[id] || 0) + 1;
+  plays.total[id] = (plays.total[id] || 0) + 1;
+  const today = daykey();
+  if (!plays.days[today] || typeof plays.days[today] !== "object")
+    plays.days[today] = {};
+  plays.days[today][id] = (plays.days[today][id] || 0) + 1;
+  // bound file growth: keep only the most recent days
+  const keys = Object.keys(plays.days).sort();
+  while (keys.length > DAY_KEEP) delete plays.days[keys.shift()];
+  // fresh bumps must be visible to the top/counts/trending readers
+  topstale = 0;
+  countsstale = 0;
+  trendstale = 0;
   scheduleflush();
 }
 
 if (!existsSync(playsfile)) {
-  playscache = {};
+  playscache = { total: {}, days: {} };
   playsdirty = true;
   flushplays();
 }
@@ -613,21 +656,19 @@ fastify.get("/online-count", (_req, reply) => {
   reply.send({ count: clients.size });
 });
 
-// cached responses for the top/counts endpoints — recalculated every 10s at most
+// cached responses for the plays endpoints — recalculated every 10s at most
 let toppopular = null;
 let topstale = 0;
 let countscache = null;
 let countsstale = 0;
+let trendcache = null;
+let trendstale = 0;
 const CACHE_TTL = 10_000;
 
 fastify.get("/api/plays/top", (_req, reply) => {
   const now = Date.now();
   if (!toppopular || now - topstale > CACHE_TTL) {
-    toppopular = Object.entries(loadplays())
-      .filter(([id]) => isgame(id))
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
-      .map(([id]) => id);
+    toppopular = topentries(loadplays().total, 10).map(([id]) => id);
     topstale = now;
   }
   reply.send(toppopular);
@@ -637,12 +678,34 @@ fastify.get("/api/plays/counts", (_req, reply) => {
   const now = Date.now();
   if (!countscache || now - countsstale > CACHE_TTL) {
     countscache = {};
-    for (const [id, count] of Object.entries(loadplays())) {
+    for (const [id, count] of Object.entries(loadplays().total)) {
       if (isgame(id)) countscache[id] = count;
     }
     countsstale = now;
   }
   reply.send(countscache);
+});
+
+// today's top games for the "Trending today" strip. Falls back to the
+// all-time top (today: false) so the strip stays useful on quiet days.
+fastify.get("/api/plays/trending", (req, reply) => {
+  const now = Date.now();
+  if (!trendcache || now - trendstale > CACHE_TTL) {
+    const plays = loadplays();
+    let entries = topentries(plays.days[daykey()], 10);
+    let today = entries.length > 0;
+    if (!today) entries = topentries(plays.total, 10);
+    trendcache = {
+      today,
+      entries: entries.map(([id, count]) => ({ id, plays: count })),
+    };
+    trendstale = now;
+  }
+  const limit = Math.min(Math.max(parseInt(req.query?.limit, 10) || 10, 1), 20);
+  reply.send({
+    today: trendcache.today,
+    entries: trendcache.entries.slice(0, limit),
+  });
 });
 
 // one bump per (fingerprint, game) per minute — stops trivial loop inflation
@@ -818,10 +881,10 @@ fastify.post("/api/report", async (req, reply) => {
 async function poststats() {
   if (!STATS_WEBHOOK_URL) return;
 
-  const plays = loadplays();
-  const totalplays = Object.values(plays).reduce((a, b) => a + b, 0);
+  const totals = loadplays().total;
+  const totalplays = Object.values(totals).reduce((a, b) => a + b, 0);
   const medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"];
-  const top5 = Object.entries(plays)
+  const top5 = Object.entries(totals)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
     .map(([id, count], i) => `${medals[i]} **${id}** — ${count} plays`)

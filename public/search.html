@@ -216,9 +216,27 @@
       </div>
 
       <div id="frame-toolbar">
-        <button onclick="toolbarfullscreen()" title="Fullscreen">⛶</button>
-        <button onclick="toolbarnewtab()" title="Open in new tab">↗</button>
-        <button onclick="toolbarrefresh()" title="Refresh">⟳</button>
+        <button
+          onclick="toolbarfullscreen()"
+          title="Fullscreen"
+          aria-label="Fullscreen proxied page"
+        >
+          ⛶
+        </button>
+        <button
+          onclick="toolbarnewtab()"
+          title="Open in new tab"
+          aria-label="Open proxied page in new tab"
+        >
+          ↗
+        </button>
+        <button
+          onclick="toolbarrefresh()"
+          title="Refresh"
+          aria-label="Refresh proxied page"
+        >
+          ⟳
+        </button>
       </div>
 
       <div id="result-area">
@@ -303,7 +321,7 @@
         return p.createFrame(el);
       }
 
-      async function gourl(input) {
+      async function gourl(input, fromHistory) {
         var version = ++navigationVersion;
         clearTimeout(loadingTimer);
         var errorel = document.getElementById("sj-error");
@@ -317,8 +335,21 @@
 
         var finalurl = resolveurl(input);
         if (!finalurl) {
-          errorel.textContent = "enter a url or search query.";
+          errorel.textContent = "Enter a URL or search query.";
           return;
+        }
+
+        if (!fromHistory) {
+          try {
+            var next =
+              "search.html?q=" + encodeURIComponent(String(input).trim());
+            if (
+              location.search !==
+              "?" + next.slice("search.html?".length)
+            ) {
+              history.pushState({ q: input }, "", next);
+            }
+          } catch (_) {}
         }
 
         container.classList.add("results-open");
@@ -433,12 +464,18 @@
       }
 
       function toolbarrefresh() {
+        var errorel = document.getElementById("sj-error");
         if (currentframe && lasturl) {
           try {
             currentframe.reload();
           } catch (err) {
             console.error("refresh failed:", err);
+            if (errorel)
+              errorel.textContent =
+                "Refresh failed. Check your connection and try again.";
           }
+        } else if (errorel) {
+          errorel.textContent = "Nothing to refresh yet.";
         }
       }
 
@@ -453,8 +490,15 @@
       var q = urlparams.get("q");
       if (q) {
         document.getElementById("sj-address").value = q;
-        gourl(q);
+        gourl(q, true);
       }
+
+      window.addEventListener("popstate", function (e) {
+        var params = new URLSearchParams(window.location.search);
+        var next = params.get("q") || (e.state && e.state.q) || "";
+        document.getElementById("sj-address").value = next;
+        if (next) gourl(next, true);
+      });
     </script>
   </body>
 </html>
