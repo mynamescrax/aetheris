@@ -407,10 +407,41 @@
 
         <h2>Game saves</h2>
         <h4>
-          Delete every game's saves and start over: all Unity/Godot save
-          data plus game storage. Settings, favorites, and chat sign-ins
-          are kept. Close all game tabs first and reload them afterwards.
-          Export a backup first if you might want anything back.
+          Wipe ONE game's data: press Track, play only that game for a
+          bit, come back, press Show what changed, then Wipe. What moved
+          is exactly what gets deleted — nothing else is touched.
+        </h4>
+        <div class="form-row">
+          <button
+            id="track-start-btn"
+            onclick="trackgame(this)"
+            class="secondary"
+          >
+            1. Track game data
+          </button>
+          <button
+            id="track-diff-btn"
+            onclick="showchanges(this)"
+            class="secondary"
+            disabled
+          >
+            2. Show what changed
+          </button>
+          <button
+            id="track-wipe-btn"
+            onclick="wipetracked(this)"
+            class="secondary"
+            disabled
+          >
+            3. Wipe this data
+          </button>
+        </div>
+        <h4>
+          Or delete every game's saves and start over: all Unity/Godot
+          save data plus game storage. Settings, favorites, and chat
+          sign-ins are kept. Close all game tabs first and reload them
+          afterwards. Export a backup first if you might want anything
+          back.
         </h4>
         <div class="form-row">
           <button onclick="wipegamesaves(this)" class="secondary">
@@ -452,6 +483,106 @@
         } finally {
           btn.disabled = false;
           btn.textContent = "Reset cache";
+        }
+      }
+
+      function settrackbuttons(started, found) {
+        document.getElementById("track-start-btn").disabled = false;
+        document.getElementById("track-start-btn").textContent =
+          started && !found ? "1. Track again" : "1. Track game data";
+        document.getElementById("track-diff-btn").disabled = !started;
+        document.getElementById("track-wipe-btn").disabled = !found;
+      }
+
+      async function trackgame(btn) {
+        btn.disabled = true;
+        var status = document.getElementById("data-status");
+        try {
+          status.textContent = "Snapshotting storage…";
+          var snap = await AetherisBackup.trackStart(function (stage) {
+            status.textContent = stage;
+          });
+          status.textContent =
+            "Tracking " +
+            snap.databases +
+            " database(s). Now play ONLY that game for a bit, then come back here and press “Show what changed”. Don't reload this page in between.";
+          settrackbuttons(true, false);
+        } catch (error) {
+          status.textContent = error.message;
+          btn.disabled = false;
+        }
+      }
+
+      async function showchanges(btn) {
+        btn.disabled = true;
+        var status = document.getElementById("data-status");
+        try {
+          status.textContent = "Comparing storage…";
+          var diff = await AetherisBackup.trackDiff(function (stage) {
+            status.textContent = stage;
+          });
+          if (!diff.records && !diff.keys) {
+            status.textContent =
+              "Nothing changed. Make sure you actually played the game (not just loaded it), then press “Show what changed” again — or press “Track game data” to restart tracking.";
+            btn.disabled = false;
+            return;
+          }
+          var parts = [];
+          if (diff.records)
+            parts.push(diff.records + " record(s)" + snapshotroots(diff));
+          if (diff.keys) parts.push(diff.keys + " stored value(s)");
+          status.textContent =
+            "That session touched " +
+            parts.join(" and ") +
+            ". Press “Wipe this data” to delete exactly that — nothing else.";
+          settrackbuttons(true, true);
+        } catch (error) {
+          status.textContent = error.message;
+          btn.disabled = false;
+        }
+      }
+
+      function snapshotroots(diff) {
+        var roots = (diff.subtrees || []).slice(0, 3);
+        if (!roots.length) return "";
+        var text = " in " + roots.join(", ");
+        if (diff.subtrees.length > 3)
+          text += " and " + (diff.subtrees.length - 3) + " more place(s)";
+        return text;
+      }
+
+      async function wipetracked(btn) {
+        var status = document.getElementById("data-status");
+        if (
+          !confirm(
+            "Wipe the tracked game data shown above? This cannot be undone. Export a backup first if you might want it back.",
+          )
+        )
+          return;
+        if (
+          !confirm(
+            "Last chance — close all game tabs first, or an open game will write its data back over the wipe. Really wipe it?",
+          )
+        )
+          return;
+        btn.disabled = true;
+        btn.textContent = "3. Wiping…";
+        try {
+          var report = await AetherisBackup.trackWipe(function (stage) {
+            status.textContent = stage;
+          });
+          status.textContent =
+            "Wiped " +
+            report.records +
+            " record(s) and " +
+            report.keys +
+            " stored value(s). Reload your game tabs — that game starts fresh now.";
+        } catch (error) {
+          status.textContent = error.message;
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "3. Wipe this data";
+          settrackbuttons(false, false);
         }
       }
 
