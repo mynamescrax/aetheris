@@ -11,7 +11,7 @@ function skey(key) {
 // value cursors, and key deletes — everything the tracked-wipe flow uses.
 function fakeIndexedDB(seed) {
   const dbs = new Map();
-  for (const [db, stores] of Object.entries(seed)) {
+  for (const [db, stores] of Object.entries(seed ?? {})) {
     const m = new Map();
     for (const [s, rows] of Object.entries(stores))
       m.set(
@@ -120,8 +120,8 @@ function fakeIndexedDB(seed) {
   };
 }
 
-function harness(seed, lsKeys) {
-  const store = new Map(Object.entries(lsKeys));
+function harness(seed, lsKeys, shared) {
+  const store = shared?.store ?? new Map(Object.entries(lsKeys ?? {}));
   const context = {
     setTimeout,
     clearTimeout,
@@ -135,7 +135,7 @@ function harness(seed, lsKeys) {
       removeItem: (k) => void store.delete(k),
     },
     sessionStorage: { clear() {} },
-    indexedDB: fakeIndexedDB(seed),
+    indexedDB: shared?.idb ?? fakeIndexedDB(seed),
     Aetheris: { readList: () => [] },
   };
   context.window = { addEventListener() {} };
@@ -146,7 +146,12 @@ function harness(seed, lsKeys) {
     ),
     context,
   );
-  return { api: context.window.AetherisBackup, context, store };
+  return {
+    api: context.window.AetherisBackup,
+    context,
+    store,
+    idb: context.indexedDB,
+  };
 }
 
 function prefs(n) {
@@ -238,4 +243,56 @@ test("empty diff reports nothing to wipe", async () => {
   assert.equal(diff.records, 0);
   assert.equal(diff.keys, 0);
   await assert.rejects(api.trackWipe(), /nothing/i);
+});
+
+test("tracking survives a page reload via storage", async () => {
+  const first = harness(
+    { "/idbfs": { FILE_DATA: [["/idbfs/aaa/PlayerPrefs", prefs(1)]] } },
+    { gameA_level: "3" },
+  );
+  assert.equal(first.api.trackState(), "idle");
+  await first.api.trackStart();
+  assert.equal(first.api.trackState(), "tracking");
+  assert.ok(first.store.has("__trackSnap"));
+
+  // Simulate leaving Settings (fresh JS context, same profile).
+  const second = harness(null, null, {
+    store: first.store,
+    idb: first.idb,
+  });
+  assert.equal(second.api.trackState(), "tracking");
+
+  // Play, then diff in the new context.
+  first.context.indexedDB._dbs
+    .get("/idbfs")
+    .get("FILE_DATA")
+    .get('string:"/idbfs/aaa/PlayerPrefs"').value = prefs(2);
+  const diff = await second.api.trackDiff();
+  assert.equal(diff.records, 1);
+  assert.equal(second.api.trackState(), "ready");
+
+  // Reload once more: the footprint survives too.
+  const third = harness(null, null, { store: first.store, idb: first.idb });
+  assert.equal(third.api.trackState(), "ready");
+  const report = await third.api.trackWipe();
+  assert.ok(report.records >= 1);
+  assert.equal(first.store.has("__trackSnap"), false);
+  assert.equal(third.api.trackState(), "idle");
+});
+
+test("stale tracking is discarded", async () => {
+  const store = new Map([
+    [
+      "__trackSnap",
+      JSON.stringify({
+        snap: { dbs: {}, ls: {} },
+        footprint: null,
+        at: Date.now() - 3 * 60 * 60 * 1000,
+      }),
+    ],
+  ]);
+  const { api } = harness(null, null, { store, idb: null });
+  assert.equal(api.trackState(), "idle");
+  assert.equal(store.has("__trackSnap"), false);
+  await assert.rejects(api.trackDiff(), /Track game data/);
 });

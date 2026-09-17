@@ -20,7 +20,7 @@
     <script src="register-sw.js?v=20260907.1" defer></script>
     <script defer src="./js/preload.js?v=20260907.1"></script>
     <script defer src="./js/settings.js?v=20260907.1"></script>
-    <script defer src="./js/data-transfer.js?v=20260917.5"></script>
+    <script defer src="./js/data-transfer.js?v=20260917.6"></script>
     <script defer src="./js/cache-reset.js?v=20260907.1"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
@@ -505,7 +505,7 @@
           status.textContent =
             "Tracking " +
             snap.databases +
-            " database(s). Now play ONLY that game for a bit, then come back here and press “Show what changed”. Don't reload this page in between.";
+            " database(s). Now play ONLY that game for a bit, then come back here and press “Show what changed”. You can leave this page in between — tracking survives.";
           settrackbuttons(true, false);
         } catch (error) {
           status.textContent = error.message;
@@ -638,6 +638,19 @@
         if (saved && document.getElementById("section-" + saved)) {
           showsection(saved);
         }
+        try {
+          var state =
+            window.AetherisBackup && window.AetherisBackup.trackState
+              ? window.AetherisBackup.trackState()
+              : "idle";
+          if (state !== "idle") {
+            settrackbuttons(true, state === "ready");
+            document.getElementById("data-status").textContent =
+              state === "ready"
+                ? "Earlier tracking is still here — press “Show what changed” again, or “Track game data” to restart."
+                : "Earlier tracking is still on — play the game, then press “Show what changed”.";
+          }
+        } catch (_) {}
       });
     </script>
   </body>

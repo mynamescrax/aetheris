@@ -408,7 +408,54 @@
   // expanded to the full save folder so untouched old saves go too. Only
   // deletions by key: databases themselves are never deleted, so there is
   // no version-upgrade or blocked-connection hazard anywhere in this flow.
+  //
+  // The snapshot lives in localStorage (not just module memory) because
+  // leaving this page — e.g. opening the game through the site menu —
+  // reloads Settings and would otherwise silently discard the tracking.
+  // Snapshots older than two hours are discarded as stale.
+  var TRACK_KEY = "__trackSnap";
+  var TRACK_TTL_MS = 2 * 60 * 60 * 1000;
   var tracking = null;
+
+  function saveTracking() {
+    try {
+      if (!tracking) localStorage.removeItem(TRACK_KEY);
+      else
+        localStorage.setItem(
+          TRACK_KEY,
+          JSON.stringify({ snap: tracking.snap, footprint: tracking.footprint || null, at: Date.now() }),
+        );
+    } catch (_) {}
+  }
+
+  function loadTracking() {
+    var raw = null;
+    try {
+      raw = localStorage.getItem(TRACK_KEY);
+    } catch (_) {}
+    if (!raw) return;
+    try {
+      var saved = JSON.parse(raw);
+      if (
+        !saved ||
+        typeof saved !== "object" ||
+        !saved.snap ||
+        typeof saved.at !== "number" ||
+        Date.now() - saved.at > TRACK_TTL_MS
+      )
+        throw new Error("stale");
+      tracking = { snap: saved.snap, footprint: saved.footprint || null };
+    } catch (_) {
+      tracking = null;
+      try {
+        localStorage.removeItem(TRACK_KEY);
+      } catch (_) {}
+    }
+  }
+
+  try {
+    loadTracking();
+  } catch (_) {}
 
   function hashAdd(h, text) {
     for (var i = 0; i < text.length; i++)
@@ -538,7 +585,10 @@
     }
     for (var i = 0; i < localStorage.length; i++) {
       var key = localStorage.key(i);
-      if (!key) continue;
+      // Kept site keys are never wiped, so tracking them only adds noise
+      // (e.g. settingsTab flips whenever the user switches settings tabs).
+      if (!key || WIPE_KEEP_KEYS.has(key) || key.indexOf("__track") === 0)
+        continue;
       try {
         snap.ls[key] = digestOf(localStorage.getItem(key));
       } catch (_) {}
@@ -591,6 +641,7 @@
       stores += Object.keys(snap.dbs[name]).length;
     });
     tracking = { snap: snap, footprint: null };
+    saveTracking();
     return {
       databases: Object.keys(snap.dbs).length,
       stores: stores,
@@ -643,6 +694,7 @@
     });
     footprint.lsPrefix = commonPrefix(footprint.lsKeys);
     tracking.footprint = footprint;
+    saveTracking();
     return {
       databases: Object.keys(after.dbs).length,
       records: footprint.records.length,
@@ -808,13 +860,16 @@
     }
     note("Clearing stored values…");
     doomed.forEach(function (key) {
-      if (WIPE_KEEP_KEYS.has(key)) return;
+      if (WIPE_KEEP_KEYS.has(key) || key.indexOf("__track") === 0) return;
       try {
         localStorage.removeItem(key);
         wipedKeys++;
       } catch (_) {}
     });
     tracking = null;
+    try {
+      localStorage.removeItem(TRACK_KEY);
+    } catch (_) {}
     return {
       records: wipedRecords,
       keys: wipedKeys,
@@ -1218,5 +1273,9 @@
     trackStart: trackStart,
     trackDiff: trackDiff,
     trackWipe: trackWipe,
+    trackState: function () {
+      if (!tracking) return "idle";
+      return tracking.footprint ? "ready" : "tracking";
+    },
   };
 })();
