@@ -20,7 +20,7 @@
     <script src="register-sw.js?v=20260907.1" defer></script>
     <script defer src="./js/preload.js?v=20260907.1"></script>
     <script defer src="./js/settings.js?v=20260907.1"></script>
-    <script defer src="./js/data-transfer.js?v=20260907.1"></script>
+    <script defer src="./js/data-transfer.js?v=20260917.5"></script>
     <script defer src="./js/cache-reset.js?v=20260907.1"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
@@ -404,6 +404,19 @@
             Reset cache
           </button>
         </div>
+
+        <h2>Game saves</h2>
+        <h4>
+          Delete every game's saves and start over: all Unity/Godot save
+          data plus game storage. Settings, favorites, and chat sign-ins
+          are kept. Close all game tabs first and reload them afterwards.
+          Export a backup first if you might want anything back.
+        </h4>
+        <div class="form-row">
+          <button onclick="wipegamesaves(this)" class="secondary">
+            Wipe game saves
+          </button>
+        </div>
       </div>
 
       <div
@@ -439,6 +452,40 @@
         } finally {
           btn.disabled = false;
           btn.textContent = "Reset cache";
+        }
+      }
+
+      async function wipegamesaves(btn) {
+        if (
+          !confirm(
+            "Wipe ALL game saves? Every game's progress will be deleted and cannot be undone. Settings, favorites, and chat sign-ins are kept. Export a backup first if you might want anything back.",
+          )
+        )
+          return;
+        if (
+          !confirm(
+            "Last chance — close all game tabs first, or an open game will write its data back over the wipe. Really wipe all game saves?",
+          )
+        )
+          return;
+        btn.disabled = true;
+        btn.textContent = "Wiping…";
+        var status = document.getElementById("data-status");
+        try {
+          var report = await AetherisBackup.wipe(function (stage) {
+            status.textContent = stage;
+          });
+          status.textContent =
+            "Wiped " +
+            report.databases +
+            " save database(s) and " +
+            report.keys +
+            " stored value(s). Reload your game tabs — games start fresh now.";
+        } catch (error) {
+          status.textContent = error.message;
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "Wipe game saves";
         }
       }
 

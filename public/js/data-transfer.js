@@ -18,6 +18,46 @@
     "__popularGames",
     "__popularGames_ts",
   ]);
+  // Wiping game saves is the inverse of a backup: delete every database
+  // except the proxy/catalog/file caches (those hold no saves and would
+  // only force multi-GB re-downloads), and every localStorage key except
+  // site settings, favorites, and chat sessions. Per-game targeting is not
+  // offered on purpose — Unity save folders are unlabeled hashes that
+  // cannot be mapped back to titles, so anything narrower would silently
+  // miss the broken game.
+  var WIPE_KEEP_DBS = new Set([
+    "$scramjet",
+    "__scramjet_controller",
+    "scramjet-config",
+    "aetheris-games-cache",
+    "UnityCache",
+    "CachedXMLHttpRequests",
+  ]);
+  var WIPE_KEEP_KEYS = new Set([
+    "tabName",
+    "tabIcon",
+    "aetheris-theme",
+    "theme",
+    "panickey",
+    "panicurl",
+    "proxyTransport",
+    "spoofDesktopUA",
+    "aetheris-customBg",
+    "oskEnabled",
+    "performanceMode",
+    "settingsTab",
+    "backupReminderLast",
+    "favoritedGames",
+    "favoritedApps",
+    "movieSourceIdx",
+    "dmToken",
+    "dmDeviceId",
+    "dmUsername",
+    "dmAutoLogin",
+    "idbNames",
+    "__popularGames",
+    "__popularGames_ts",
+  ]);
   var TYPED = [
     "Int8Array",
     "Uint8Array",
@@ -269,6 +309,97 @@
     return Array.from(new Set(known.concat(names))).filter(function (name) {
       return name && !SKIP_DBS.has(name);
     });
+  }
+
+  async function listWipeDatabases() {
+    var known = [];
+    try {
+      known = Aetheris.readList("idbNames");
+    } catch (_) {}
+    var names = known;
+    try {
+      names = known.concat(
+        (await indexedDB.databases()).map(function (db) {
+          return db.name;
+        }),
+      );
+    } catch (_) {}
+    return Array.from(new Set(names)).filter(function (name) {
+      return name && !WIPE_KEEP_DBS.has(name);
+    });
+  }
+
+  function deleteDatabaseByName(name) {
+    return new Promise(function (resolve, reject) {
+      var settled = false;
+      var timer = setTimeout(function () {
+        finish(
+          new Error(
+            "Timed out deleting " + name + ". Close other site tabs and retry.",
+          ),
+        );
+      }, 8000);
+      function finish(error) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (error) reject(error);
+        else resolve();
+      }
+      try {
+        var req = indexedDB.deleteDatabase(name);
+        req.onsuccess = function () {
+          finish();
+        };
+        req.onerror = function () {
+          finish(req.error || new Error("Could not delete " + name));
+        };
+        req.onblocked = function () {
+          finish(
+            new Error(name + " is open in another tab. Close it and retry."),
+          );
+        };
+      } catch (error) {
+        finish(error);
+      }
+    });
+  }
+
+  // Deletes every game-save database and game localStorage key, keeping
+  // site settings/favorites/sessions. Fails loudly (names the database)
+  // instead of half-wiping: game tabs must be closed first, which the
+  // settings page confirms twice.
+  async function wipeGameSaves(progress) {
+    function note(stage) {
+      try {
+        if (typeof progress === "function") progress(stage);
+      } catch (_) {}
+    }
+    var wipedDbs = 0;
+    var wipedKeys = 0;
+    note("Finding game databases…");
+    var names = await listWipeDatabases();
+    for (var n = 0; n < names.length; n++) {
+      note("Deleting " + names[n] + "…");
+      await deleteDatabaseByName(names[n]);
+      wipedDbs++;
+    }
+    note("Clearing game storage…");
+    var doomed = [];
+    for (var i = 0; i < localStorage.length; i++) {
+      var key = localStorage.key(i);
+      if (key && !WIPE_KEEP_KEYS.has(key)) doomed.push(key);
+    }
+    doomed.forEach(function (key) {
+      try {
+        localStorage.removeItem(key);
+        wipedKeys++;
+      } catch (_) {}
+    });
+    try {
+      sessionStorage.clear();
+    } catch (_) {}
+    return { databases: wipedDbs, keys: wipedKeys };
   }
 
   async function dumpDatabase(name) {
@@ -661,5 +792,6 @@
     prepare: prepareBackup,
     dump: dumpDatabase,
     restore: restoreDatabase,
+    wipe: wipeGameSaves,
   };
 })();
