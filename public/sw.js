@@ -245,7 +245,7 @@ var recoveryhtml =
   "  <h1>fixing stuff...</h1>" +
   "  <p>clearing your cache, won't take long.</p>" +
   "</div>" +
-  '<script src="/js/cache-reset.js?v=20260907.1"><\/script>' +
+  '<script src="/js/cache-reset.js?v=20260917.1"><\/script>' +
   "<script>" +
   'AetherisCache.reset().then(function(){ window.location.replace("/"); })' +
   '.catch(function(e){ document.querySelector("h1").textContent="Reset incomplete"; document.querySelector("p").textContent=e.message; });' +
