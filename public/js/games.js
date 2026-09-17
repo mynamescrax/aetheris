@@ -82,31 +82,6 @@
     } catch (_) {}
   }
 
-  function toggleFavorite(game) {
-    var key = "favoritedGames";
-    var favs = Aetheris.readList(key);
-    var id = String(game.id);
-    var raw = game.rawid != null ? String(game.rawid) : null;
-    var has =
-      favs.indexOf(id) !== -1 || (raw !== null && favs.indexOf(raw) !== -1);
-    if (has) {
-      favs = favs.filter(function (favId) {
-        return favId !== id && (raw === null || favId !== raw);
-      });
-    } else {
-      favs.push(id);
-    }
-    if (!Aetheris.storage.setItem(key, JSON.stringify(favs))) {
-      status.textContent =
-        "Favorites could not be saved. Browser storage may be full or disabled.";
-      return;
-    }
-    favorites = favs;
-    var y = window.scrollY;
-    applyFilters(false);
-    if (typeof y === "number") window.scrollTo(0, y);
-  }
-
   function makeCard(game) {
     var card = document.createElement("a");
     card.className = "card-item";
@@ -128,22 +103,6 @@
     label.textContent = title;
     card.title = label.textContent;
     card.append(img, label);
-    var fav = isFavorite(game);
-    var favBtn = document.createElement("button");
-    favBtn.type = "button";
-    favBtn.className = "card-fav";
-    favBtn.textContent = fav ? "★" : "☆";
-    favBtn.setAttribute("aria-pressed", String(fav));
-    favBtn.setAttribute(
-      "aria-label",
-      (fav ? "Remove from favorites: " : "Add to favorites: ") + title,
-    );
-    favBtn.addEventListener("click", function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      toggleFavorite(game);
-    });
-    card.appendChild(favBtn);
     return card;
   }
 

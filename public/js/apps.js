@@ -75,28 +75,6 @@
     return favorites.indexOf(String(app.id)) !== -1;
   }
 
-  function toggleFavorite(app) {
-    var id = String(app.id);
-    var favs = Aetheris.readList("favoritedApps");
-    if (favs.indexOf(id) !== -1) {
-      favs = favs.filter(function (favId) {
-        return favId !== id;
-      });
-    } else {
-      favs.push(id);
-    }
-    if (!Aetheris.storage.setItem("favoritedApps", JSON.stringify(favs))) {
-      if (status)
-        status.textContent =
-          "Favorites could not be saved. Browser storage may be full or disabled.";
-      return;
-    }
-    favorites = favs;
-    var y = window.scrollY;
-    applyFilters(false);
-    if (typeof y === "number") window.scrollTo(0, y);
-  }
-
   function makeCard(app) {
     var card = document.createElement("a");
     var img = document.createElement("img");
@@ -128,23 +106,6 @@
     label.textContent = title;
     card.appendChild(img);
     card.appendChild(label);
-
-    var fav = isFavorite(app);
-    var favBtn = document.createElement("button");
-    favBtn.type = "button";
-    favBtn.className = "card-fav";
-    favBtn.textContent = fav ? "★" : "☆";
-    favBtn.setAttribute("aria-pressed", String(fav));
-    favBtn.setAttribute(
-      "aria-label",
-      (fav ? "Remove from favorites: " : "Add to favorites: ") + title,
-    );
-    favBtn.addEventListener("click", function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      toggleFavorite(app);
-    });
-    card.appendChild(favBtn);
 
     return card;
   }
