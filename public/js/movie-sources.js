@@ -1,7 +1,8 @@
-// Existing TMDB and provider configuration; no provider URLs changed.
-var TMDB_KEY = "2713804610e1e236b1cf44bfac3a7776";
+// TMDB calls go through the server-side /api/tmdb passthrough — the API key
+// lives in index.js (hardcoded default, TMDB_API_KEY env overrides) and never
+// ships to the browser.
 var TMDB_IMG = "https://image.tmdb.org/t/p/w342";
-var TMDB_API = "https://api.themoviedb.org/3";
+var TMDB_API = "/api/tmdb";
 
 var MOVIES_SOURCES = [
   {

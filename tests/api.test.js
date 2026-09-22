@@ -48,6 +48,10 @@ before(async () => {
         JSON.stringify({ data: [{ id: "test-chat" }, { id: "test-image" }] }),
       );
     }
+    if (req.url.startsWith("/3/search/test")) {
+      res.setHeader("content-type", "application/json");
+      return res.end(JSON.stringify({ seen: req.url }));
+    }
     req.resume();
     req.on("end", () => {
       if (req.url === "/v1/chat/completions") {
@@ -79,6 +83,8 @@ before(async () => {
       CRAX_GPT_BASE_URL: `http://127.0.0.1:${provider.address().port}/v1`,
       CRAX_GPT_MODEL: "test-chat",
       CRAX_GPT_IMAGE_MODEL: "test-image",
+      TMDB_API_KEY: "local-test-only",
+      TMDB_BASE_URL: `http://127.0.0.1:${provider.address().port}/3`,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -210,7 +216,10 @@ test("expired sessions cannot delete an account", async () => {
   const result = await register("ExpiredSession");
   const path = join(runtime, "database", "expiredsession.json");
   const user = JSON.parse(readFileSync(path, "utf8"));
-  user.sessions[result.data.token].createdAt = Date.now() - 31 * 86400000;
+  // sessions are keyed by sha256(token) server-side — edit whatever key
+  // exists rather than assuming the raw token
+  const sessionKey = Object.keys(user.sessions)[0];
+  user.sessions[sessionKey].createdAt = Date.now() - 31 * 86400000;
   writeFileSync(path, JSON.stringify(user));
   const deleted = await api("/api/accounts/delete", {
     method: "DELETE",
@@ -252,6 +261,17 @@ test("movie relay rejects private targets and malformed referers", async () => {
   assert.equal(res.status, 400);
 });
 
+test("TMDB passthrough injects the server key and forwards queries", async () => {
+  const res = await api(
+    "/api/tmdb/search/test?query=hello&page=2&api_key=client-fake",
+  );
+  assert.equal(res.status, 200);
+  assert.equal(
+    res.data.seen,
+    "/3/search/test?query=hello&page=2&api_key=local-test-only",
+  );
+});
+
 test("AI login option, model defaults, and streaming work with a local provider fixture", async () => {
   let res = await api("/api/ai/chat", {
     method: "POST",
@@ -259,7 +279,7 @@ test("AI login option, model defaults, and streaming work with a local provider 
     body: JSON.stringify({ messages: [{ role: "user", content: "test" }] }),
   });
   assert.equal(res.status, 401);
-  res = await api("/api/ai/models");
+  res = await api("/api/ai/models", { headers: headers(alice.data.token) });
   assert.equal(res.data.default_model, "test-chat");
   const stream = await fetch(base + "/api/ai/chat", {
     method: "POST",

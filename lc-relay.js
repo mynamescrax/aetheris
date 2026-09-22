@@ -24,6 +24,11 @@ import { WebSocket, WebSocketServer } from "ws";
 const MAX_PLAYERS = 4;
 const IDLE_TIMEOUT_MS = 40 * 1000;
 const MAX_FRAME_BYTES = 1024 * 1024;
+// The relay is unauthenticated, so without caps any socket could mint
+// unlimited rooms and pin memory. Sizing: MAX_ROOMS_PER_IP must tolerate a
+// whole classroom behind one NAT address hosting concurrently.
+const MAX_ROOMS = 250;
+const MAX_ROOMS_PER_IP = 5;
 
 const OpJoin = 1;
 const OpJoined = 2;
@@ -37,11 +42,23 @@ const OpPong = 9;
 
 /** @type {Map<string, Room>} */
 const rooms = new Map();
+const roomsPerIp = new Map(); // host remote address -> rooms currently open
+
+function roomOpened(room) {
+  roomsPerIp.set(room.hostIp, (roomsPerIp.get(room.hostIp) || 0) + 1);
+}
+
+function roomClosed(room) {
+  const n = (roomsPerIp.get(room.hostIp) || 1) - 1;
+  if (n <= 0) roomsPerIp.delete(room.hostIp);
+  else roomsPerIp.set(room.hostIp, n);
+}
 
 class Room {
-  constructor(code, host) {
+  constructor(code, host, hostIp) {
     this.code = code;
     this.host = host; // wire id 0
+    this.hostIp = hostIp || "unknown";
     this.members = new Map(); // wireId -> ws
     this.nextMemberId = 1;
   }
@@ -138,6 +155,7 @@ function handleMemberLeave(ws) {
   if (ws === room.host) {
     // Host left: the room is gone. Tell everyone.
     rooms.delete(room.code);
+    roomClosed(room);
     for (const member of room.members.values()) {
       member.room = null;
       sendError(member, "The host left the game.");
@@ -244,8 +262,23 @@ function handleJoin(ws, frame) {
       dropClient(ws, "room_exists");
       return;
     }
-    const room = new Room(code, ws);
+    if (rooms.size >= MAX_ROOMS) {
+      sendError(ws, "The relay is full right now. Try again in a bit.");
+      dropClient(ws, "relay_full");
+      return;
+    }
+    const hostedByIp = roomsPerIp.get(ws.remoteAddress || "unknown") || 0;
+    if (hostedByIp >= MAX_ROOMS_PER_IP) {
+      sendError(
+        ws,
+        "Too many games are being hosted from this connection. Try again later.",
+      );
+      dropClient(ws, "room_limit");
+      return;
+    }
+    const room = new Room(code, ws, ws.remoteAddress);
     rooms.set(code, room);
+    roomOpened(room);
     ws.room = room;
     ws.wireId = 0;
     sendJoined(ws, 0);
@@ -297,6 +330,7 @@ wss.on("connection", (ws, req) => {
   let lastSeen = Date.now();
   ws.room = null;
   ws.wireId = null;
+  ws.remoteAddress = req.socket.remoteAddress;
 
   ws.on("message", (data) => {
     lastSeen = Date.now();

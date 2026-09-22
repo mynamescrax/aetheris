@@ -566,14 +566,30 @@ self.addEventListener("fetch", function (event) {
   var url = event.request.url;
   var proxied = isproxiedurl(url);
 
+  // Recovery page shim — own origin + exact paths only. A bare substring
+  // match would also swallow cross-origin subresources like
+  // https://cdn.example/api/recovery/data.json (and /recovery, /precovery…).
   if (!proxied && url.indexOf("/recover") !== -1) {
-    event.respondWith(
-      new Response(recoveryhtml, {
-        status: 200,
-        headers: { "Content-Type": "text/html; charset=utf-8" },
-      }),
-    );
-    return;
+    var recoverparsed = null;
+    try {
+      recoverparsed = new URL(url);
+    } catch (e) {}
+    var recoverpath = recoverparsed ? recoverparsed.pathname : "";
+    if (
+      recoverparsed &&
+      recoverparsed.origin === self.location.origin &&
+      (recoverpath === "/recover" ||
+        recoverpath === "/recover.html" ||
+        recoverpath === "/sw-recover")
+    ) {
+      event.respondWith(
+        new Response(recoveryhtml, {
+          status: 200,
+          headers: { "Content-Type": "text/html; charset=utf-8" },
+        }),
+      );
+      return;
+    }
   }
 
   if (!proxied && url.indexOf("api.1games.io") !== -1) {
@@ -616,7 +632,9 @@ self.addEventListener("fetch", function (event) {
     return;
   }
 
-  if (url.indexOf("disable-devtool") !== -1) {
+  // Same gate as the /recover rule above: without !proxied this swallows
+  // proxied assets whose URL merely contains the substring.
+  if (!proxied && url.indexOf("disable-devtool") !== -1) {
     event.respondWith(
       new Response("", {
         headers: { "Content-Type": "application/javascript" },

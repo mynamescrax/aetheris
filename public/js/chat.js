@@ -14,13 +14,6 @@ var messagesLoadingFor = "";
 var sending = false;
 var drafts = Object.create(null);
 
-function showpw() {
-  document.getElementById("f-pass").type = "text";
-}
-function hidepw() {
-  document.getElementById("f-pass").type = "password";
-}
-
 var keepchk = document.getElementById("keep-chk");
 keepchk.checked = autologin;
 keepchk.addEventListener("change", function () {

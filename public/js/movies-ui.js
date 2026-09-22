@@ -173,9 +173,7 @@
     var url =
       TMDB_API +
       endpoint +
-      "?api_key=" +
-      TMDB_KEY +
-      "&page=" +
+      "?page=" +
       page +
       (query ? "&query=" + encodeURIComponent(query) : "");
     var controller = new AbortController();
@@ -265,10 +263,7 @@
     source.disabled = true;
     episodes.textContent = "Loading seasons…";
     try {
-      var data = await json(
-        TMDB_API + "/tv/" + item.id + "?api_key=" + TMDB_KEY,
-        controller,
-      );
+      var data = await json(TMDB_API + "/tv/" + item.id, controller);
       if (version !== playerVersion || currentItem !== item) return;
       var seasons = Array.isArray(data.seasons)
         ? data.seasons.filter(function (s) {
@@ -320,13 +315,7 @@
     episodes.textContent = "Loading episodes…";
     try {
       var data = await json(
-        TMDB_API +
-          "/tv/" +
-          item.id +
-          "/season/" +
-          selectedSeason +
-          "?api_key=" +
-          TMDB_KEY,
+        TMDB_API + "/tv/" + item.id + "/season/" + selectedSeason,
         controller,
       );
       if (version !== seasonVersion || currentItem !== item) return;

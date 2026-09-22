@@ -13,6 +13,12 @@ git pull --ff-only
 echo "-> Installing dependencies..."
 pnpm install --frozen-lockfile
 
+echo "-> Validating + installing Caddyfile..."
+# validate the repo copy, ship it, then reload — this keeps /etc/caddy/Caddyfile
+# from drifting away from the reviewed file in the repo
+caddy validate --adapter caddyfile --config "$APP_DIR/Caddyfile" > /dev/null
+install -m 0644 "$APP_DIR/Caddyfile" /etc/caddy/Caddyfile
+
 echo "-> Reloading Caddy..."
 caddy reload --config /etc/caddy/Caddyfile
 
@@ -51,6 +57,7 @@ if pm2 describe "$APP_NAME" > /dev/null 2>&1; then
 else
     pm2 start index.js \
         --name "$APP_NAME" \
+        --cwd "$APP_DIR" \
         --node-args="--env-file=$ENV_FILE" \
         --kill-timeout 5000
     pm2 save

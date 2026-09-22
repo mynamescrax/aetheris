@@ -106,8 +106,14 @@ https:// {
 	# without this every cold visit pays the full uncompressed weight.
 	encode zstd gzip
 
-	# CORS Preflight
-	@cors_preflight method OPTIONS
+	# CORS Preflight — answered here for every host EXCEPT the vhosts with
+	# their own OPTIONS handling (crax.lol profile, hosting, gpt). A bare
+	# method matcher would hijack preflights for those apps too and override
+	# their CORS posture.
+	@cors_preflight {
+		method OPTIONS
+		not host crax.lol hosting.crax.lol gpt.crax.lol
+	}
 	handle @cors_preflight {
 		header Access-Control-Allow-Origin "*"
 		header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS, HEAD"

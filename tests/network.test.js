@@ -84,7 +84,7 @@ test("URL validation rejects alternate local encodings and mixed DNS answers", a
   );
 });
 
-test("rate limiting cannot be reset by changing a device fingerprint", () => {
+test("rate limiting keeps per-key windows and a full table admits new keys", () => {
   let time = 100;
   const consume = createRateLimiter({ now: () => time, maxEntries: 2 });
   assert.equal(consume("register:ip", 2, 1000).allowed, true);
@@ -93,6 +93,12 @@ test("rate limiting cannot be reset by changing a device fingerprint", () => {
   time += 1001;
   assert.equal(consume("register:ip", 2, 1000).allowed, true);
   consume("other:ip", 1, 1000);
+  // a full table evicts the oldest entry instead of denying every new key:
+  // deny-until-expiry let an attacker rotating identities lock out all new
+  // users (see lib/rate-limit.js)
+  assert.equal(consume("third:ip", 1, 1000).allowed, true);
+  // eviction does not reset the window of an entry that is still active
+  time += 500;
   assert.equal(consume("third:ip", 1, 1000).allowed, false);
 });
 

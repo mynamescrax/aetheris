@@ -260,6 +260,10 @@
     }
   });
 
-  window.addEventListener("appsloaded", build, { once: true });
-  if (getapps().length) build();
+  // The data script is async and can win the race: by the time we get here
+  // `appsloaded` may have already fired — including on failure, where
+  // getapps() is empty and the event never re-fires. Check the flag first
+  // (same pattern as games.js) so the error/retry UI still renders.
+  if (window.appsloaded) build();
+  else window.addEventListener("appsloaded", build, { once: true });
 })();

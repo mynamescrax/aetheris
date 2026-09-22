@@ -10,7 +10,7 @@ import {
   renameSync,
 } from "node:fs";
 import { join, dirname } from "node:path";
-import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { hostname } from "node:os";
 import { fileURLToPath } from "url";
@@ -91,6 +91,12 @@ async function verifypw(pw, stored) {
   return timingSafeEqual(expected, actual);
 }
 
+// burnt once at startup so a login for an unknown username can run scrypt
+// against it — without that, "unknown user" (no hash) and "wrong password"
+// (hash) answer identically but take measurably different time, which turns
+// the login endpoint into a username enumerator.
+const DUMMY_HASH = await hashpw("aetheris-login-timing-equalizer");
+
 // --- helpers ---
 
 // req.ip is computed by proxy-addr from X-Forwarded-For, walking right-to-left
@@ -115,6 +121,14 @@ function isvalidusername(value) {
 
 function maketoken() {
   return randomBytes(36).toString("base64url");
+}
+
+// Sessions are stored with sha256(token) as the key, so a read of the data
+// directory (wrong perms, stray backup, accidental copy) never yields a
+// working bearer token. The raw token only ever exists in memory and in the
+// login response.
+function tokenkey(token) {
+  return createHash("sha256").update(token).digest("hex");
 }
 
 function safefilename(name) {
@@ -187,12 +201,16 @@ const SESSION_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days
 const MAX_SESSIONS = 10;
 
 function finduser(token) {
-  const username = tokenindex.get(token);
+  const username = tokenlookup(token);
   if (!username) return null;
 
   const user = readuser(username);
-  if (!user?.sessions?.[token]) {
-    tokenindex.delete(token);
+  // new sessions are keyed by sha256(token); rows written before the change
+  // kept the raw token as the key. accept both so an upgrade doesn't log
+  // everyone out — the legacy rows age out via SESSION_TTL/pruning.
+  const session = user?.sessions?.[tokenkey(token)] ?? user?.sessions?.[token];
+  if (!user || !session) {
+    forgettoken(token);
     return null;
   }
 
@@ -200,8 +218,8 @@ function finduser(token) {
   // here — finduser runs on every request outside the per-user locks; the
   // dead session gets pruned from disk at the user's next login instead.
   if (
-    !Number.isFinite(user.sessions[token]?.createdAt) ||
-    Date.now() - user.sessions[token].createdAt > SESSION_TTL
+    !Number.isFinite(session.createdAt) ||
+    Date.now() - session.createdAt > SESSION_TTL
   ) {
     forgettoken(token);
     return null;
@@ -276,12 +294,22 @@ function indexuser(u) {
   if (u.deviceId) deviceindex.set(u.deviceId, lc);
 }
 
+// tokenindex maps a *storage key* to a username. Sessions created since the
+// hashing change are keyed by sha256(token); rows from before it keep the raw
+// token as the key, so reads try the hash first and fall back.
+function tokenlookup(token) {
+  return tokenindex.get(tokenkey(token)) ?? tokenindex.get(token);
+}
+
 function remembertoken(token, username) {
-  tokenindex.set(token, username.toLowerCase());
+  tokenindex.set(tokenkey(token), username.toLowerCase());
 }
 
 function forgettoken(token) {
+  // accept either a raw bearer token or its storage key; deleting a key
+  // that isn't indexed is a harmless no-op
   tokenindex.delete(token);
+  tokenindex.delete(tokenkey(token));
 }
 
 function rebuildindices() {
@@ -561,11 +589,30 @@ const consumeRate = createRateLimiter();
 fastify.addHook("onRequest", async (req, reply) => {
   const path = req.url.split("?")[0];
   if (path.startsWith("/api/")) reply.header("Cache-Control", "no-store");
-  if (req.method !== "POST") return;
+  // a few GET routes burn server/upstream resources and need a keyed cap
+  // too, not just the POST APIs
+  const isModels = req.method === "GET" && path === "/api/ai/models";
+  const isTmdb = req.method === "GET" && path.startsWith("/api/tmdb/");
+  const isRelay =
+    req.method !== "OPTIONS" &&
+    (path === "/movie-proxy" || path.startsWith("/movie-proxy/"));
+  if (req.method !== "POST" && !isModels && !isTmdb && !isRelay) return;
   let limit = 0,
     windowMs = 60000,
     group = path;
-  if (path === "/api/accounts/register") limit = 30;
+  if (isRelay) {
+    // the relay is an open CORS-wide proxy; a classroom behind one NAT IP
+    // legitimately streams a few hundred HLS requests a minute, so the cap
+    // sits well above that but still stops bulk laundering/scraping
+    limit = 600;
+    group = "movie-proxy";
+  } else if (isTmdb) {
+    limit = 120;
+    group = "tmdb";
+  } else if (isModels) {
+    limit = 30;
+    group = "ai-models";
+  } else if (path === "/api/accounts/register") limit = 30;
   else if (path === "/api/accounts/login") limit = 60;
   else if (path === "/api/report") {
     limit = 10;
@@ -573,6 +620,11 @@ fastify.addHook("onRequest", async (req, reply) => {
   } else if (path.startsWith("/api/dm/")) {
     limit = 120;
     group = "dm-send";
+  } else if (path.startsWith("/api/plays/")) {
+    // stops play-count inflation by rotating deviceIds — one IP can only
+    // bump 60 plays a minute no matter how many fingerprints it mints
+    limit = 60;
+    group = "plays";
   } else if (path === "/api/ai/chat") limit = 30;
   else if (path === "/api/ai/images") {
     limit = 6;
@@ -748,14 +800,6 @@ fastify.post("/api/report", async (req, reply) => {
     }
   }
 
-  if (!REPORT_WEBHOOK_URL) {
-    console.log("[report] received but no webhook url configured:", {
-      game,
-      issue,
-    });
-    return reply.send({ ok: true });
-  }
-
   const fields = [
     {
       name: "🎮 Game",
@@ -853,6 +897,9 @@ async function poststats() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
+      // same bound as the report webhook — a hung Discord call shouldn't
+      // park this fetch (and its memory) until undici's header timeout
+      signal: AbortSignal.timeout(15000),
     });
     if (!res.ok) console.error("stats webhook failed:", res.status);
     else console.log("stats posted to discord");
@@ -1024,7 +1071,7 @@ fastify.post("/api/accounts/register", async (req, reply) => {
         dms: Object.create(null),
       };
       const token = maketoken();
-      user.sessions[token] = { ip, createdAt: Date.now() };
+      user.sessions[tokenkey(token)] = { ip, createdAt: Date.now() };
       writeuser(user);
       remembertoken(token, user.username);
       return { token };
@@ -1106,18 +1153,20 @@ fastify.post("/api/accounts/login", async (req, reply) => {
 
   const user = await withuserlock(userlc, async () => {
     const u = readuser(userlc);
-    if (
-      !u ||
-      deletingUsers.has(userlc) ||
-      !(await verifypw(password, u.passwordHash))
-    )
+    if (!u || deletingUsers.has(userlc)) {
+      // no user to hash against — burn scrypt on the dummy so this path
+      // costs the same as a wrong-password attempt
+      await verifypw(password, DUMMY_HASH);
       return null;
+    }
+    if (!(await verifypw(password, u.passwordHash))) return null;
 
     const token = maketoken();
     u.sessions ??= {};
-    u.sessions[token] = { ip, createdAt: Date.now() };
+    const key = tokenkey(token);
+    u.sessions[key] = { ip, createdAt: Date.now() };
     u.ip = ip;
-    prunesessions(u, token);
+    prunesessions(u, key);
     writeuser(u);
     remembertoken(token, u.username);
     return { user: u, token };
@@ -1136,13 +1185,17 @@ fastify.post("/api/accounts/logout", async (req, reply) => {
   const token = gettoken(req);
   if (!token) return reply.code(400).send({ ok: false, error: "No token." });
 
-  const lc = tokenindex.get(token);
+  const lc = tokenlookup(token);
   if (lc) {
     await withuserlock(lc, () => {
       const user = readuser(lc);
       if (user?.sessions) {
-        delete user.sessions[token];
-        writeuser(user);
+        const key = tokenkey(token);
+        if (user.sessions[key] || user.sessions[token]) {
+          delete user.sessions[key];
+          delete user.sessions[token];
+          writeuser(user);
+        }
       }
     });
   }
@@ -1525,12 +1578,15 @@ fastify.post(
 );
 
 // Models list — proxied so the client can build a model picker without
-// exposing the key.
-fastify.get("/api/ai/models", async (_req, reply) => {
+// exposing the key. Same login gate as chat/images (each call spends an
+// authenticated upstream request), plus a GET rate limit in the onRequest hook.
+fastify.get("/api/ai/models", async (req, reply) => {
   if (!CRAX_GPT_KEY)
     return reply
       .code(503)
       .send({ ok: false, error: "AI is not configured on this server." });
+  if (process.env.AI_REQUIRE_LOGIN === "true" && !requireauth(req, reply))
+    return;
   try {
     const res = await fetch(`${CRAX_GPT_BASE}/models`, {
       headers: { Authorization: `Bearer ${CRAX_GPT_KEY}` },
@@ -1699,6 +1755,61 @@ fastify.post(
     }
   },
 );
+
+// --- tmdb passthrough ---
+// movie-sources.js used to carry the TMDB API key in client code. Every TMDB
+// call now goes through this same-origin route so the key stays server-side
+// (same rationale as the AI proxy above). Only the /3 API is exposed, GET
+// only, with a per-IP rate limit from the onRequest hook.
+// The key is hardcoded as the fallback default so the movies page works with
+// zero configuration; TMDB_API_KEY in .env overrides it if it ever needs
+// rotating.
+const TMDB_KEY = process.env.TMDB_API_KEY || "2713804610e1e236b1cf44bfac3a7776";
+const TMDB_BASE = (
+  process.env.TMDB_BASE_URL || "https://api.themoviedb.org/3"
+).replace(/\/+$/, "");
+
+fastify.get("/api/tmdb/*", async (req, reply) => {
+  if (!TMDB_KEY)
+    return reply
+      .code(503)
+      .send({ ok: false, error: "TMDB is not configured on this server." });
+
+  let url;
+  try {
+    url = new URL(`${TMDB_BASE}/${req.params["*"]}`);
+  } catch {
+    return reply.code(400).send({ ok: false, error: "Invalid TMDB path." });
+  }
+  // forward the caller's query but never their api_key — ours is appended
+  const params = new URLSearchParams();
+  for (const [k, v] of Object.entries(req.query)) {
+    if (k === "api_key" || typeof v !== "string") continue;
+    params.set(k, v);
+  }
+  params.set("api_key", TMDB_KEY);
+  url.search = params.toString();
+
+  try {
+    const res = await fetch(url, {
+      headers: { accept: "application/json" },
+      signal: AbortSignal.timeout(15000),
+    });
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { ok: false, error: text.slice(0, 500) };
+    }
+    // TMDB posters/lists barely change — let the browser cache briefly so
+    // paging back and forth doesn't re-hit the upstream every time
+    reply.header("Cache-Control", "public, max-age=300");
+    return reply.code(res.status).send(data);
+  } catch (e) {
+    sendAiFailure(reply, e, "tmdb");
+  }
+});
 
 fastify.get("/recover", (_req, reply) => reply.redirect("/recover.html", 302));
 fastify.get("/sw-recover", (_req, reply) =>

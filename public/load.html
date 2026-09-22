@@ -271,16 +271,6 @@
         "
       ></div>
 
-      <script>
-        window.addEventListener("message", function (e) {
-          if (e.origin !== location.origin) return;
-          if (!e.data || e.data.type !== "tab-bar-height") return;
-          var h = e.data.height || 0;
-          var f = document.getElementById("game-frame");
-          if (f) f.style.height = "calc(100svh - " + h + "px)";
-        });
-      </script>
-
       <!-- Info panel shown below the game -->
       <div class="game-sidebar">
         <div class="game-header">

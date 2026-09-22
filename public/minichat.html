@@ -812,7 +812,9 @@
             return;
           }
           if (!d.ok) return;
-          inboxcache = d.conversations;
+          // guard against a non-array payload — an unguarded assignment
+          // corrupts inboxcache for the next poll cycle (same as chat.js)
+          inboxcache = Array.isArray(d.conversations) ? d.conversations : [];
           renderinbox(inboxcache);
         } catch (_) {}
       }

@@ -8,6 +8,8 @@
 import { exec }             from "node:child_process";
 import { createWriteStream } from "node:fs";
 import { connect }          from "node:net";
+import { dirname }          from "node:path";
+import { fileURLToPath }    from "node:url";
 import { promisify }        from "node:util";
 
 const execAsync = promisify(exec);
@@ -16,6 +18,11 @@ const execAsync = promisify(exec);
 
 const DISCORD_WEBHOOK = process.env.DISCORD_WEBHOOK;
 if (!DISCORD_WEBHOOK) throw new Error("DISCORD_WEBHOOK env var not set");
+
+// the app directory: this file ships inside the repo, so its own location is
+// the correct cwd/env-file anchor even when the monitor itself was started
+// from somewhere else (pm2 from /root, systemd, nohup, ...)
+const APP_DIR = process.env.APP_DIR || dirname(fileURLToPath(import.meta.url));
 
 const CONFIG = {
   domains: (process.env.DOMAINS || [
@@ -30,6 +37,8 @@ const CONFIG = {
   timeoutMs:      parseInt(process.env.TIMEOUT || "8000"),
   appService:     process.env.APP_SERVICE       || "aetheris",
   logFile:        process.env.LOG_FILE          || "/var/log/monitor.log",
+  appDir:         APP_DIR,
+  envFile:        process.env.ENV_FILE          || `${APP_DIR}/.env`,
 
   // How often to post a summary report to Discord, in MINUTES. Default: 15.
   reportIntervalMs: parseInt(process.env.REPORT_INTERVAL || "15") * 60 * 1000,
@@ -42,6 +51,15 @@ try {
   logStream = createWriteStream(CONFIG.logFile, { flags: "a" });
 } catch {
   logStream = null;
+}
+if (logStream) {
+  // createWriteStream failures (ENOENT, EACCES, disk full) arrive as an async
+  // 'error' event, not a synchronous throw — without this listener the first
+  // unwritable write would take down the whole monitor process
+  logStream.on("error", err => {
+    console.error("log stream error:", err.message);
+    logStream = null;
+  });
 }
 
 function log(msg) {
@@ -93,6 +111,9 @@ function httpCheck(url, timeoutMs) {
     fetch(url, { signal: ctrl.signal, redirect: "follow" })
       .then(res => {
         clearTimeout(timer);
+        // cancel the unread body so undici can put the connection back in
+        // its pool instead of waiting for GC
+        if (res.body) res.body.cancel().catch(() => {});
         resolve({ ok: res.status < 500, status: res.status });
       })
       .catch(err => {
@@ -126,6 +147,9 @@ async function sendWebhook(payload) {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify(payload),
+      // a hung Discord call must not stall the reporting loop for undici's
+      // full default header timeout
+      signal:  AbortSignal.timeout(15_000),
     });
     if (!res.ok) log(`Discord webhook failed: ${res.status} ${await res.text()}`);
   } catch (err) {
@@ -191,22 +215,41 @@ async function sendReport() {
   const windowHours = windowMs / (1000 * 60 * 60);
   const windowLabel = windowHours % 1 === 0 ? `${windowHours}-Hour` : `${(windowHours * 60).toFixed(0)}-Minute`;
 
+  // snapshot each domain's stats and reset them synchronously, BEFORE any
+  // webhook await — increments landing during a slow Discord call belong to
+  // the next window, not the one being reported, and overlapping reports
+  // must not double-reset
+  const reports = [];
   for (const url of CONFIG.domains) {
     const s = state.get(url);
     if (!s) continue;
 
-    const totalChecks  = s.totalChecks;
-    const upChecks     = s.upChecks;
-    const downChecks   = totalChecks - upChecks;
-    const uptimePct    = totalChecks === 0 ? 100 : (upChecks / totalChecks) * 100;
-    const downtimeMs   = s.totalDowntimeMs + (s.down && s.since ? Date.now() - s.since : 0);
-    const isUp         = !s.down;
+    reports.push({
+      url,
+      totalChecks: s.totalChecks,
+      upChecks:    s.upChecks,
+      isUp:        !s.down,
+      downtimeMs:  s.totalDowntimeMs + (s.down && s.since ? Date.now() - s.since : 0),
+      lastError:   s.lastError,
+    });
+
+    s.totalChecks     = 0;
+    s.upChecks        = 0;
+    s.totalDowntimeMs = 0;
+    s.lastError       = null;
+  }
+
+  for (const r of reports) {
+    const totalChecks  = r.totalChecks;
+    const downChecks   = totalChecks - r.upChecks;
+    const uptimePct    = totalChecks === 0 ? 100 : (r.upChecks / totalChecks) * 100;
+    const isUp         = r.isUp;
 
     const uptimeColor  = uptimePct === 100 ? 0x2ecc71 : uptimePct >= 95 ? 0xf39c12 : 0xe74c3c;
 
     await sendWebhook({
       embeds: [{
-        title: `${new URL(url).hostname} — ${windowLabel} Status Report`,
+        title: `${new URL(r.url).hostname} — ${windowLabel} Status Report`,
         color: uptimeColor,
         fields: [
           {
@@ -221,30 +264,24 @@ async function sendReport() {
           },
           {
             name:   "Checks",
-            value:  `${upChecks} up / ${downChecks} down of ${totalChecks} total`,
+            value:  `${r.upChecks} up / ${downChecks} down of ${totalChecks} total`,
             inline: false,
           },
           {
             name:   "Active Downtime Duration",
-            value:  downtimeMs > 0 ? formatDuration(downtimeMs) : "None",
+            value:  r.downtimeMs > 0 ? formatDuration(r.downtimeMs) : "None",
             inline: true,
           },
           {
             name:   "Last Recorded Error",
-            value:  s.lastError || "None",
+            value:  r.lastError || "None",
             inline: true,
           },
         ],
-        footer:    { text: `${new URL(url).hostname} Uptime Monitor` },
+        footer:    { text: `${new URL(r.url).hostname} Uptime Monitor` },
         timestamp: new Date().toISOString(),
       }],
     });
-
-    // Reset window stats after reporting
-    s.totalChecks    = 0;
-    s.upChecks       = 0;
-    s.totalDowntimeMs = 0;
-    s.lastError      = null;
   }
 }
 
@@ -276,9 +313,15 @@ async function recover(fallbackReachable) {
       log(`Running: pm2 restart ${CONFIG.appService}`);
       const res = await run(`pm2 restart ${CONFIG.appService} --update-env`);
       if (!res.ok) {
-        // not in the pm2 process list at all — start it fresh
-        log(`pm2 restart failed. Running: pm2 start index.js --name ${CONFIG.appService}`);
-        const res2 = await run(`pm2 start index.js --name ${CONFIG.appService} && pm2 save`);
+        // not in the pm2 process list at all — start it fresh. --cwd pins
+        // the app to ITS directory: index.js resolves the user database
+        // and .env from process.cwd(), so a start from the monitor's cwd
+        // could boot a healthy-looking app against an empty database.
+        log(`pm2 restart failed. Running: pm2 start index.js --cwd ${CONFIG.appDir}`);
+        const res2 = await run(
+          `pm2 start index.js --name ${CONFIG.appService} --cwd "${CONFIG.appDir}" ` +
+            `--node-args="--env-file=${CONFIG.envFile}" --kill-timeout 5000 && pm2 save`,
+        );
         log(`${CONFIG.appService} start result: ${res2.ok ? "ok" : "FAILED — " + res2.out}`);
         await alertRecovery("Node App", res2.ok ? `pm2 start index.js --name ${CONFIG.appService} → ok` : `FAILED: ${res2.out}`);
       } else {

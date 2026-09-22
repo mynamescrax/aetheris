@@ -19,6 +19,19 @@
     "scramjet-config",
     "aetheris-games-cache",
   ];
+  // Never exported or imported. Backup files get shared (Drive, USB sticks,
+  // a friend's browser), and these keys are identities/credentials, not game
+  // data: dmToken alone grants full control of the account, and writing an
+  // attacker's dmToken into your browser logs you in as THEM. Mirrors the
+  // SKIP_KEYS list in data-transfer.js — keep the two in sync.
+  var SKIP_KEYS = [
+    "dmToken",
+    "dmDeviceId",
+    "dmUsername",
+    "idbNames",
+    "__popularGames",
+    "__popularGames_ts",
+  ];
 
   function $(id) {
     return document.getElementById(id);
@@ -29,8 +42,7 @@
   function bufToB64(buf) {
     var bytes = new Uint8Array(buf);
     var s = "";
-    for (var i = 0; i < bytes.length; i++)
-      s += String.fromCharCode(bytes[i]);
+    for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
     return btoa(s);
   }
 
@@ -55,7 +67,8 @@
     }
     if (Array.isArray(value)) {
       var arr = [];
-      for (var i = 0; i < value.length; i++) arr.push(await wrapValue(value[i]));
+      for (var i = 0; i < value.length; i++)
+        arr.push(await wrapValue(value[i]));
       return arr;
     }
     if (value !== null && typeof value === "object") {
@@ -96,9 +109,7 @@
 
   function openDb(name, version, upgrade) {
     return new Promise(function (resolve, reject) {
-      var req = version
-        ? indexedDB.open(name, version)
-        : indexedDB.open(name);
+      var req = version ? indexedDB.open(name, version) : indexedDB.open(name);
       if (upgrade) {
         req.onupgradeneeded = function () {
           upgrade(req.result);
@@ -111,7 +122,9 @@
         reject(req.error || new Error("Could not open " + name));
       };
       req.onblocked = function () {
-        reject(new Error(name + " is open in another tab. Close it and retry."));
+        reject(
+          new Error(name + " is open in another tab. Close it and retry."),
+        );
       };
     });
   }
@@ -126,7 +139,9 @@
         reject(req.error || new Error("Could not delete " + name));
       };
       req.onblocked = function () {
-        reject(new Error(name + " is open in another tab. Close it and retry."));
+        reject(
+          new Error(name + " is open in another tab. Close it and retry."),
+        );
       };
     });
   }
@@ -241,7 +256,9 @@
             resolve();
           };
           tx.onerror = function () {
-            reject(tx.error || new Error("Could not write " + entry.schema.name));
+            reject(
+              tx.error || new Error("Could not write " + entry.schema.name),
+            );
           };
         });
       }
@@ -262,6 +279,7 @@
     };
     for (var i = 0; i < localStorage.length; i++) {
       var key = localStorage.key(i);
+      if (SKIP_KEYS.indexOf(key) !== -1) continue;
       try {
         data.localStorage[key] = localStorage.getItem(key);
       } catch (e) {}
@@ -281,9 +299,23 @@
     if (!data || data.app !== "aetheris-backup")
       throw new Error("That file is not an Aetheris backup.");
     var ls = data.localStorage || {};
+    if (Array.isArray(ls) || typeof ls !== "object")
+      throw new Error("The backup's settings section is invalid.");
     Object.keys(ls).forEach(function (key) {
+      // skip credentials/identities and validate URLs — the file is untrusted
+      // input (mirror of data-transfer.js's import rules)
+      if (SKIP_KEYS.indexOf(key) !== -1) return;
       try {
-        if (typeof ls[key] === "string") localStorage.setItem(key, ls[key]);
+        if (typeof ls[key] !== "string") return;
+        if (
+          key === "panicurl" &&
+          ls[key] &&
+          window.Aetheris &&
+          Aetheris.httpUrl &&
+          !Aetheris.httpUrl(ls[key])
+        )
+          return;
+        localStorage.setItem(key, ls[key]);
       } catch (e) {}
     });
     var dbs = data.indexedDB || {};

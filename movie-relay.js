@@ -559,25 +559,36 @@ export function registerMovieRelay(
 
         try {
           upstreamRes = await new Promise((resolve, reject) => {
+            // AbortSignal.timeout would also bound the body stream (aborting
+            // destroys the socket mid-transfer), truncating slow-but-healthy
+            // downloads. The absolute cap here only covers connect + response
+            // headers and is cleared the moment they arrive; the idle timeout
+            // below is what guards the body.
+            const dialAbort = new AbortController();
+            const dialTimer = setTimeout(
+              () => dialAbort.abort(new Error("Upstream connect timeout")),
+              30000,
+            );
             const request = transport.request(
               currentUrl.href,
               {
                 method,
                 headers: reqHeaders,
                 lookup: pinnedLookup(currentUrl.validatedAddresses),
-                signal: AbortSignal.any([
-                  abort.signal,
-                  AbortSignal.timeout(30000),
-                ]),
+                signal: AbortSignal.any([abort.signal, dialAbort.signal]),
               },
               (response) => {
+                clearTimeout(dialTimer);
                 // Cover the gap before a body consumer is attached, and
                 // abandoned redirect bodies. Consumers still handle errors.
                 response.on("error", () => {});
                 resolve(response);
               },
             );
-            request.on("error", reject);
+            request.on("error", (err) => {
+              clearTimeout(dialTimer);
+              reject(err);
+            });
             request.setTimeout(15000, () => {
               request.destroy(new Error("Upstream timeout"));
             });
@@ -589,6 +600,12 @@ export function registerMovieRelay(
           console.warn(
             `[movie-proxy] upstream error ${currentUrl.host}${currentUrl.pathname}: ${err.message}`,
           );
+          if (abort.signal.aborted) {
+            // client went away mid-request — there is no socket left to
+            // answer with a 502
+            reply.raw.destroy();
+            return;
+          }
           reply.code(502).send(`Upstream request error: ${err.message}`);
           return;
         }
@@ -692,7 +709,12 @@ export function registerMovieRelay(
         contentType.includes("mpegurl") ||
         contentType.includes("m3u8") ||
         cleanPath.endsWith(".m3u8");
-      const isHtml = contentType.includes("text/html");
+      // application/xhtml+xml documents are HTML for our purposes: without
+      // this they fall through to the octet-stream branch and browsers
+      // offer them as a download instead of rendering the player page.
+      const isHtml =
+        contentType.includes("text/html") ||
+        contentType.includes("application/xhtml+xml");
       const isJson =
         contentType.includes("application/json") ||
         contentType.includes("text/json");
@@ -781,6 +803,13 @@ export function registerMovieRelay(
         );
       } catch (error) {
         upstreamRes.destroy();
+        // a client disconnect surfaces as an abort while buffering; the
+        // socket is gone, so there's nothing to send a 502 to (and headers
+        // copied earlier must not ride along anywhere)
+        if (abort.signal.aborted) {
+          reply.raw.destroy();
+          return;
+        }
         reply.removeHeader("content-length");
         reply.removeHeader("content-encoding");
         return reply
@@ -935,13 +964,20 @@ export function registerMovieRelay(
     // it resolves provider URLs, so a stuck session can be diagnosed from
     // `pm2 logs`. Carries no tokens or user data.
     fastify.get("/movie-ping", (req, reply) => {
+      // every field is client-supplied: strip control characters so a
+      // crafted query can't forge extra log lines in `pm2 logs`
+      const clean = (v, max = 120) =>
+        String(v ?? "?")
+          // eslint-disable-next-line no-control-regex -- stripping control characters is the entire point
+          .replace(/[\r\n\t\x00-\x1f]+/g, " ")
+          .slice(0, max);
       const q = req.query;
-      let line = `[movie-ping] v=${q.v || "?"} origin=${q.origin || "?"} sample=${q.sample || "?"}`;
-      if (q.err) line += ` ERR=${String(q.err).slice(0, 300)}`;
+      let line = `[movie-ping] v=${clean(q.v)} origin=${clean(q.origin)} sample=${clean(q.sample)}`;
+      if (q.err) line += ` ERR=${clean(q.err, 300)}`;
       // UI lifecycle beacons from movies-ui.js (open/play/loaded/timeout).
       // Carries only TMDB ids + provider index + URL hosts, no tokens.
       if (q.ui)
-        line += ` UI ev=${q.ev || "?"} src=${q.src || "?"} kind=${q.kind || "?"} id=${q.id || "?"}${q.host ? ` host=${q.host}` : ""}`;
+        line += ` UI ev=${clean(q.ev)} src=${clean(q.src)} kind=${clean(q.kind)} id=${clean(q.id)}${q.host ? ` host=${clean(q.host)}` : ""}`;
       console.log(line);
       reply.code(204).send();
     });

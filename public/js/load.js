@@ -53,7 +53,7 @@
     return panel;
   }
 
-  function message(text, error) {
+  function message(text, error, opts) {
     var container = document.getElementById("game-frame");
     if (!container) return;
     container.replaceChildren();
@@ -67,6 +67,12 @@
       var retry = document.createElement("button");
       retry.textContent = "Try again";
       retry.addEventListener("click", function () {
+        if (opts && opts.reload) {
+          // one-shot promises (the catalog loader) can't retry in place —
+          // the same rejection would just re-render. a reload re-runs them.
+          location.reload();
+          return;
+        }
         started = false;
         boot();
       });
@@ -360,7 +366,10 @@
             true,
           );
       } catch (error) {
-        message(error.message, true);
+        // playerDataReady is created once and never recreated: once the
+        // catalog loader fails, boot() would just await the same rejection
+        // forever. Only a reload re-downloads it.
+        message(error.message, true, { reload: true });
       }
       return;
     }
