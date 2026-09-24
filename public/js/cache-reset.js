@@ -38,6 +38,31 @@
       }
     });
   }
+  function readTrackedNames() {
+    try {
+      var known = JSON.parse(localStorage.getItem("idbNames") || "[]");
+      return Array.isArray(known)
+        ? known.filter(function (name) {
+            return typeof name === "string" && name;
+          })
+        : [];
+    } catch (_) {
+      return [];
+    }
+  }
+  async function listAllDatabaseNames() {
+    var names = databases.slice().concat(readTrackedNames());
+    if (window.indexedDB && typeof indexedDB.databases === "function") {
+      try {
+        var infos = await indexedDB.databases();
+        infos.forEach(function (info) {
+          if (info && info.name && names.indexOf(info.name) === -1)
+            names.push(info.name);
+        });
+      } catch (_) {}
+    }
+    return names;
+  }
   async function reset() {
     var work = [];
     if (navigator.serviceWorker) {
@@ -93,5 +118,67 @@
             .join(" "),
       );
   }
-  window.AetherisCache = { reset: reset, databaseNames: databases.slice() };
+  // Full wipe: every service worker, cache, database, and web storage entry
+  // for this origin. Unlike reset(), this deletes game saves, favorites,
+  // settings, and chat sign-ins. Callers must confirm + suggest an export.
+  async function resetSiteData() {
+    var names = await listAllDatabaseNames();
+    var work = [];
+    if (navigator.serviceWorker) {
+      work.push(
+        navigator.serviceWorker.getRegistrations().then(function (regs) {
+          return Promise.all(
+            regs.map(function (reg) {
+              return reg.unregister();
+            }),
+          );
+        }),
+      );
+    }
+    if (window.caches) {
+      work.push(
+        caches.keys().then(function (keys) {
+          return Promise.all(
+            keys.map(function (key) {
+              return caches.delete(key);
+            }),
+          );
+        }),
+      );
+    }
+    if (window.indexedDB)
+      names.forEach(function (name) {
+        work.push(deleteDatabase(name));
+      });
+    var results = await Promise.allSettled(work);
+    try {
+      localStorage.clear();
+    } catch (error) {
+      results.push({ status: "rejected", reason: error });
+    }
+    try {
+      sessionStorage.clear();
+    } catch (error) {
+      results.push({ status: "rejected", reason: error });
+    }
+    var failures = results.filter(function (result) {
+      return result.status === "rejected";
+    });
+    if (failures.length)
+      throw new Error(
+        "Reset was incomplete. " +
+          failures
+            .map(function (result) {
+              return (
+                (result.reason && result.reason.message) || String(result.reason)
+              );
+            })
+            .join(" "),
+      );
+  }
+  window.AetherisCache = {
+    reset: reset,
+    resetSiteData: resetSiteData,
+    databaseNames: databases.slice(),
+  };
 })();

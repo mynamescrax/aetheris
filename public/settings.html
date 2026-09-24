@@ -404,6 +404,18 @@
             Reset cache
           </button>
         </div>
+
+        <h2>Site data</h2>
+        <h4>
+          Delete everything stored by this site: settings, favorites, game
+          saves, chat sign-ins, caches, and the service worker. Export a
+          backup first if you want to keep anything.
+        </h4>
+        <div class="form-row">
+          <button onclick="resetsitedata(this)" class="secondary">
+            Reset site data
+          </button>
+        </div>
       </div>
 
       <div
@@ -439,6 +451,29 @@
         } finally {
           btn.disabled = false;
           btn.textContent = "Reset cache";
+        }
+      }
+
+      async function resetsitedata(btn) {
+        if (
+          !confirm(
+            "Delete ALL site data? This removes settings, favorites, game saves, chat sign-ins, and caches. Export a backup first if anything matters.",
+          )
+        )
+          return;
+        if (!confirm("Last chance — really wipe everything and reload?"))
+          return;
+        btn.disabled = true;
+        btn.textContent = "Clearing…";
+        var status = document.getElementById("data-status");
+        try {
+          await AetherisCache.resetSiteData();
+          status.textContent = "Site data cleared. Reloading…";
+          location.reload();
+        } catch (error) {
+          status.textContent = error.message;
+          btn.disabled = false;
+          btn.textContent = "Reset site data";
         }
       }
 
