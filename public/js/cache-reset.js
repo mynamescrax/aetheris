@@ -51,7 +51,13 @@
     }
   }
   async function listAllDatabaseNames() {
-    var names = databases.slice().concat(readTrackedNames());
+    var names = [];
+    // idbNames tracks every opened database including the proxy ones above,
+    // so concat would queue the same name twice and report two conflicting
+    // errors for one database — dedupe here.
+    databases.concat(readTrackedNames()).forEach(function (name) {
+      if (names.indexOf(name) === -1) names.push(name);
+    });
     if (window.indexedDB && typeof indexedDB.databases === "function") {
       try {
         var infos = await indexedDB.databases();
