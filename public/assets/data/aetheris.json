@@ -442,16 +442,6 @@
     ]
   },
   {
-    "id": "webdashers",
-    "title": "Web Dashers",
-    "url": "https://web-dashers.github.io",
-    "image": "assets/images/webdashers.png",
-    "source": "aetheris",
-    "tags": [
-      "Skill"
-    ]
-  },
-  {
     "id": "escaperoad3",
     "title": "Escape Road 3",
     "html": "assets/games/escaperoad3.html",
