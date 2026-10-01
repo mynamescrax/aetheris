@@ -1481,6 +1481,72 @@
     ]
   },
   {
+    "id": "minecraft1.21.4",
+    "title": "Minecraft 1.21.4",
+    "html": "assets/games/minecraft1.21.4.html",
+    "image": "assets/images/minecraft1.21.4.png",
+    "source": "aetheris",
+    "tags": [
+      "Strategy",
+      "Action"
+    ]
+  },
+  {
+    "id": "minecraftalpha1.2.6",
+    "title": "Minecraft Alpha 1.2.6",
+    "html": "assets/games/minecraftalpha1.2.6.html",
+    "image": "assets/images/minecraftalpha1.2.6.png",
+    "source": "aetheris",
+    "tags": [
+      "Strategy",
+      "Action"
+    ]
+  },
+  {
+    "id": "minecraftbeta1.3",
+    "title": "Minecraft Beta 1.3",
+    "html": "assets/games/minecraftbeta1.3.html",
+    "image": "assets/images/minecraftbeta1.3.png",
+    "source": "aetheris",
+    "tags": [
+      "Strategy",
+      "Action"
+    ]
+  },
+  {
+    "id": "minecraft1.7.3",
+    "title": "Minecraft Beta 1.7.3",
+    "html": "assets/games/minecraft1.7.3.html",
+    "image": "assets/images/minecraft1.7.3.png",
+    "source": "aetheris",
+    "tags": [
+      "Strategy",
+      "Action"
+    ]
+  },
+  {
+    "id": "minecraftindev",
+    "title": "Minecraft Indev",
+    "html": "assets/games/minecraftindev.html",
+    "image": "assets/images/minecraftindev.png",
+    "source": "aetheris",
+    "tags": [
+      "Strategy",
+      "Action"
+    ]
+  },
+  {
+    "id": "minecraft26.2",
+    "title": "Minecraft 26.2",
+    "html": "assets/games/minecraft26.2.html",
+    "image": "assets/images/minecraft26.2.png",
+    "source": "aetheris",
+    "tags": [
+      "Strategy",
+      "Action"
+    ]
+  },
+  {
     "id": "weaponscale",
     "title": "Weapon Scale",
     "html": "assets/games/weaponscale.html",

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Minecraft 26.2</title>
+<meta name="description" content="Play Minecraft 26.2 (Eaglercraft u1 WASM) in your browser" />
+<meta name="keywords" content="eaglercraft, minecraft, 26.2, wasm" />
+<style>
+html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background: #000; }
+#game_frame { width: 100vw; height: 100vh; border: 0; display: block; }
+</style>
+</head>
+<body>
+<iframe id="game_frame" src="https://eaglercraft-26-2-u1-cdn.u2471966200.workers.dev/eaglercraft-26.2-u1.html?v=u1-20260930" allow="fullscreen; autoplay; gamepad; clipboard-read; clipboard-write" allowfullscreen title="Minecraft 26.2"></iframe>
+<script>
+(function () {
+  try {
+    var q = new URLSearchParams(window.location.search);
+    var s = q.get("server");
+    if (s) {
+      var f = document.getElementById("game_frame");
+      var u = new URL(f.src);
+      u.searchParams.set("server", s);
+      f.src = u.toString();
+    }
+  } catch (e) {}
+})();
+</script>
+</body>
+</html>
