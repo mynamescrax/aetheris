@@ -7,6 +7,19 @@
     "scramjet-config",
     "aetheris-games-cache",
   ];
+  // Disposable game-file stores. Mirrors the SKIP_DBS list in
+  // data-transfer.js (excluded from backups because they are re-downloadable)
+  // plus gameFilesDB, which holds downloaded bundles — never game saves.
+  // /idbfs and /userfs are deliberately NOT listed: Emscripten IDBFS mounts
+  // there mix downloadable assets with real save files.
+  var downloadDatabases = [
+    "UnityCache",
+    "CachedXMLHttpRequests",
+    "gameFilesDB",
+  ];
+  function isProtectedCacheKey(key) {
+    return key === "__sw_meta__" || /^aetheris[-_]/i.test(key);
+  }
   function deleteDatabase(name) {
     return new Promise(function (resolve, reject) {
       var timer = setTimeout(function () {
@@ -100,7 +113,7 @@
           return Promise.all(
             keys
               .filter(function (key) {
-                return key === "__sw_meta__" || /^aetheris[-_]/i.test(key);
+                return isProtectedCacheKey(key);
               })
               .map(function (key) {
                 return caches.delete(key);
@@ -187,9 +200,76 @@
             .join(" "),
       );
   }
+  // Wipe downloaded game files only. Deletes per-game Cache Storage entries
+  // (Unity packs, offline bundles like "hksilksongcache-v2") and disposable
+  // game-file IndexedDBs. Keeps settings, favorites, game saves, chat
+  // sign-ins, localStorage/sessionStorage, the service worker, and the
+  // proxy/catalog caches (aetheris-*) so the library still loads fast.
+  async function resetDownloadedGames() {
+    var deletedCaches = 0;
+    var deletedDatabases = 0;
+    var work = [];
+    if (window.caches) {
+      work.push(
+        caches.keys().then(function (keys) {
+          var targets = keys.filter(function (key) {
+            return !isProtectedCacheKey(key);
+          });
+          return Promise.all(
+            targets.map(function (key) {
+              return caches.delete(key).then(function (deleted) {
+                if (deleted) deletedCaches++;
+              });
+            }),
+          );
+        }),
+      );
+    }
+    if (window.indexedDB)
+      downloadDatabases.forEach(function (name) {
+        work.push(
+          deleteDatabase(name).then(
+            function () {
+              deletedDatabases++;
+            },
+            function (error) {
+              // Missing databases reject on some browsers ("not found") —
+              // they simply were never downloaded, so don't fail the wipe.
+              if (
+                error &&
+                (error.name === "NotFoundError" ||
+                  /not found|does not exist/i.test(
+                    error.message || String(error),
+                  ))
+              )
+                return;
+              throw error;
+            },
+          ),
+        );
+      });
+    var results = await Promise.allSettled(work);
+    var failures = results.filter(function (result) {
+      return result.status === "rejected";
+    });
+    if (failures.length)
+      throw new Error(
+        "Could not delete every download. " +
+          failures
+            .map(function (result) {
+              return (
+                (result.reason && result.reason.message) || String(result.reason)
+              );
+            })
+            .join(" "),
+      );
+    return { caches: deletedCaches, databases: deletedDatabases };
+  }
   window.AetherisCache = {
     reset: reset,
+    resetDownloadedGames: resetDownloadedGames,
     resetSiteData: resetSiteData,
     databaseNames: databases.slice(),
+    downloadDatabaseNames: downloadDatabases.slice(),
   };
 })();

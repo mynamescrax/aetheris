@@ -21,7 +21,7 @@
     <script defer src="./js/preload.js?v=20260907.1"></script>
     <script defer src="./js/settings.js?v=20260928.2"></script>
     <script defer src="./js/data-transfer.js?v=20260907.1"></script>
-    <script defer src="./js/cache-reset.js?v=20260924.1"></script>
+    <script defer src="./js/cache-reset.js?v=20260929.1"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <script src="./js/navigation.js?v=20260907.1"></script>
@@ -405,6 +405,18 @@
           </button>
         </div>
 
+        <h2>Downloaded games</h2>
+        <h4>
+          Delete downloaded game files to free space: per-game offline packs
+          and Unity download caches. Settings, favorites, game saves, and
+          chat sign-ins are kept.
+        </h4>
+        <div class="form-row">
+          <button onclick="resetdownloadedgames(this)" class="secondary">
+            Delete downloaded games
+          </button>
+        </div>
+
         <h2>Site data</h2>
         <h4>
           Delete everything stored by this site: settings, favorites, game
@@ -451,6 +463,39 @@
         } finally {
           btn.disabled = false;
           btn.textContent = "Reset cache";
+        }
+      }
+
+      async function resetdownloadedgames(btn) {
+        if (
+          !confirm(
+            "Delete downloaded game files? Settings, favorites, game saves, and chat sign-ins are kept. Games will re-download next time you play them.",
+          )
+        )
+          return;
+        btn.disabled = true;
+        btn.textContent = "Deleting…";
+        var status = document.getElementById("data-status");
+        try {
+          var result = await AetherisCache.resetDownloadedGames();
+          var parts = [];
+          parts.push(
+            result.caches +
+              (result.caches === 1 ? " game cache" : " game caches"),
+          );
+          parts.push(
+            result.databases +
+              (result.databases === 1 ? " download store" : " download stores"),
+          );
+          status.textContent =
+            "Deleted " +
+            parts.join(" and ") +
+            ". Settings, favorites, and game saves were kept.";
+        } catch (error) {
+          status.textContent = error.message;
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "Delete downloaded games";
         }
       }
 
