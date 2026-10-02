@@ -1455,8 +1455,7 @@
     "source": "aetheris",
     "tags": [
       "Strategy",
-      "Action",
-      "Minecraft"
+      "Action"
     ]
   },
   {
@@ -1467,8 +1466,7 @@
     "source": "aetheris",
     "tags": [
       "Strategy",
-      "Action",
-      "Minecraft"
+      "Action"
     ]
   },
   {
@@ -1479,8 +1477,7 @@
     "source": "aetheris",
     "tags": [
       "Strategy",
-      "Action",
-      "Minecraft"
+      "Action"
     ]
   },
   {
@@ -1491,8 +1488,7 @@
     "source": "aetheris",
     "tags": [
       "Strategy",
-      "Action",
-      "Minecraft"
+      "Action"
     ]
   },
   {
@@ -1503,8 +1499,7 @@
     "source": "aetheris",
     "tags": [
       "Strategy",
-      "Action",
-      "Minecraft"
+      "Action"
     ]
   },
   {
@@ -1515,8 +1510,7 @@
     "source": "aetheris",
     "tags": [
       "Strategy",
-      "Action",
-      "Minecraft"
+      "Action"
     ]
   },
   {
@@ -1527,8 +1521,7 @@
     "source": "aetheris",
     "tags": [
       "Strategy",
-      "Action",
-      "Minecraft"
+      "Action"
     ]
   },
   {
@@ -1539,8 +1532,7 @@
     "source": "aetheris",
     "tags": [
       "Strategy",
-      "Action",
-      "Minecraft"
+      "Action"
     ]
   },
   {
@@ -1551,476 +1543,7 @@
     "source": "aetheris",
     "tags": [
       "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "minecraft1.9",
-    "title": "Minecraft 1.9",
-    "html": "assets/games/minecraft1.9.html",
-    "image": "assets/images/minecraft1.8.8.png",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "minecraft1.11.2",
-    "title": "Minecraft 1.11.2",
-    "html": "assets/games/minecraft1.11.2.html",
-    "image": "assets/images/minecraft1.12.2.png",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-astra",
-    "title": "Astra Client",
-    "html": "assets/games/eagler-astra.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-eb",
-    "title": "EB Client",
-    "html": "assets/games/eagler-eb.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-explore",
-    "title": "Explore Modpack",
-    "html": "assets/games/eagler-explore.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-forge",
-    "title": "Eagler Forge",
-    "html": "assets/games/eagler-forge.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-fuchsiax",
-    "title": "Fuschia X",
-    "html": "assets/games/eagler-fuchsiax.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-gx",
-    "title": "GX Client",
-    "html": "assets/games/eagler-gx.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-justin",
-    "title": "Justin Client",
-    "html": "assets/games/eagler-justin.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-kerosene",
-    "title": "Kerosene Client",
-    "html": "assets/games/eagler-kerosene.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-lite",
-    "title": "Eaglercraft Lite",
-    "html": "assets/games/eagler-lite.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-magic",
-    "title": "Eaglercraft Magic",
-    "html": "assets/games/eagler-magic.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-modern",
-    "title": "Modern Client",
-    "html": "assets/games/eagler-modern.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-modernv2",
-    "title": "Modern Client (v2)",
-    "html": "assets/games/eagler-modernv2.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-nebula",
-    "title": "Eaglercraft Nebula",
-    "html": "assets/games/eagler-nebula.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-nit",
-    "title": "Nit Client",
-    "html": "assets/games/eagler-nit.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-nova",
-    "title": "Nova Client",
-    "html": "assets/games/eagler-nova.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-oddfuture",
-    "title": "EaglerCraft Odd Future",
-    "html": "assets/games/eagler-oddfuture.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-pi",
-    "title": "Pi Client",
-    "html": "assets/games/eagler-pi.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-pixel",
-    "title": "Pixel Client",
-    "html": "assets/games/eagler-pixel.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-precision",
-    "title": "Precision Client",
-    "html": "assets/games/eagler-precision.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-prism",
-    "title": "Prism Client",
-    "html": "assets/games/eagler-prism.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-prismarine",
-    "title": "Minecraft Prismarine Client",
-    "html": "assets/games/eagler-prismarine.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-reborn",
-    "title": "Reborn Client",
-    "html": "assets/games/eagler-reborn.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-resent",
-    "title": "Resent Client",
-    "html": "assets/games/eagler-resent.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-shadow",
-    "title": "Eaglercraft Shadow",
-    "html": "assets/games/eagler-shadow.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-sky",
-    "title": "Eaglercraft Sky",
-    "html": "assets/games/eagler-sky.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-skyfactory",
-    "title": "Skyfactory",
-    "html": "assets/games/eagler-skyfactory.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-solar",
-    "title": "Solar Client",
-    "html": "assets/games/eagler-solar.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-starlike",
-    "title": "Starlike Client",
-    "html": "assets/games/eagler-starlike.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-tech",
-    "title": "Eaglercraft Tech",
-    "html": "assets/games/eagler-tech.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-tuff",
-    "title": "Tuff Client",
-    "html": "assets/games/eagler-tuff.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-tuffut15",
-    "title": "UT15 Tuff Client",
-    "html": "assets/games/eagler-tuffut15.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-ultimate",
-    "title": "Eaglercraft Ultimate",
-    "html": "assets/games/eagler-ultimate.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-uwu",
-    "title": "UwU Client",
-    "html": "assets/games/eagler-uwu.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-winston",
-    "title": "Eaglercraft Winston Horror",
-    "html": "assets/games/eagler-winston.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eagler-wurst",
-    "title": "Wurst Client",
-    "html": "assets/games/eagler-wurst.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eaglercraftx116",
-    "title": "EaglercraftX 1.16",
-    "html": "assets/games/eaglercraftx116.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
-    ]
-  },
-  {
-    "id": "eaglercraftx1206",
-    "title": "EaglercraftX 1.20.6",
-    "html": "assets/games/eaglercraftx1206.html",
-    "image": "assets/images/thumbs/eagleride.webp",
-    "source": "aetheris",
-    "tags": [
-      "Strategy",
-      "Action",
-      "Minecraft"
+      "Action"
     ]
   },
   {
@@ -3666,8 +3189,7 @@
     "source": "aetheris",
     "tags": [
       "Strategy",
-      "Action",
-      "Minecraft"
+      "Action"
     ]
   },
   {
