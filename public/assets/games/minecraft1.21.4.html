@@ -1,26 +1,31 @@
 <!DOCTYPE html>
 <html>
 <head>
-<base href="https://cdn.jsdelivr.net/gh/genizy/mc@main/data/1.21.4/">
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<meta name="description" content="Play Minecraft 1.21.4 in your browser (Prismarine web client)" />
-<meta name="keywords" content="minecraft, 1.21.4, prismarine, web client" />
 <title>Minecraft 1.21.4</title>
-<link href="./static/css/669.11f84d4a.css" rel="stylesheet">
-<link href="./static/css/index.95c205e1.css" rel="stylesheet">
-<link rel="manifest" crossorigin="anonymous" href="manifest.json">
-<link rel="icon" type="image/png" href="favicon.png">
+<meta name="description" content="Play Minecraft 1.21 (Eaglercraft 1.21) in your browser" />
+<meta name="keywords" content="eaglercraft, minecraft, 1.21, 1.21.4" />
 <style>
-html { background: black; }
+html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background: #000; }
+#game_frame { width: 100vw; height: 100vh; border: 0; display: block; }
 </style>
 </head>
 <body>
-<div id="react-root"></div>
-<div id="ui-root"></div>
-<script defer src="./static/js/lib-polyfill.a8e86b9b.js"></script>
-<script defer src="./static/js/lib-react.46180ea1.js"></script>
-<script defer src="./static/js/669.06cfda27.js"></script>
-<script defer src="./static/js/index.9c3002b0.js"></script>
+<iframe id="game_frame" src="https://raw.githack.com/radmanplays/Eaglercraft-1.21/main/index.html" allow="fullscreen; autoplay; gamepad; clipboard-read; clipboard-write" allowfullscreen title="Minecraft 1.21.4"></iframe>
+<script>
+(function () {
+  try {
+    var q = new URLSearchParams(window.location.search);
+    var s = q.get("server");
+    if (s) {
+      var f = document.getElementById("game_frame");
+      var u = new URL(f.src);
+      u.searchParams.set("server", s);
+      f.src = u.toString();
+    }
+  } catch (e) {}
+})();
+</script>
 </body>
 </html>

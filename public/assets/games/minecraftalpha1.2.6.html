@@ -6,21 +6,26 @@
 <title>Minecraft Alpha 1.2.6</title>
 <meta name="description" content="Play Minecraft Alpha 1.2.6 in your browser" />
 <meta name="keywords" content="eaglercraft, minecraft, alpha, 1.2.6" />
-<link type="image/png" rel="shortcut icon" href="https://cdn.jsdelivr.net/gh/genizy/mc@main/shared/game.png" />
-<script type="text/javascript" src="https://cdn.jsdelivr.net/gh/genizy/mc@main/shared/loader.js"></script>
-<script type="text/javascript">
-window.__eaglercraftLoaderClient = {
-	container: "game_frame",
-	name: "Minecraft Alpha 1.2.6",
-	file: "net.peytonplays585.minecraft.a1_2_6",
-	cid: "bafybeihwzghrppvbzru2swx7xesxrfe7gq6gngwchuordmhhnmosx3ax6a",
-	download: "https://cdn.jsdelivr.net/gh/genizy/mc@main/data/a1.2.6.gz",
-	path: "",
-	dlSize: 5377251,
-	gzip: true
-};
-</script>
+<style>
+html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background: #000; }
+#game_frame { width: 100vw; height: 100vh; border: 0; display: block; }
+</style>
 </head>
-<body style="margin:0px;width:100vw;height:100vh;overflow:hidden;" id="game_frame">
+<body>
+<iframe id="game_frame" src="https://eaglerports.github.io/a1.2.6/" allow="fullscreen; autoplay; gamepad; clipboard-read; clipboard-write" allowfullscreen title="Minecraft Alpha 1.2.6"></iframe>
+<script>
+(function () {
+  try {
+    var q = new URLSearchParams(window.location.search);
+    var s = q.get("server");
+    if (s) {
+      var f = document.getElementById("game_frame");
+      var u = new URL(f.src);
+      u.searchParams.set("server", s);
+      f.src = u.toString();
+    }
+  } catch (e) {}
+})();
+</script>
 </body>
 </html>
