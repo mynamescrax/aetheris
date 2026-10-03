@@ -438,9 +438,11 @@ test("served proxy bundles carry the legacy-Safari compat prefix", async () => {
   assert.match(controllertext, /BroadcastChannel/);
 });
 
-test("lc-relay rejects cross-origin upgrades and accepts same-origin hosts", async () => {
+test("lc-relay accepts any origin (open relay) and same-origin hosts", async () => {
   const wsBase = base.replace("http:", "ws:");
-  await new Promise((resolve, reject) => {
+  // OPEN RELAY (operator decision 2026-10-03): cross-origin upgrades must be
+  // accepted so other sites can use the relay.
+  const crossId = await new Promise((resolve, reject) => {
     const ws = new WebSocket(wsBase + "/lc-relay", {
       headers: { origin: "https://evil.example" },
     });
@@ -449,19 +451,29 @@ test("lc-relay rejects cross-origin upgrades and accepts same-origin hosts", asy
       5000,
     );
     ws.on("open", () => {
+      const room = Buffer.from("XORIGIN");
+      const version = Buffer.from("1.0");
+      const frame = Buffer.concat([
+        Buffer.from([1, 0, room.length]),
+        room,
+        Buffer.from([version.length]),
+        version,
+      ]);
+      ws.send(frame);
+    });
+    ws.on("message", (data) => {
+      const buf = Buffer.from(data);
+      if (buf[0] !== 2) return;
       clearTimeout(timer);
       ws.close();
-      reject(new Error("cross-origin upgrade was accepted"));
+      resolve(buf[1]);
     });
-    ws.on("error", () => {
+    ws.on("error", (err) => {
       clearTimeout(timer);
-      resolve();
-    });
-    ws.on("close", () => {
-      clearTimeout(timer);
-      resolve();
+      reject(err);
     });
   });
+  assert.equal(crossId, 0);
 
   // A same-origin host can create a room and receives JOINED (opcode 2, id 0).
   const joinedId = await new Promise((resolve, reject) => {

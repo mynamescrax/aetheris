@@ -20,7 +20,6 @@
 //   8 PING       any   [op][echo u64]  -> reply 9 PONG [op][echo u64] to the sender
 
 import { WebSocket, WebSocketServer } from "ws";
-import { websocketOriginAllowed } from "./lib/ws-origin.js";
 
 const MAX_PLAYERS = 4;
 const IDLE_TIMEOUT_MS = 40 * 1000;
@@ -348,12 +347,13 @@ function handleJoin(ws, frame) {
 /**
  * Mount point for Aetheris' upgrade hook: handle a /lc-relay WebSocket upgrade.
  * Same semantics as wss://<origin>/lc-relay on the standalone relay.
+ *
+ * OPEN RELAY (operator decision 2026-10-03): any Origin may connect, so other
+ * sites can use this relay. Abuse surface is bounded by the existing caps
+ * (250 rooms, 5 rooms/IP, 4 players/room, 1 MB frames). wisp (index.js) keeps
+ * its same-origin check — it is a generic TCP proxy and must stay restricted.
  */
 function lcRelayUpgrade(req, socket, head) {
-  if (!websocketOriginAllowed(req)) {
-    socket.end("HTTP/1.1 403 Forbidden\r\n\r\n");
-    return;
-  }
   wss.handleUpgrade(req, socket, head, (ws) => {
     wss.emit("connection", ws, req);
   });

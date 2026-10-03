@@ -576,6 +576,9 @@ function handleupgrade(req, socket, head) {
     // server (and their connection) as a TCP relay. Non-browser clients with
     // no Origin header still work.
     if (!websocketOriginAllowed(req)) {
+      console.log(
+        `[wisp] rejected cross-origin upgrade origin=${req.headers?.origin} host=${req.headers?.host}`,
+      );
       socket.end("HTTP/1.1 403 Forbidden\r\n\r\n");
       return;
     }
