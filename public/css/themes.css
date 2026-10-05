@@ -76,6 +76,94 @@
   --logo-glow: rgba(96, 165, 250, 0.08);
 }
 
+:root[theme="halloween"], body[theme="halloween"] {
+  --text-color: #f6ecdf;
+  --background:
+    radial-gradient(circle at 86% 12%, rgba(255, 240, 200, 0.2) 0, rgba(255, 214, 140, 0.08) 4.5%, transparent 12%),
+    radial-gradient(ellipse at 50% 115%, rgba(255, 106, 0, 0.24) 0, transparent 58%),
+    radial-gradient(ellipse at 8% -5%, rgba(124, 58, 237, 0.22) 0, transparent 52%),
+    linear-gradient(180deg, #140a20 0%, #0d0715 55%, #070409 100%);
+  --bg-color: #0d0715;
+  --navbar: #0a0510;
+  --accent: #ff7a18;
+  --sidebar-bg: linear-gradient(
+    180deg,
+    rgba(24, 12, 34, 0.97),
+    rgba(10, 5, 16, 0.99)
+  );
+  --sidebar-border: rgba(255, 122, 24, 0.16);
+  --sidebar-top-bg: rgba(255, 122, 24, 0.05);
+  --surface-hover: rgba(168, 85, 247, 0.12);
+  --surface-active: linear-gradient(110deg, #e85d04 0%, #ffb347 100%);
+  --nav-text: rgba(246, 236, 223, 0.82);
+  --nav-active-text: #1f0a00;
+  --sidebar-handle-bg: rgba(24, 12, 34, 0.97);
+  --sidebar-handle-color: #ff9a3c;
+  --active-shadow: 0 8px 24px rgba(255, 106, 0, 0.25);
+  --sidebar-divider: rgba(255, 122, 24, 0.1);
+  --sidebar-inner-line: rgba(168, 85, 247, 0.06);
+  --logo-glow: rgba(255, 122, 24, 0.14);
+}
+
+/* purple-tinted grid instead of the default white one */
+body[theme="halloween"]::before {
+  --grid-line: rgba(168, 85, 247, 0.07);
+  --grid-glow: rgba(255, 122, 24, 0.05);
+}
+
+/* drifting bats layer - decorative only */
+body[theme="halloween"]::after {
+  content: "";
+  position: fixed;
+  inset: -20px;
+  pointer-events: none;
+  z-index: -2;
+  --bat: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 32'%3E%3Cpath fill='%23a78bfa' d='M32 9c-1.5-3-3.5-4.5-3.5-4.5l.6 4.6c-2.6.2-4.6 1.3-5.6 3C20.6 7.3 13.2 5.4 6 7.6c3.8 1.9 5.9 4.9 6.2 8.7 2.9-1.8 6.6-1.7 8.8 1 1.2-2.6 3.9-3.6 6.6-2.3.9 2.4 2.3 4.4 4.4 6 2.1-1.6 3.5-3.6 4.4-6 2.7-1.3 5.4-.3 6.6 2.3 2.2-2.7 5.9-2.8 8.8-1 .3-3.8 2.4-6.8 6.2-8.7-7.2-2.2-14.6-.3-17.5 4.7-1-1.7-3-2.8-5.6-3l.6-4.6S33.5 6 32 9z'/%3E%3C/svg%3E");
+  background-image: var(--bat), var(--bat), var(--bat), var(--bat), var(--bat);
+  background-repeat: no-repeat;
+  background-size: 54px auto, 34px auto, 26px auto, 42px auto, 22px auto;
+  background-position: 78% 20%, 70% 9%, 91% 27%, 14% 64%, 24% 58%;
+  opacity: 0.38;
+  animation: aetheris-bats 16s ease-in-out infinite alternate;
+}
+
+@keyframes aetheris-bats {
+  0% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(-14px, -10px, 0); }
+  100% { transform: translate3d(10px, 6px, 0); }
+}
+
+body[theme="halloween"] .dark-title {
+  background: linear-gradient(135deg, #ff6a00 0%, #ffb347 55%, #ffe3b0 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  filter: drop-shadow(0 0 18px rgba(255, 106, 0, 0.35));
+}
+
+body[theme="halloween"] .dark-search {
+  border-color: rgba(255, 122, 24, 0.18);
+  background: rgba(16, 6, 24, 0.55);
+}
+
+body[theme="halloween"] .dark-search:focus {
+  border-color: rgba(255, 122, 24, 0.5);
+  box-shadow: 0 0 0 4px rgba(255, 122, 24, 0.12), 0 0 30px rgba(168, 85, 247, 0.15);
+}
+
+body[theme="halloween"] ::selection {
+  background: rgba(255, 122, 24, 0.35);
+}
+
+html.power-saving body[theme="halloween"]::after {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body[theme="halloween"]::after {
+    animation: none;
+  }
+}
+
 body {
   transition: background-color 0.22s ease, color 0.22s ease;
 }

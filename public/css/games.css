@@ -41,6 +41,35 @@ body[theme="dark-blue"] {
   --tag-active-bg: rgba(165, 243, 252, 0.16);
 }
 
+:root[theme="halloween"] #source-filter option,
+:root[theme="halloween"] #source-filter optgroup,
+body[theme="halloween"] #source-filter option,
+body[theme="halloween"] #source-filter optgroup {
+  background: #1a0b26;
+  color: #f6ecdf;
+}
+
+:root[theme="halloween"],
+body[theme="halloween"] {
+  --games-panel: rgba(28, 12, 40, 0.55);
+  --games-panel-strong: rgba(34, 14, 48, 0.78);
+  --games-border: rgba(255, 122, 24, 0.16);
+  --games-shadow: rgba(8, 2, 14, 0.5);
+  --games-chip: rgba(168, 85, 247, 0.08);
+  --games-chip-hover: rgba(255, 122, 24, 0.14);
+  --games-text-soft: rgba(246, 236, 223, 0.74);
+  --games-accent: rgba(255, 122, 24, 0.08);
+  --games-accent-strong: rgba(255, 122, 24, 0.2);
+  --games-search-start: rgba(16, 6, 24, 0.4);
+  --games-search-end: rgba(255, 122, 24, 0.03);
+  --games-search-stroke: rgba(255, 122, 24, 0.18);
+  --games-focus-ring: rgba(255, 122, 24, 0.14);
+  --tag-bg: rgba(168, 85, 247, 0.08);
+  --tag-border: rgba(168, 85, 247, 0.18);
+  --tag-active: #ffb347;
+  --tag-active-bg: rgba(255, 122, 24, 0.2);
+}
+
 html.in-iframe .games-topbar,
 html.in-iframe .tag-bar {
   padding-left: 64px;

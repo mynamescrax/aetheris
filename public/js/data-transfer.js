@@ -10,6 +10,22 @@
     "UnityCache",
     "CachedXMLHttpRequests",
   ]);
+  // Generic download-cache detection, so newly added games are handled
+  // without editing this file. Keep in sync with cache-reset.js.
+  //  - Any database whose name contains "cache" holds re-downloadable game
+  //    files (UnityCache, amongus-web-cache, cachedb, ...), never saves.
+  //  - In other databases, a record is a downloaded file (not a save) when
+  //    it is huge, or when it is binary data keyed by a URL.
+  var CACHE_DB_NAME = /cache/i;
+  // Saves are tiny; a single record this large is a downloaded game asset
+  // (e.g. a Unity bundle inside an Emscripten /idbfs mount).
+  var MAX_RECORD_BYTES = 16 * 1024 * 1024;
+  var URL_KEYED_BINARY_BYTES = 256 * 1024;
+  // Raw data budget for a whole backup. Base64 inflates binary by 4/3, so
+  // this keeps the file under the 128 MB import limit.
+  var MAX_EXPORT_BYTES = 90 * 1024 * 1024;
+  var BATCH_RECORDS = 200;
+  var BATCH_BYTES = 8 * 1024 * 1024;
   var SKIP_KEYS = new Set([
     "dmToken",
     "dmDeviceId",
@@ -270,11 +286,111 @@
       names = known.concat(["/idbfs", "/userfs", "localforage", "gameFilesDB"]);
     }
     return Array.from(new Set(known.concat(names))).filter(function (name) {
-      return name && !SKIP_DBS.has(name);
+      return name && !isDownloadCacheDb(name);
     });
   }
 
-  async function dumpDatabase(name) {
+  function isDownloadCacheDb(name) {
+    return SKIP_DBS.has(name) || CACHE_DB_NAME.test(name);
+  }
+
+  // Rough in-memory size of a stored value: total bytes and the part that is
+  // binary (Blob/ArrayBuffer/typed arrays). Used to classify downloaded
+  // files and enforce the export budget.
+  function measure(value, depth, seen, acc) {
+    acc = acc || { bytes: 0, binary: 0 };
+    if (value === null || value === undefined) return acc;
+    if (typeof value === "string") {
+      acc.bytes += value.length;
+      return acc;
+    }
+    if (typeof value !== "object") {
+      acc.bytes += 8;
+      return acc;
+    }
+    var bin =
+      value instanceof Blob
+        ? value.size
+        : value instanceof ArrayBuffer || ArrayBuffer.isView(value)
+          ? value.byteLength
+          : -1;
+    if (bin >= 0) {
+      acc.bytes += bin;
+      acc.binary += bin;
+      return acc;
+    }
+    depth = depth || 0;
+    if (depth > 8) return acc;
+    seen = seen || new WeakSet();
+    if (seen.has(value)) return acc;
+    seen.add(value);
+    if (value instanceof Map) {
+      value.forEach(function (v, k) {
+        measure(k, depth + 1, seen, acc);
+        measure(v, depth + 1, seen, acc);
+      });
+    } else if (value instanceof Set || Array.isArray(value)) {
+      value.forEach(function (v) {
+        measure(v, depth + 1, seen, acc);
+      });
+    } else {
+      for (var key of Object.keys(value)) {
+        acc.bytes += key.length;
+        measure(value[key], depth + 1, seen, acc);
+      }
+    }
+    return acc;
+  }
+
+  function isDownloadRecord(key, size) {
+    return (
+      size.bytes > MAX_RECORD_BYTES ||
+      (typeof key === "string" &&
+        key.indexOf("://") !== -1 &&
+        size.binary >= URL_KEYED_BINARY_BYTES)
+    );
+  }
+
+  // Read one bounded batch with a cursor instead of getAll(), so a huge
+  // store is never fully materialized in memory at once.
+  function readBatch(db, storeName, afterKey, hasAfter) {
+    return new Promise(function (resolve, reject) {
+      var result = { keys: [], values: [], bytes: 0, skipped: 0, done: true };
+      var tx = db.transaction(storeName, "readonly");
+      tx.oncomplete = function () {
+        resolve(result);
+      };
+      tx.onerror = tx.onabort = function () {
+        reject(tx.error || new Error("Could not read " + storeName));
+      };
+      var range = hasAfter ? IDBKeyRange.lowerBound(afterKey, true) : null;
+      var req = tx.objectStore(storeName).openCursor(range);
+      req.onsuccess = function () {
+        var cursor = req.result;
+        if (!cursor) return;
+        result.lastKey = cursor.primaryKey;
+        var size = measure(cursor.value);
+        if (isDownloadRecord(cursor.primaryKey, size)) {
+          result.skipped++;
+        } else {
+          result.keys.push(cursor.primaryKey);
+          result.values.push(cursor.value);
+          result.bytes += size.bytes;
+        }
+        if (
+          result.values.length >= BATCH_RECORDS ||
+          result.bytes >= BATCH_BYTES
+        ) {
+          result.done = false;
+          return;
+        }
+        cursor.continue();
+      };
+    });
+  }
+
+  async function dumpDatabase(name, budget) {
+    budget = budget || { bytes: 0, skipped: 0 };
     var db;
     try {
       db = await openDatabase(name);
@@ -286,47 +402,54 @@
       var stores = Array.from(db.objectStoreNames);
       var out = { version: db.version, stores: Object.create(null) };
       if (!stores.length) return out;
-      await new Promise(function (resolve, reject) {
-        var tx = db.transaction(stores, "readonly");
-        tx.oncomplete = resolve;
-        tx.onerror = tx.onabort = function () {
-          reject(tx.error || new Error("Could not read " + name));
+      var schemaTx = db.transaction(stores, "readonly");
+      stores.forEach(function (storeName) {
+        var store = schemaTx.objectStore(storeName);
+        out.stores[storeName] = {
+          keyPath: store.keyPath,
+          autoIncrement: store.autoIncrement,
+          indexes: Array.from(store.indexNames).map(function (key) {
+            var index = store.index(key);
+            return {
+              name: key,
+              keyPath: index.keyPath,
+              unique: index.unique,
+              multiEntry: index.multiEntry,
+            };
+          }),
+          keys: [],
+          values: [],
         };
-        stores.forEach(function (name) {
-          var store = tx.objectStore(name);
-          var info = (out.stores[name] = {
-            keyPath: store.keyPath,
-            autoIncrement: store.autoIncrement,
-            indexes: Array.from(store.indexNames).map(function (key) {
-              var index = store.index(key);
-              return {
-                name: key,
-                keyPath: index.keyPath,
-                unique: index.unique,
-                multiEntry: index.multiEntry,
-              };
-            }),
-            keys: [],
-            values: [],
-          });
-          store.getAllKeys().onsuccess = function (event) {
-            info.keys = event.target.result;
-          };
-          store.getAll().onsuccess = function (event) {
-            info.values = event.target.result;
-          };
-        });
       });
-      // No awaits inside an IDB transaction (especially important on Safari).
       for (var storeName of stores) {
         var info = out.stores[storeName];
-        for (var i = 0; i < info.values.length; i++) {
-          info.keys[i] = await encode(info.keys[i]);
-          info.values[i] = await encode(info.values[i]);
-          if (i % 250 === 0)
-            await new Promise(function (r) {
-              setTimeout(r, 0);
-            });
+        var lastKey,
+          hasLast = false;
+        while (true) {
+          var batch = await readBatch(db, storeName, lastKey, hasLast);
+          budget.skipped += batch.skipped;
+          budget.bytes += batch.bytes;
+          if (budget.bytes > MAX_EXPORT_BYTES)
+            throw new Error(
+              "Save data in " +
+                name +
+                " is too large to export safely (over " +
+                Math.round(MAX_EXPORT_BYTES / 1024 / 1024) +
+                " MB). Use \u201cDelete downloaded games\u201d to free space, then retry.",
+            );
+          // No awaits inside an IDB transaction (especially on Safari):
+          // encode only after the batch transaction has completed.
+          for (var i = 0; i < batch.values.length; i++) {
+            info.keys.push(await encode(batch.keys[i]));
+            info.values.push(await encode(batch.values[i]));
+            batch.values[i] = null;
+          }
+          await new Promise(function (r) {
+            setTimeout(r, 0);
+          });
+          if (batch.done || batch.lastKey === undefined) break;
+          lastKey = batch.lastKey;
+          hasLast = true;
         }
       }
       return out;
@@ -348,19 +471,31 @@
     if (busy) return;
     setBusy(true);
     try {
-      var data = {
+      var header = {
         format: "aetheris-backup",
         version: 2,
         createdAt: new Date().toISOString(),
         localStorage: localSnapshot(),
-        indexedDB: Object.create(null),
       };
+      // Build the file from per-database parts instead of one giant
+      // JSON.stringify string, so peak memory stays near one database.
+      var headerJson = JSON.stringify(header);
+      var parts = [headerJson.slice(0, -1) + ',"indexedDB":{'];
+      var budget = { bytes: 0, skipped: 0 };
+      var first = true;
       for (var name of await listDatabases()) {
         status("Exporting " + name + "…");
-        var dump = await dumpDatabase(name);
-        if (dump) data.indexedDB[name] = dump;
+        var dump = await dumpDatabase(name, budget);
+        if (!dump) continue;
+        parts.push(
+          (first ? "" : ",") + JSON.stringify(name) + ":" + JSON.stringify(dump),
+        );
+        first = false;
+        dump = null;
       }
-      var blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+      parts.push("}}");
+      var blob = new Blob(parts, { type: "application/json" });
+      parts = null;
       if (blob.size > 128 * 1024 * 1024)
         throw new Error("The backup exceeds the 128 MB safe import limit.");
       if (downloadUrl) URL.revokeObjectURL(downloadUrl);
@@ -373,7 +508,15 @@
       link.textContent =
         "Download backup (" + (blob.size / 1024 / 1024).toFixed(2) + " MB)";
       status(
-        "Backup ready. On iPad, tap the link or touch and hold to save it to Files. Keep backups private.",
+        "Backup ready. " +
+          (budget.skipped
+            ? "Skipped " +
+              budget.skipped +
+              " downloaded game file" +
+              (budget.skipped === 1 ? "" : "s") +
+              " (not saves). "
+            : "") +
+          "On iPad, tap the link or touch and hold to save it to Files. Keep backups private.",
       );
       document.getElementById("data-status").appendChild(link);
       if (

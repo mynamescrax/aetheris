@@ -12,16 +12,16 @@
 
     <link rel="stylesheet" href="./css/main.css?v=20260907.1" />
     <link rel="stylesheet" href="./css/cards.css?v=20260907.1" />
-    <link rel="stylesheet" href="./css/themes.css?v=20260907.1" />
+    <link rel="stylesheet" href="./css/themes.css?v=20261005.1" />
     <link rel="stylesheet" href="./css/nav.css?v=20260907.1" />
     <link rel="stylesheet" href="./css/settings.css?v=20260907.1" />
-    <script src="./js/theme.js?v=20260907.1"></script>
+    <script src="./js/theme.js?v=20261005.1"></script>
 
     <script src="register-sw.js?v=20260907.1" defer></script>
     <script defer src="./js/preload.js?v=20260907.1"></script>
-    <script defer src="./js/settings.js?v=20260928.2"></script>
-    <script defer src="./js/data-transfer.js?v=20260907.1"></script>
-    <script defer src="./js/cache-reset.js?v=20260929.1"></script>
+    <script defer src="./js/settings.js?v=20261005.2"></script>
+    <script defer src="./js/data-transfer.js?v=20261005.1"></script>
+    <script defer src="./js/cache-reset.js?v=20261005.1"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <script src="./js/navigation.js?v=20260907.1"></script>
@@ -48,7 +48,10 @@
         };
 
         document.addEventListener("DOMContentLoaded", function () {
-          var saved = localStorage.getItem("aetheris-theme") || "dark";
+          var saved =
+            localStorage.getItem("aetheris-theme") ||
+            document.documentElement.getAttribute("theme") ||
+            "dark";
           document
             .querySelectorAll(".theme-card[data-theme]")
             .forEach(function (c) {
@@ -118,12 +121,28 @@
             ></span>
             <span class="theme-label">Charcoal Gold</span>
           </button>
+          <button
+            class="theme-card"
+            data-theme="halloween"
+            onclick="selectthemecard('halloween')"
+          >
+            <span
+              class="theme-swatch"
+              style="
+                background:
+                  radial-gradient(circle at 72% 28%, #ffe3b0 0 9%, transparent 10%),
+                  linear-gradient(135deg, #ff7a18 0%, #5b21b6 55%, #140a20 100%);
+              "
+            ></span>
+            <span class="theme-label">Halloween</span>
+          </button>
         </div>
 
         <select id="theme-select" style="display: none">
           <option value="dark">Charcoal</option>
           <option value="dark-blue">Dark Blue</option>
           <option value="charcoal-gold">Charcoal Gold</option>
+          <option value="halloween">Halloween</option>
         </select>
 
         <h2>On Screen Keyboard</h2>
@@ -407,9 +426,9 @@
 
         <h2>Downloaded games</h2>
         <h4>
-          Delete downloaded game files to free space: per-game offline packs
-          and Unity download caches. Settings, favorites, game saves, and
-          chat sign-ins are kept.
+          Delete downloaded game files to free space: per-game offline packs,
+          game download caches, and large downloaded files stored alongside
+          saves. Settings, favorites, game saves, and chat sign-ins are kept.
         </h4>
         <div class="form-row">
           <button onclick="resetdownloadedgames(this)" class="secondary">
@@ -487,9 +506,15 @@
             result.databases +
               (result.databases === 1 ? " download store" : " download stores"),
           );
+          parts.push(
+            result.files +
+              (result.files === 1 ? " downloaded file" : " downloaded files"),
+          );
           status.textContent =
             "Deleted " +
-            parts.join(" and ") +
+            parts.slice(0, -1).join(", ") +
+            " and " +
+            parts[parts.length - 1] +
             ". Settings, favorites, and game saves were kept.";
         } catch (error) {
           status.textContent = error.message;

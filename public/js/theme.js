@@ -38,7 +38,25 @@
     },
   };
 
-  var validthemes = { dark: 1, "charcoal-gold": 1, "dark-blue": 1 };
+  themes.halloween = {
+    bg:
+      "radial-gradient(circle at 86% 12%, rgba(255, 240, 200, 0.2) 0, rgba(255, 214, 140, 0.08) 4.5%, transparent 12%), " +
+      "radial-gradient(ellipse at 50% 115%, rgba(255, 106, 0, 0.24) 0, transparent 58%), " +
+      "radial-gradient(ellipse at 8% -5%, rgba(124, 58, 237, 0.22) 0, transparent 52%), " +
+      "linear-gradient(180deg, #140a20 0%, #0d0715 55%, #070409 100%)",
+    bgc: "#0d0715",
+    color: "#f6ecdf",
+  };
+
+  var validthemes = {
+    dark: 1,
+    "charcoal-gold": 1,
+    "dark-blue": 1,
+    halloween: 1,
+  };
+
+  // spooky season: people who never picked a theme get Halloween in October
+  var defaulttheme = new Date().getMonth() === 9 ? "halloween" : "dark";
 
   var bgoverlay = null;
   function getoverlay() {
@@ -57,7 +75,7 @@
     bgoverlay = null;
   }
 
-  var t = Aetheris.storage.getItem(THEME_KEY) || "dark";
+  var t = Aetheris.storage.getItem(THEME_KEY) || defaulttheme;
   if (!validthemes[t]) {
     t = "dark";
     Aetheris.storage.setItem(THEME_KEY, t);

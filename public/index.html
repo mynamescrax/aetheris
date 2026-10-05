@@ -36,7 +36,12 @@
 
       (function () {
         var THEME_KEY = "aetheris-theme";
-        var validthemes = { dark: 1, "charcoal-gold": 1, "dark-blue": 1 };
+        var validthemes = {
+          dark: 1,
+          "charcoal-gold": 1,
+          "dark-blue": 1,
+          halloween: 1,
+        };
 
         if (
           !Aetheris.storage.getItem(THEME_KEY) &&
@@ -48,7 +53,9 @@
           );
           Aetheris.storage.removeItem("theme");
         }
-        var t = Aetheris.storage.getItem(THEME_KEY) || "dark";
+        var t =
+          Aetheris.storage.getItem(THEME_KEY) ||
+          (new Date().getMonth() === 9 ? "halloween" : "dark");
         if (t === "dark blue") {
           t = "dark-blue";
           Aetheris.storage.setItem(THEME_KEY, t);
@@ -100,7 +107,7 @@
       href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;900&family=JetBrains+Mono:wght@300;400&display=swap"
     />
     <link rel="stylesheet" href="./css/cards.css?v=20260907.1" />
-    <link rel="stylesheet" href="./css/themes.css?v=20260907.1" />
+    <link rel="stylesheet" href="./css/themes.css?v=20261005.1" />
     <link rel="stylesheet" href="./css/nav.css?v=20260907.4" />
     <link rel="stylesheet" href="./css/main.css?v=20260907.1" />
     <script src="register-sw.js?v=20260907.1" defer></script>
@@ -171,6 +178,7 @@
           dark: "#0f0f0f",
           "charcoal-gold": "#0f0f0f",
           "dark-blue": "#020617",
+          halloween: "#0d0715",
         };
         function updatethemecolor(t) {
           var meta = document.querySelector('meta[name="theme-color"]');
@@ -538,7 +546,12 @@
     </div>
 
     <script>
-      var VALID_THEMES = { dark: 1, "charcoal-gold": 1, "dark-blue": 1 };
+      var VALID_THEMES = {
+        dark: 1,
+        "charcoal-gold": 1,
+        "dark-blue": 1,
+        halloween: 1,
+      };
 
       var mainframe = document.getElementById("mainframe");
       var navcheck = document.getElementById("nav-toggle");

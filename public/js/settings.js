@@ -299,6 +299,14 @@ document.addEventListener("DOMContentLoaded", function () {
         bgc: "#0f0f0f",
       },
       "dark-blue": { bg: "linear-gradient(#020617, #000)", bgc: "#020617" },
+      halloween: {
+        bg:
+          "radial-gradient(circle at 86% 12%, rgba(255, 240, 200, 0.2) 0, rgba(255, 214, 140, 0.08) 4.5%, transparent 12%), " +
+          "radial-gradient(ellipse at 50% 115%, rgba(255, 106, 0, 0.24) 0, transparent 58%), " +
+          "radial-gradient(ellipse at 8% -5%, rgba(124, 58, 237, 0.22) 0, transparent 52%), " +
+          "linear-gradient(180deg, #140a20 0%, #0d0715 55%, #070409 100%)",
+        bgc: "#0d0715",
+      },
     };
 
     window.removebg = function () {
@@ -309,7 +317,12 @@ document.addEventListener("DOMContentLoaded", function () {
       if (overlay && overlay.parentNode)
         overlay.parentNode.removeChild(overlay);
 
-      var t = themebgs[localStorage.getItem("aetheris-theme") || "dark"] || {};
+      var t =
+        themebgs[
+          localStorage.getItem("aetheris-theme") ||
+            document.documentElement.getAttribute("theme") ||
+            "dark"
+        ] || {};
       document.body.style.setProperty(
         "background-image",
         t.bg || "",

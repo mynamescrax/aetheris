@@ -1,71 +1,144 @@
-<!-- ultimate game stash file -->
 <!DOCTYPE html>
-<html lang="en-us">
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    html, body {
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background: #000000;
-    }
-  </style>
-  <head>
-	<base href="https://cdn.jsdelivr.net/gh/ThatWirdGuy/Doomori@main/" />
-    <meta charset="utf-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>Unity WebGL Player | Doomori</title>
-  </head>
-  <body style="text-align: center">
-    <canvas id="unity-canvas" style="width: 100vw; height: 100vh; background: #000000"></canvas>
-    <script src="Build/WEBGL Doomori Build.loader.js"></script>
-   <script>
-      async function start() {
-        const response_P1 = await fetch("Build/part_0.data");
-        const buffer_P1 = await response_P1.arrayBuffer();
+<html>
 
-        const response_P2 = await fetch("Build/part_1.data");
-        const buffer_P2 = await response_P2.arrayBuffer();
+<head>
+    <base href="https://rawcdn.githack.com/genizy/web-port/4e018d7f2ca2b3d77ecfd0123d2926421e2b26a5/omori-fixed/">
+    <meta charset="UTF-8">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="viewport" content="user-scalable=no">
+    <link rel="icon" href="icon/icon.png?fgjdfngjksdgnkdsjgn" type="image/png">
+    <link rel="apple-touch-icon" href="icon/icon.png?fgjdfngjksdgnkdsjgn">
+    <link rel="stylesheet" type="text/css" href="fonts/gamefont.css?fgjdfngjksdgnkdsjgn">
+    <title>OMORI</title>
+<style>
+</style>
+</head>
 
-        const response_P3 = await fetch("Build/part_2.data");
-        const buffer_P3 = await response_P3.arrayBuffer();
+<body style="background-color: black">
+    <script type="text/javascript" src="nipplejs.js?fgjdfngjksdgnkdsjgn"></script>
+    <script type="text/javascript" src="gamepad.js?fgjdfngjksdgnkdsjgn"></script>
+    <script type="text/javascript" src="js/plugins/aaa___bundle.js?fgjdfnghdfghjfgjhfgjfgjfjgjksdgnkdsjgn"></script>
+    <script type="text/javascript" src="data.bundle.js?fgjdfngjksdgnkdsjgn"></script>
+    <script type="text/javascript" src="languages.en.bundle.js?fgjdfngjksdgnkdsjgn"></script>
+    <script type="text/javascript" src="maps.js?fgjdfngjksdgnkdsjgn"></script>
+    <script type="text/javascript" src="js/libs/js-yaml-master/jsyaml.js?fgjdfngjksdgnkdsjgn"></script>
+    <script type="text/javascript" src="js/libs/pixi.js?fgjdfngjksdgnkdsjgn"></script>
+    <script type="text/javascript" src="js/libs/pixi-tilemap.js?fgjdfngjksdgnkdsjgn"></script>
+    <script type="text/javascript" src="js/libs/pixi-picture.js?fgjdfngjksdgnkdsjgn"></script>
+    <script type="text/javascript" src="js/libs/lz-string.js?fgjdfngjksdgnkdsjgn"></script>
+    <script type="text/javascript" src="js/libs/iphone-inline-video.browser.js?fgjdfngjksdgnkdsjgn"></script>
+    <script type="text/javascript" src="js/rpg_core.js?sdfgsgdhrg3455346366rj5e6h456e6j"></script>
+    <script type="text/javascript" src="js/rpg_managers.js?fgjdfngjksdgnkdsjgn"></script>
+    <script type="text/javascript" src="js/rpg_objects.js?fgjdfngjksdgnkdsjgn"></script>
+    <script type="text/javascript" src="js/rpg_scenes.js?fgjdfngjksdgnkdsjgn"></script>
+    <script type="text/javascript" src="js/rpg_sprites.js?fgjdfngjksdgnkdsjgn"></script>
+    <script type="text/javascript" src="js/rpg_windows.js?fgjdfngjksdgnkdsjgn"></script>
+    <script type="text/javascript" src="js/plugins.js?fgjdfngjksdgnkdsjgn"></script>
+    <script type="text/javascript" src="js/main.js?fgjdfngjksdgnkdsjgn"></script>
+    <!-- gn math patch -->
+    <script>
+        // full screen the game ----------------------------------------------------------
+        function applycanvasmode() {
+            let w = 0;
+            let h = 0;
+            let maxW = window.innerWidth;
+            let maxH = window.innerHeight;
+            if ((maxW * 0.75) > maxH) {
+                h = maxH;
+                w = Math.floor((maxH / 3) * 4);
+            } else {
+                w = maxW;
+                h = Math.floor((maxW / 4) * 3);
+            }
+            document.querySelector("#GameCanvas").style.width = w + "px";
+            document.querySelector("#GameCanvas").style.height = h + "px";
+            document.querySelector("#GameVideo").style.width = w + "px";
+            document.querySelector("#GameVideo").style.height = h + "px";
+            document.querySelector("#UpperCanvas").style.width = w + "px";
+            document.querySelector("#UpperCanvas").style.height = h + "px";
+        }
+        setInterval(applycanvasmode, 100);
 
-        const response_P4 = await fetch("Build/part_3.data");
-        const buffer_P4 = await response_P4.arrayBuffer();
+        // support mobile ----------------------------------------------------------------
+        (function() {
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            if (!isMobile) {
+                return;
+            }
+            let i = setInterval(function() {
+                if (window.fullSetupComplete) {
+                    let zoneStatic = document.createElement("div");
+                    zoneStatic.style = "position: fixed; bottom: 0; left: 0; z-index: 9999; width: 500px; height: 500px;";
+                    let internal = document.createElement("div");
+                    internal.style = "position: relative; width: 100%; height: 100%;"
+                    zoneStatic.appendChild(internal);
+                    let joystick = nipplejs.create({
+                        mode: 'semi',
+                        zone: internal,
+                        color: 'red',
+                        catchDistance: 30
+                    });
+                    setTimeout(function() {
+                        joystick.on("dir", function(e, data) {
+                            let dirs = ["up", "down", "left", "right"];
+                            for (let o of dirs) {
+                                if (o !== data.direction.angle) {
+                                    fakeInput.up(o);
+                                } else {
+                                    fakeInput.down(o);
+                                }
+                            }
+                        });
+                        joystick.on("end", function() {
+                            let dirs = ["up", "down", "left", "right"];
+                            for (let o of dirs) {
+                                fakeInput.up(o);
+                            }
+                        });
+                    }, 100);
+                    document.body.appendChild(zoneStatic);
+                    const createButton = (text, key, bottom, right, bgColor) => {
+                        let button = document.createElement("div");
+                        button.style = `
+                    position: fixed; 
+                    bottom: ${bottom}; 
+                    right: ${right}; 
+                    width: 10vw; 
+                    height: 10vw; 
+                    background: ${bgColor}; 
+                    color: white; 
+                    touch-action: none; 
+                    z-index: 999999; 
+                    display: flex; 
+                    align-items: center; 
+                    justify-content: center; 
+                    font-family: sans-serif; 
+                    font-size: 3vw;
+                    border-radius: 50%;
+                `;
+                        button.innerText = text;
+                        button.addEventListener("touchstart", function(e) {
+                            e.preventDefault();
+                            fakeInput.down(key);
+                        });
+                        button.addEventListener("touchend", function(e) {
+                            e.preventDefault();
+                            fakeInput.up(key);
+                        });
+                        document.body.appendChild(button);
+                        return button;
+                    };
 
-        const response_P5 = await fetch("Build/part_4.data");
-        const buffer_P5 = await response_P5.arrayBuffer();
-
-        const Part_0 = new Uint8Array(buffer_P1);
-        const Part_1 = new Uint8Array(buffer_P2);
-        const Part_2 = new Uint8Array(buffer_P3);
-        const Part_3 = new Uint8Array(buffer_P4);
-        const Part_4 = new Uint8Array(buffer_P5);
-
-        const merged = new Uint8Array(Part_0.length + Part_1.length + Part_2.length + Part_3.length + Part_4.length);
-	merged.set(Part_0, 0);
-	merged.set(Part_1, Part_0.length);
-	merged.set(Part_2, Part_0.length + Part_1.length);
-	merged.set(Part_3, Part_0.length + Part_1.length + Part_2.length);
-	merged.set(Part_4, Part_0.length + Part_1.length + Part_2.length + Part_3.length);
-
-        const blob = new Blob([merged]);
-        const dataUrl = URL.createObjectURL(blob);
-        createUnityInstance(document.querySelector("#unity-canvas"), {
-          dataUrl: dataUrl,
-          frameworkUrl: "Build/WEBGL Doomori Build.framework.js",
-          codeUrl: "Build/WEBGL Doomori Build.wasm",
-          streamingAssetsUrl: "StreamingAssets",
-          companyName: "Fostergames",
-          productName: "Doomori",
-          productVersion: "1",
-        });
-      }
-      start();
+                    createButton("OK", "ok", "5vw", "5vw", "#0f08");
+                    createButton("ESC", "escape", "5vw", "15vw", "#f008");
+                    createButton("TAG", "tag", "15vw", "15vw", "#00f8");
+                    createButton("RUN", "shift", "15vw", "5vw", "#f0f8");
+                    clearInterval(i);
+                }
+            }, 100);
+        })();
     </script>
-  </body>
+</body>
+
 </html>
