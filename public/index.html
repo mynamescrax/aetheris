@@ -53,9 +53,7 @@
           );
           Aetheris.storage.removeItem("theme");
         }
-        var t =
-          Aetheris.storage.getItem(THEME_KEY) ||
-          (new Date().getMonth() === 9 ? "halloween" : "dark");
+        var t = Aetheris.storage.getItem(THEME_KEY) || "halloween";
         if (t === "dark blue") {
           t = "dark-blue";
           Aetheris.storage.setItem(THEME_KEY, t);
@@ -65,7 +63,7 @@
           Aetheris.storage.setItem(THEME_KEY, t);
         }
         if (!validthemes[t]) {
-          t = "dark";
+          t = "halloween";
           Aetheris.storage.setItem(THEME_KEY, t);
         }
 
@@ -710,8 +708,9 @@
       });
 
       function applytheme(theme) {
-        var t = theme || Aetheris.storage.getItem("aetheris-theme") || "dark";
-        if (!VALID_THEMES[t]) t = "dark";
+        var t =
+          theme || Aetheris.storage.getItem("aetheris-theme") || "halloween";
+        if (!VALID_THEMES[t]) t = "halloween";
         document.documentElement.setAttribute("theme", t);
         if (document.body && document.body.getAttribute("theme") !== t) {
           document.body.setAttribute("theme", t);

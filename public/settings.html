@@ -15,11 +15,11 @@
     <link rel="stylesheet" href="./css/themes.css?v=20261005.1" />
     <link rel="stylesheet" href="./css/nav.css?v=20260907.1" />
     <link rel="stylesheet" href="./css/settings.css?v=20260907.1" />
-    <script src="./js/theme.js?v=20261005.1"></script>
+    <script src="./js/theme.js?v=20261005.2"></script>
 
     <script src="register-sw.js?v=20260907.1" defer></script>
     <script defer src="./js/preload.js?v=20260907.1"></script>
-    <script defer src="./js/settings.js?v=20261005.2"></script>
+    <script defer src="./js/settings.js?v=20261005.3"></script>
     <script defer src="./js/data-transfer.js?v=20261005.1"></script>
     <script defer src="./js/cache-reset.js?v=20261005.1"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -51,7 +51,7 @@
           var saved =
             localStorage.getItem("aetheris-theme") ||
             document.documentElement.getAttribute("theme") ||
-            "dark";
+            "halloween";
           document
             .querySelectorAll(".theme-card[data-theme]")
             .forEach(function (c) {

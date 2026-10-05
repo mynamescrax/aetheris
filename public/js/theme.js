@@ -55,8 +55,8 @@
     halloween: 1,
   };
 
-  // spooky season: people who never picked a theme get Halloween in October
-  var defaulttheme = new Date().getMonth() === 9 ? "halloween" : "dark";
+  // people who never picked a theme get Halloween
+  var defaulttheme = "halloween";
 
   var bgoverlay = null;
   function getoverlay() {
@@ -77,7 +77,7 @@
 
   var t = Aetheris.storage.getItem(THEME_KEY) || defaulttheme;
   if (!validthemes[t]) {
-    t = "dark";
+    t = defaulttheme;
     Aetheris.storage.setItem(THEME_KEY, t);
   }
 

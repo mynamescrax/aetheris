@@ -321,7 +321,7 @@ document.addEventListener("DOMContentLoaded", function () {
         themebgs[
           localStorage.getItem("aetheris-theme") ||
             document.documentElement.getAttribute("theme") ||
-            "dark"
+            "halloween"
         ] || {};
       document.body.style.setProperty(
         "background-image",
