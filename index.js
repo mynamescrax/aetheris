@@ -29,6 +29,11 @@ import { createRateLimiter } from "./lib/rate-limit.js";
 import { downloadPublicImage, resolvePublicUrl } from "./lib/public-network.js";
 import { registerImageProxy } from "./lib/image-proxy.js";
 import { uniqueOnlineCount } from "./lib/online.js";
+import {
+  createGeoResolver,
+  formattopcountries,
+  topcountries,
+} from "./lib/geo.js";
 import { websocketOriginAllowed } from "./lib/ws-origin.js";
 
 // Load local development configuration before any feature reads process.env.
@@ -915,7 +920,20 @@ fastify.post("/api/plays/:id", (req, reply) => {
 const REPORT_WEBHOOK_URL = process.env.REPORT_WEBHOOK_URL || "";
 const STATS_WEBHOOK_URL = process.env.STATS_WEBHOOK_URL || "";
 
-const STATS_INTERVAL = 2 * 60 * 60 * 1000; // post stats every 2h
+const STATS_INTERVAL = 5 * 60 * 1000; // post stats every 5min
+const georesolver = createGeoResolver();
+
+// One IP per distinct online person, using the same dedupe as onlinecount():
+// streams sharing a ?c= browser id collapse into one, anonymous streams count
+// individually.
+function onlinepeopleips() {
+  const people = new Map();
+  for (const res of clients) {
+    const key = clientids.get(res) || res;
+    if (!people.has(key)) people.set(key, res.aetherisip);
+  }
+  return [...people.values()];
+}
 const REPORT_COOLDOWN = 2 * 60 * 1000; // 2min between reports per fingerprint
 const LOGIN_WINDOW = 30 * 1000; // 30s sliding window for login attempts
 const MAX_LOGIN_PER_FP = 5; // per device per window
@@ -1050,6 +1068,19 @@ async function poststats() {
     .map(([id, count], i) => `${medals[i]} **${id}** — ${count} plays`)
     .join("\n");
 
+  let countriesvalue = "No location data yet";
+  try {
+    const ips = onlinepeopleips();
+    const lookup = await georesolver.resolve(ips);
+    const top = topcountries(
+      ips.map((ip) => lookup.get(String(ip || "").replace(/^::ffff:/, ""))),
+      5,
+    );
+    countriesvalue = formattopcountries(top);
+  } catch (e) {
+    console.error("stats country lookup error:", e);
+  }
+
   const payload = {
     username: "aetheris stats",
     embeds: [
@@ -1059,6 +1090,11 @@ async function poststats() {
         fields: [
           { name: "👥 Online Now", value: String(onlinecount()), inline: true },
           { name: "🎮 Total Plays", value: String(totalplays), inline: true },
+          {
+            name: "🌍 Top 5 Countries (online now)",
+            value: countriesvalue.slice(0, 1024),
+            inline: false,
+          },
           {
             name: "🔥 Top 5 Games",
             value: top5 || "No plays yet",
