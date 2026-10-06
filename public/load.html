@@ -566,10 +566,10 @@
         if (gameurl.indexOf("/~/sj/") !== -1) {
           gameurl = location.origin + "/index.html#load" + location.search;
         }
-        var tabtitle = localStorage.getItem("tabName") || "Google Docs";
+        var tabtitle = localStorage.getItem("tabName") || "Google";
         var tabicon =
           localStorage.getItem("tabIcon") ||
-          "https://ssl.gstatic.com/docs/documents/images/kix-favicon7.ico";
+          "https://www.google.com/favicon.ico";
 
         var newwindow = window.open("about:blank", "_blank");
         if (!newwindow) {

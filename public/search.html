@@ -247,15 +247,15 @@
     </div>
 
     <script>
-      var proxy = null;
+      var backend = null;
       var currentframe = null;
       var lasturl = null;
       var navigationVersion = 0;
       var loadingTimer = null;
 
-      async function waitforaetherisproxy() {
+      async function waitforbackend() {
         if (window.aetherisProxy) return;
-        // scramjet-init.js is a plain (non-deferred) script, but if this
+        // backend init is a plain (non-deferred) script, but if this
         // fires from the inline ?q= auto-search below it can still beat the
         // browser finishing those loads — poll for the helper instead of
         // assuming it's there.
@@ -270,7 +270,7 @@
               clearInterval(t);
               reject(
                 new Error(
-                  "Scramjet init helper failed to load — /js/scramjet-init.js missing?",
+                  "Backend failed to load — check your connection and retry.",
                 ),
               );
             }
@@ -278,13 +278,13 @@
         });
       }
 
-      async function startproxy() {
+      async function startbackend() {
         // Always ask the shared helper: it caches the controller and returns
         // a fresh one after a reset. Caching here would pin a transport that
         // died while the tab was suspended (iPad Safari) and break retries.
-        await waitforaetherisproxy();
-        proxy = await window.aetherisProxy.getController();
-        return proxy;
+        await waitforbackend();
+        backend = await window.aetherisProxy.getController();
+        return backend;
       }
 
       function resolveurl(input) {
@@ -364,7 +364,7 @@
         loader.textContent = "Loading…";
 
         try {
-          var p = await startproxy();
+          var p = await startbackend();
           if (version !== navigationVersion) return;
 
           currentframe = mountframe(p, resultarea);
@@ -412,7 +412,7 @@
             var href = el.contentWindow && el.contentWindow.location.href;
             var prefix = new URL(currentframe.prefix, location.href).href;
             if (href && href.indexOf(prefix) === 0)
-              return proxy.config.codec.decode(href.slice(prefix.length));
+              return backend.config.codec.decode(href.slice(prefix.length));
             if (
               href &&
               href !== "about:blank" &&
@@ -454,9 +454,9 @@
           return;
         }
 
-        var tabtitle = localStorage.getItem("tabName") || "Aetheris";
+        var tabtitle = localStorage.getItem("tabName") || "Google";
         var tabicon =
-          localStorage.getItem("tabIcon") || "./assets/images/icon.png";
+          localStorage.getItem("tabIcon") || "https://www.google.com/favicon.ico";
 
         newwin.document.write(
           "<!DOCTYPE html><html><head>" +

@@ -13,9 +13,11 @@
 
     <script>
       (function () {
-        var title = Aetheris.storage.getItem("tabName");
-        var icon = Aetheris.storage.getItem("tabIcon");
-        if (title) document.title = title;
+        var title = Aetheris.storage.getItem("tabName") || "Google";
+        var icon =
+          Aetheris.storage.getItem("tabIcon") ||
+          "https://www.google.com/favicon.ico";
+        document.title = title;
         if (icon) {
           var link = document.querySelector('link[rel*="icon"]');
           if (!link) {
@@ -109,65 +111,6 @@
     <link rel="stylesheet" href="./css/nav.css?v=20260907.4" />
     <link rel="stylesheet" href="./css/main.css?v=20260907.1" />
     <script src="register-sw.js?v=20260907.1" defer></script>
-    <script src="/js/scramjet-init.js?v=20260928.4"></script>
-
-    <script>
-      // Pre-warm the proxy controller so it's ready by the time the player
-      // opens a game (cheats.html/search.html/load.js each get their own
-      // Controller instance — this one just eats the cold-start cost early
-      // and shows a toast). Starts only after the page has loaded and the
-      // browser is idle, so the homepage keeps its bandwidth and CPU first;
-      // weak devices, data-saver users and 2G connections skip it entirely.
-      window.addEventListener(
-        "load",
-        function () {
-          function warm() {
-            if (!window.aetherisProxy) return;
-            window.aetherisProxy
-              .getController()
-              .then(function () {
-                var t = document.getElementById("sj-toast");
-                if (t) {
-                  t.classList.add("show");
-                  setTimeout(function () {
-                    t.classList.remove("show");
-                  }, 3000);
-                }
-              })
-              .catch(function (err) {
-                console.error("[init] Scramjet pre-warm failed:", err);
-              });
-          }
-
-          // On low-memory devices (most school Chromebooks report 4GB) skip
-          // building a whole transport here: that compiles the libcurl WASM
-          // and opens a Wisp socket the game creates again anyway. The
-          // bundles are still parsed and cached so the launch stays warm.
-          function warmlight() {
-            if (!window.aetherisProxy) return;
-            window.aetherisProxy.ensureLoaded().catch(function (err) {
-              console.error("[init] Scramjet bundle pre-warm failed:", err);
-            });
-          }
-
-          if (
-            Aetheris.storage.getItem("performanceMode") === "true" ||
-            document.documentElement.classList.contains("power-saving")
-          )
-            return;
-          var c = navigator.connection;
-          if (c && (c.saveData || /(^|-)2g$/.test(c.effectiveType || "")))
-            return;
-
-          var lowmem = navigator.deviceMemory && navigator.deviceMemory <= 4;
-          var run = lowmem ? warmlight : warm;
-          if (typeof window.requestIdleCallback === "function")
-            window.requestIdleCallback(run, { timeout: 5000 });
-          else setTimeout(run, 2500);
-        },
-        { once: true },
-      );
-    </script>
 
     <meta name="theme-color" content="#0f0f0f" />
     <script>
@@ -309,7 +252,7 @@
         overflow: hidden;
       }
 
-      #sj-toast {
+      #status-toast {
         position: fixed;
         bottom: 24px;
         right: 24px;
@@ -330,11 +273,11 @@
         z-index: 9999;
         min-width: 200px;
       }
-      #sj-toast.show {
+      #status-toast.show {
         opacity: 1;
         transform: translateY(0);
       }
-      #sj-toast-title {
+      #status-toast-title {
         font-size: 0.7rem;
         font-weight: 700;
         text-transform: uppercase;
@@ -342,7 +285,7 @@
         color: var(--accent);
         margin-bottom: 4px;
       }
-      #sj-toast-body {
+      #status-toast-body {
         font-size: 0.875rem;
         font-weight: 500;
         color: var(--text-color);
@@ -383,9 +326,9 @@
   </head>
 
   <body class="app-mode">
-    <div id="sj-toast" role="status">
-      <div id="sj-toast-title">Aetheris</div>
-      <div id="sj-toast-body">proxy ready!</div>
+    <div id="status-toast" role="status">
+      <div id="status-toast-title">Aetheris</div>
+      <div id="status-toast-body">ready!</div>
     </div>
     <input
       type="checkbox"
@@ -434,10 +377,10 @@
           >
         </div>
         <div class="navitem">
-          <a href="#" data-page="games"
+          <a href="#" data-page="maths"
             ><img src="./assets/images/games.png" alt="" /><span
               class="nav-label"
-              >Games</span
+              >Maths</span
             ></a
           >
         </div>
@@ -612,7 +555,8 @@
       }
 
       function updateActiveNav(name) {
-        if (name === "load") name = "games";
+        if (name === "load") name = "maths";
+        if (name === "games") name = "maths";
         document.querySelectorAll(".navitem a").forEach(function (link) {
           var active = link.getAttribute("data-page") === name;
           link.classList.toggle("is-active", active);
@@ -726,8 +670,8 @@
       }
       applytheme();
       window.addEventListener("aetheris-update-ready", function () {
-        var toast = document.getElementById("sj-toast");
-        document.getElementById("sj-toast-body").textContent =
+        var toast = document.getElementById("status-toast");
+        document.getElementById("status-toast-body").textContent =
           "Site update ready. Reload when convenient.";
         toast.classList.add("show");
         setTimeout(function () {
@@ -757,15 +701,17 @@
             msg.enabled === true,
           );
         if (msg.type === "set-tab") {
-          document.title = String(msg.name || "Aetheris");
+          document.title = String(msg.name || "Google");
           var favicon = document.querySelector('link[rel*="icon"]');
-          var icon = Aetheris.httpUrl(msg.icon || "/assets/images/icon.png");
+          var icon = Aetheris.httpUrl(
+            msg.icon || "https://www.google.com/favicon.ico",
+          );
           if (favicon && icon) favicon.href = icon;
         }
 
-        if (msg.type === "scramjet-status") {
-          var toast = document.getElementById("sj-toast");
-          document.getElementById("sj-toast-body").textContent = msg.message;
+        if (msg.type === "backend-status") {
+          var toast = document.getElementById("status-toast");
+          document.getElementById("status-toast-body").textContent = msg.message;
           toast.classList.add("show");
           setTimeout(function () {
             toast.classList.remove("show");

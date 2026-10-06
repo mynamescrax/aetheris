@@ -15,11 +15,7 @@ document.addEventListener("DOMContentLoaded", function () {
       name: "Home",
       icon: "https://ssl.gstatic.com/classroom/ic_product_classroom_32.png",
     },
-    examrevision: {
-      name: "Exam Revision",
-      icon: "https://examrevision.ie/favicon.ico",
-    },
-    default: { name: "Aetheris", icon: "/assets/images/icon.png" },
+    default: { name: "Google", icon: "https://www.google.com/favicon.ico" },
   };
 
   function changetab(name, icon) {
@@ -28,8 +24,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
     name = name !== undefined ? name : nameinput.value;
     icon = icon !== undefined ? icon : iconinput.value;
-    name = String(name || "Aetheris");
-    icon = Aetheris.httpUrl(icon || "/assets/images/icon.png");
+    name = String(name || "Google");
+    icon = Aetheris.httpUrl(icon || "https://www.google.com/favicon.ico");
     if (!icon) {
       alert("Use an HTTP or HTTPS URL for the tab icon.");
       return;

@@ -5,7 +5,7 @@
   var srcsource = params.get("source");
   var srctitle = params.get("title");
 
-  var proxy = null;
+  var backend = null;
   var iframe = null;
   var started = false;
 
@@ -16,7 +16,7 @@
         window.parent !== window &&
         typeof window.parent.navigateApp === "function"
       ) {
-        window.parent.navigateApp(appid ? "apps" : "games");
+        window.parent.navigateApp(appid ? "apps" : "maths");
         return;
       }
     } catch (_) {}
@@ -45,7 +45,7 @@
     actions.className = "player-loading-actions";
     var cancel = document.createElement("button");
     cancel.type = "button";
-    cancel.textContent = appid ? "Back to apps" : "Back to games";
+    cancel.textContent = appid ? "Back to apps" : "Back to maths";
     cancel.addEventListener("click", goback);
     actions.appendChild(cancel);
     panel.append(spinner, paragraph, actions);
@@ -73,7 +73,7 @@
           location.reload();
           return;
         }
-        // Rebuild the proxy transport before retrying: the previous failure
+        // Rebuild the backend transport before retrying: the previous failure
         // may have been a dead transport (backgrounded iPad, flaky school
         // wifi) rather than anything wrong with the game.
         try {
@@ -84,7 +84,7 @@
       });
       var back = document.createElement("button");
       back.type = "button";
-      back.textContent = appid ? "Back to apps" : "Back to games";
+      back.textContent = appid ? "Back to apps" : "Back to maths";
       back.addEventListener("click", goback);
       panel.append(retry, back);
     }
@@ -167,7 +167,7 @@
     }
   }
 
-  async function startproxy() {
+  async function startbackend() {
     if (!window.aetherisProxy) {
       await new Promise(function (resolve, reject) {
         var waited = 0;
@@ -188,7 +188,7 @@
     // caches it and, after a reset (failed transport, suspended iPad tab),
     // hands back a fresh one. A local cache would pin a dead transport and
     // make "Try again" fail the same way forever.
-    proxy = await window.aetherisProxy.getController();
+    backend = await window.aetherisProxy.getController();
     syncuaspoof();
   }
 
@@ -218,7 +218,7 @@
 
     setupfavoritebutton(item);
     // Keep a visible loading state until the frame reports back. Clearing
-    // the container first is what made slow proxy boots look crashed.
+    // the container first is what made slow boots look crashed.
     var loading = showLoading(item);
 
     function hideLoading() {
@@ -228,14 +228,14 @@
     var isexternal = new URL(url).origin !== location.origin;
 
     if (isexternal && !item.noProxy) {
-      await startproxy();
+      await startbackend();
       var frameel = document.createElement("iframe");
       frameel.title = item.title || item.name || "Game";
       frameel.allow =
         "autoplay; fullscreen; encrypted-media; picture-in-picture";
       frameel.style.cssText = "width:100%;height:100%;border:0;";
       frameel.addEventListener("load", hideLoading, { once: true });
-      iframe = proxy.createFrame(frameel);
+      iframe = backend.createFrame(frameel);
       container.appendChild(frameel);
       await window.aetherisProxy.go(iframe, url);
       // Proxied frames don't always fire load after go(); fall back to

@@ -130,7 +130,7 @@
 
   var pages = {
     home: "home.html",
-    games: "maths.html",
+    maths: "maths.html",
     apps: "apps.html",
     cheats: "cheats.html",
     chat: "chat.html",
@@ -141,10 +141,14 @@
     about: "about.html",
     load: "load.html",
   };
+  // Old #games bookmarks keep working by aliasing to the renamed route.
+  var routeAliases = { games: "maths" };
   function parseRoute(value) {
     var route = String(value || "home").replace(/^#/, "");
     var split = route.indexOf("?");
     var name = split === -1 ? route : route.slice(0, split);
+    if (Object.prototype.hasOwnProperty.call(routeAliases, name))
+      name = routeAliases[name];
     if (!Object.prototype.hasOwnProperty.call(pages, name)) return null;
     var query =
       split === -1

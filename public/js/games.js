@@ -168,9 +168,9 @@
           visible.toLocaleString() +
           " of " +
           filtered.length.toLocaleString() +
-          " games"
-        : "No games match. Try another search, source, or tag."
-      : "The game catalog could not be loaded. Check your connection and try again.";
+          " items"
+        : "No matches. Try another search, source, or tag."
+      : "The catalog could not be loaded. Check your connection and try again.";
     if (
       catalog.length &&
       window.gamesLoadErrors &&
