@@ -2,9 +2,12 @@
 # cert and serves the main app. No allowlist to maintain.
 {
 	on_demand_tls {
-		interval 2m
-		burst 5
+		ask http://127.0.0.1:9999
 	}
+}
+
+http://127.0.0.1:9999 {
+	respond 200
 }
 
 # tls_insecure_skip_verify is deliberate: some game CDNs serve certs that

@@ -46,8 +46,7 @@ Each of these needs a product decision or live testing first.
 - `lc-relay` has no per-socket message-rate limit (frames are capped at 1 MB,
   backpressure terminates at 4 MB buffered).
 - On-demand TLS is intentionally open (any hostname pointing here gets a cert,
-  UBG-style). Abuse risk is LE rate-limit exhaustion; tighten `interval`/`burst`
-  if that happens.
+  UBG-style). Abuse risk is LE rate-limit exhaustion.
 - `sw.js` restores the desktop-UA spoof flag asynchronously, so early
   requests can miss spoofing.
 - No transport liveness probe: a dead transport behind a still-connected frame
