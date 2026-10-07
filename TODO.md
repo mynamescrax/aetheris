@@ -1,69 +1,59 @@
 # TODO
 
-## Movie playback through Caddy
+## Movies: still to verify live
 
-Status: resolved (ready for validation & deployment). The site itself is restored and healthy.
+The relay work is done (see CLAUDE.md for provider findings). What's left is
+checking it on production:
 
-### 1. Capture complete provider request chains
-
-- [x] Test each provider from the real Movies UI inside the Aetheris app shell.
-- [x] Use an iPad/Safari user agent.
-- [x] Record every document, script, API, manifest, key, subtitle, and media
-      request until actual playback starts.
-- [x] Record response status, redirect location, request Referer/Origin, response
-      content type, and whether the hostname changes between titles.
-- [x] Test at least three movies and two TV episodes per provider; one title is
-      not enough to identify rotating CDNs.
-- [x] Separate provider/media requests from ad and analytics requests.
-
-### 2. Choose a safe Caddy-compatible architecture
-
-- [x] Keep the Movies UI free of Scramjet/browsing-proxy integration.
-- [x] Prefer dedicated Aetheris subdomains per upstream player if wildcard DNS
-      and filtering behavior allow them. Root-relative resources then remain on
-      the correct proxy origin.
-- [x] If response-body URL rewriting is required, evaluate a maintained Caddy
-      response-rewrite module or a narrowly scoped movie relay behind Caddy.
-- [x] If using a relay, protect against SSRF, DNS rebinding, private/link-local
-      addresses, open-proxy abuse, oversized bodies, redirect loops, and unsafe
-      protocols.
-- [x] Preserve Range requests and the response headers needed by Safari video.
-- [x] Support HTML, JavaScript, CSS, JSON, M3U8 playlists, encryption keys,
-      subtitles, and byte-range media without buffering full video files.
-- [x] Do not use a site-wide cookie or broad Referer rule to select an upstream.
-- [x] Ensure movie routing can never intercept `/`, `/index.html`, `/home.html`,
-      `/js/*`, `/css/*`, `/assets/*`, APIs, Wisp, or unrelated proxy routes.
-
-### 3. Provider decisions
-
-- [x] Recheck whether `vsembed.ru` and its API/media chain are reachable from the
-      production VPS.
-- [x] Recheck `videm.xyz` from the production VPS and verify playback, not merely
-      the embed page.
-- [x] Remove or replace SuperEmbed while `streamingnow.mov` blocks the VPS IP.
-- [x] Only list a source in the UI after a production playback test succeeds.
-- [x] Add graceful per-source timeout/error reporting and automatic fallback to
-      the next verified provider.
-
-### 4. Validation before any deployment
-
-- [x] Run `pnpm lint`.
-- [x] Run `git diff --check`.
-- [x] Validate the proposed Caddyfile using the production Caddy binary over SSH.
-- [ ] Confirm the normal homepage still renders with any movie-related cookies,
-      local storage, or cached service worker state present.
-- [ ] Confirm all regular navigation pages and existing proxy/game routes remain
-      unaffected.
-- [ ] Test all movie sources in a clean iPad-like browser context.
-- [ ] Start actual playback and seek forward to verify manifests, keys, segments,
-      and HTTP Range behavior.
-- [ ] Close and reopen the modal, switch sources, and test movie and TV URLs.
-- [ ] Do not deploy without explicit user approval.
-
-### 5. Post-deployment checks
-
-- [ ] Verify Caddy reload succeeds and PM2 reports `aetheris` online.
-- [ ] Test `/`, `/movies.html`, and every movie proxy entry route live.
-- [ ] Repeat browser playback tests against production.
-- [ ] Immediately roll back if the homepage or unrelated routes resolve to a
+- [ ] Homepage still renders with movie-related cookies, local storage and a
+      cached service worker present.
+- [ ] Regular pages and existing proxy/game routes are unaffected.
+- [ ] All movie sources play in a clean iPad-like browser context.
+- [ ] Playback starts and seeking works (manifests, keys, segments, Range).
+- [ ] Close/reopen the modal, switch sources, test movie and TV URLs.
+- [ ] After deploy: Caddy reload succeeds, PM2 shows `aetheris` online, `/`,
+      `/movies.html` and every movie proxy route work live.
+- [ ] Roll back immediately if the homepage or unrelated routes resolve to a
       movie provider.
+
+## Proxy: still to verify on real devices
+
+- [ ] iPad Safari: launch a proxied game, background the tab a few minutes,
+      come back and hit "Try again" - should recover without a reload.
+- [ ] iPadOS 14.x / 15.0-15.3: controller boots and a proxied page loads
+      (`Object.hasOwn` / `BroadcastChannel` shims).
+- [ ] Chromebook: block `/libcurl/index.mjs` in DevTools and confirm the
+      epoxy fallback still launches a game.
+- [ ] Slow 3G: transport timeout gives a fallback or an error, not an endless
+      spinner.
+- [ ] Large proxied page starts rendering before it's fully downloaded, with
+      the panic-key/audio shims still in `<head>`.
+- [ ] Real iPad pass over the UI: navigation/back/forward, favorites, backup
+      export/import via Files, cache reset keeps saves, chat, AI, reports.
+
+## Ideas / known gaps
+
+Each of these needs a product decision or live testing first.
+
+- Raise the registration password minimum (currently 4 chars, `index.js`).
+- `data-transfer.js` builds the whole export JSON before checking the 128 MB
+  limit, so a huge save can OOM before the guard runs.
+- `movie-relay.js` only rewrites quoted `src`/`href`/`data-src`/`data-api`;
+  `srcset`, `action`, `poster` and unquoted attributes fall through.
+- `/movie-proxy` is an unauthenticated, CORS-wide forward relay with a small
+  blocklist. An upstream allowlist or auth gate would close it, but could
+  break working providers.
+- `lc-relay` has no per-socket message-rate limit (frames are capped at 1 MB,
+  backpressure terminates at 4 MB buffered).
+- The on-demand TLS `ask` matcher accepts any `*.aetheris.win` / `*.crax.lol`
+  subdomain. Low risk (needs DNS control); an exact allowlist is stricter.
+- `sw.js` restores the desktop-UA spoof flag asynchronously, so early
+  requests can miss spoofing.
+- No transport liveness probe: a dead transport behind a still-connected frame
+  only recovers when the user retries.
+- AI model menu: no arrow-key navigation / listbox role.
+- `theme.js` `applyTheme()` doesn't persist the choice itself.
+- Proxy content runs same-origin with the site; a separate origin for proxied
+  content would be real isolation.
+- The app keeps accounts in per-user JSON files: run one instance per
+  `database/` directory.

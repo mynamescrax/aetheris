@@ -55,7 +55,6 @@ export default [
         AetherisCache: "readonly",
         TMDB_API: "readonly",
         TMDB_IMG: "readonly",
-        TMDB_KEY: "readonly",
         MOVIES_SOURCES: "readonly",
         apps: "writable",
         autologin: "writable",
@@ -73,18 +72,13 @@ export default [
       },
     },
     rules: {
-      // these files intentionally use var/args-style idioms for
-      // old-Safari compatibility and are driven by inline HTML handlers;
-      // enforce correctness, not style
+      // old-Safari-friendly classic scripts wired to inline handlers
       "no-unused-vars": "off",
-      // classic scripts define globals in one file and consume them from
-      // another (dm-shared.js → chat.js) — that's the design, not a bug
+      // globals are shared across files (dm-shared.js -> chat.js)
       "no-redeclare": "off",
       "no-empty": ["error", { allowEmptyCatch: true }],
-      // `<\/script>` inside string literals is deliberate: it keeps the
-      // strings safe to inline into HTML <script> contexts
+      // `<\/script>` in strings is deliberate (safe to inline in HTML)
       "no-useless-escape": "off",
-      // defensive `catch { x = false }` resets after an initial false
       "no-useless-assignment": "off",
     },
   },

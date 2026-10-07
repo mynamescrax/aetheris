@@ -1,9 +1,12 @@
 {
+  "name": "aetheris",
   "version": "1.0.0",
+  "private": true,
+  "description": "games, proxy, movies and chat in one site",
   "type": "module",
   "engines": {
-    "npm": ">=7.0.0",
-    "node": ">=20.19.0"
+    "node": ">=20.19.0",
+    "pnpm": ">=10"
   },
   "scripts": {
     "start": "node index.js",

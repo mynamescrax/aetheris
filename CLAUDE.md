@@ -1,162 +1,164 @@
-# Aetheris Development Notes
+# Aetheris development notes
 
-## Project overview
+## Overview
 
-Aetheris is a Node/Fastify application served behind Caddy. The production app
-runs from `/var/www/aetheris` under PM2, and Caddy uses the repository's
-`Caddyfile` as `/etc/caddy/Caddyfile`.
+Node/Fastify app behind Caddy. Production runs from `/var/www/aetheris` under
+PM2; Caddy uses the repo's `Caddyfile` as `/etc/caddy/Caddyfile`.
 
-Important files:
+- `index.js` - Fastify app: APIs, WebSocket/Wisp, static files.
+- `movie-relay.js` - server-side relay behind `/movie-proxy`.
+- `Caddyfile` - public routing and server-side reverse proxies.
+- `public/movies.html` - Movies & TV UI and provider selection.
+- `public/js/scramjet-init.js` - browsing-proxy bootstrap for games/apps.
+- `deploy.sh` - pulls `main`, installs deps, runs lint/tests, installs the
+  Caddyfile, reloads Caddy, restarts PM2, health-checks.
+- `notes.md` - server ops notes (gitignored, local only).
+- `TODO.md` - open work.
 
-- `index.js` — Fastify application, APIs, WebSocket/Wisp handling, and static files.
-- `Caddyfile` — public routing and server-side reverse proxies.
-- `public/movies.html` — Movies & TV interface and provider selection.
-- `public/js/scramjet-init.js` — browsing-proxy bootstrap used by games/apps.
-- `deploy.sh` — pulls `main`, installs dependencies, reloads Caddy, and restarts PM2.
-- `notes.md` — production server operational notes.
+## Rules
 
-## Working rules
-
-- Do not deploy unless the user explicitly asks to deploy.
-- Do not commit or push unless the user explicitly asks for it or asks to deploy.
+- Don't deploy unless the user explicitly asks.
+- Don't commit or push unless the user asks, or asks to deploy.
 - Preserve unrelated working-tree changes.
 - Use `apply_patch` for manual file edits.
-- Run `pnpm lint` and `git diff --check` after code changes.
-- Validate Caddy changes before deployment with:
+- After code changes run `pnpm lint`, `pnpm test` and `git diff --check`.
+- Validate Caddy changes before deploying:
 
   ```sh
   Get-Content Caddyfile -Raw | ssh craxvps "caddy validate --adapter caddyfile --config /dev/stdin"
   ```
 
-- A deployment is not complete until the affected live routes are tested.
-- For movie playback, test with an iPad/Safari user agent and capture failed
-  requests from nested frames. A `200` on the first embed document is not proof
-  that playback works.
+- A deploy isn't done until the affected live routes are tested.
+- Movie playback: test with an iPad/Safari UA and capture failed requests from
+  nested frames. A `200` on the first embed document doesn't prove playback.
+  Frame counts don't prove content either - screenshot-verify.
 
 ## Movies proxy constraints
 
-- Movies are intended to use server-side Caddy proxying, not Scramjet or the
-  browsing proxy.
-- Do not add Scramjet/controller/service-worker dependencies to `movies.html`.
-- Movie providers commonly return wrapper pages which load another player
-  origin, root-relative assets, APIs, HLS manifests, keys, subtitles, and video
-  segments from changing CDN hosts.
-- Standard Caddy can rewrite response headers but cannot rewrite arbitrary HTML,
-  JavaScript, JSON, or HLS response bodies without an additional module.
-- `handle_path /proxy/provider/*` strips the prefix before proxying. A proxied
-  document containing `/assets/file.js` will make the browser request
-  `https://aetheris.win/assets/file.js`, not
-  `/proxy/provider/assets/file.js`.
-- Never route all root requests according to a shared cookie or broad Referer
-  matcher. That can hijack the entire Aetheris site after a movie loads. This
-  exact failure previously caused the homepage to render `streamingnow.mov`.
-- Do not hard-code rotating media CDN hostnames as the sole solution.
-- Do not assume changing `Origin`, `Referer`, CSP, or frame headers fixes an
-  upstream that blocks the VPS IP.
+- Movies use server-side proxying (`/movie-proxy`), not Scramjet or the
+  browsing proxy. Don't add Scramjet/controller/service-worker dependencies
+  to `movies.html`.
+- Providers usually return wrapper pages that load another player origin,
+  root-relative assets, APIs, HLS manifests, keys, subtitles and segments
+  from changing CDN hosts.
+- Stock Caddy can rewrite response headers but not HTML/JS/JSON/HLS bodies
+  without an extra module.
+- `handle_path /proxy/provider/*` strips the prefix. A proxied document that
+  references `/assets/file.js` makes the browser fetch
+  `https://aetheris.win/assets/file.js`, not `/proxy/provider/assets/file.js`.
+- Never route root requests by a shared cookie or broad Referer matcher. It
+  hijacks the whole site after a movie loads - this once made the homepage
+  render `streamingnow.mov`.
+- Don't hard-code rotating media CDN hostnames as the only fix.
+- Changing `Origin`/`Referer`/CSP/frame headers doesn't fix an upstream that
+  blocks the VPS IP.
+- A previous movie fix was fully reverted (commits `3cf60bbe`..`8cfd2243`).
+  Don't reintroduce that design.
 
-## Known production findings
+## Provider findings
 
-These were observed on 2026-09-03 and must be rechecked because providers change:
+Providers change constantly; recheck before relying on any of this. "VPS
+block" below means the upstream rejects the production VPS egress and no
+header change fixes it.
 
-- `vidsrc.to` wrapped the actual player at `vsembed.ru`.
-- The Vsembed player requested root-relative `/assets/sbx.js` and
-  `/vs_src.php?type=movie&id=...`.
-- `www.2embed.cc` wrapped a player at `videm.xyz`.
-- `multiembed.mov` redirected to `streamingnow.mov`.
-- `streamingnow.mov` returned `403` to the production VPS but `200` from a
-  residential/local connection. Caddy on that VPS therefore cannot proxy it
-  successfully without a different egress path or provider.
-- `vidsrcme.ru` currently resolves playback to `cloudorchestranova.com`
-  (player) + `zenithofzircon.space` (HLS). Embed pages, `generate.php`, and
-  `master/index.m3u8` proxy fine, but every `/content/.../page-N.html` media
-  segment returns a Cloudflare "Attention Required" challenge (`403`,
-  `server: cloudflare`) to non-browser HTTP clients — even with a real
-  browser UA. The player then retry-storms `generate.php` into `429`,
-  `master.m3u8` into `401`, and reloads the player document in a loop.
-  Header tweaks cannot fix a Cloudflare browser challenge; treat as an
-  upstream block (same category as the `streamingnow.mov` VPS `403`).
-  Direct-embed fallback was removed 2026-09-08. Every movie provider now
-  goes through `/movie-proxy`; challenged providers remain unavailable until
-  their CDN accepts the VPS egress or a second server-side egress is added.
-  Observed 2026-09-03 from a local connection; recheck, providers change.
-- `www.2embed.cc` → `videm.xyz` (`Server VNE`): the embed page, `api.php`
-  (`race`/`play`/`sources`, all `200 application/json`) and `_stream`
-  playlists proxy fine through the relay, but every media segment (ByteDance
-  ImageX CDN, `p16-ttam-va.ibyteimg.com`) returns
-  `{"code":1004,"error":"domain forbidden"}` (`403`) to the production VPS
-  regardless of Referer/Origin/UA (verified 2026-09-08 via full curl replay
-  of the signed chain from the VPS; no cookies involved anywhere). Same
-  upstream-block category as `streamingnow.mov`/`vidsrcme.ru`. 2Embed stays
-  proxied per user preference. Titles whose 2Embed servers all funnel to a
-  blocked host still fail (verified 2026-09-28: UNABOMBER tmdb=1492640 has no
-  swish server — vidsrc.buzz/Videm-direct both hit `relay3.videm.xyz` 429s,
-  Vcr is dead, and VidSrc.to's new `filamentoffable.space` CDN 403/429/401s);
-  for those, switch the source dropdown or retry later. Because the swish
-  path was verified playing real video through the relay, 2Embed replaced
-  VidSrc.to as the default on 2026-09-28; VidSrc.to remains as fallback.
-  If a 2Embed server recovers VPS access, no code change is needed.
-  Recheck, providers change.
-- **2026-09-29 — provider sweep, all candidates rejected.** Probed from the
-  VPS egress + Playwright playback through the live relay (Backrooms
-  tmdb=1083381): `vidsrc.xyz`/`embed.su` DNS-dead; `vidlink.pro` Cloudflare
-  403; SuperEmbed redirects to `streamingnow.mov` (CF challenge) and its VIP
-  endpoint 404s; VidCore app never calls `/api/sources` (error state, dead
-  video); `vidzee` loads but builds no player; `vidsrc.dev` is parked
-  (sedoparking); `cinesrc.st` loads but its stream API `a.cineflix.st`
-  502s; `vidsrc.sh` wraps the same challenged `cloudorchestranova` chain
-  (`sartorialsupernova.space` 403/429/401); `embos.top` resolves no stream;
-  `ployan.me` needs opaque per-session tokens (unusable directly);
-  123moviesfree's own player JS 404s on their server; `cineby.at` DNS-dead
-  and `cineby.ws` 404s all watch paths; `vidking.net` DNS-dead;
-  `player.videasy.to` flaps 403 to non-browser clients (curl 200, headless
-  Chromium always 403, relay flaky) — front door too unreliable to add.
-- **2026-09-29 — hls.lol source REMOVED (VPN slate).** The chain resolves
-  and plays 200s end to end, but screenshot verification proved the
-  decoded video is an "atlantic.st disable Cloudflare Warp VPN" slate,
-  not the title — for all titles, because the VPS egress is flagged as
-  datacenter/VPN. Frame counts alone don't prove content; always
-  screenshot-verify. Dropdown entry removed (source list back to 4);
-  `/hls-resolve` + `hls-player.html` stay tested in case egress
-  reputation ever changes.
-- **2026-09-29 — lul/aether chain rejected (throttled).** The P-Stream
-  `lul.aether.cx` lookup + worker-signed `*.tnmr.org` masters resolve
-  (200) and single requests succeed from the VPS, but follow-on
-  playlist/segment requests 403 more often than not — two clean
-  screenshot-verified playback trials yielded zero frames. Burst
-  throttling, possibly with fast signature expiry mixed in. Entry
-  removed; route stays for a possible re-test after a long cooldown.
-- A prior attempted movie fix was fully reverted. Commits `3cf60bbe` through
-  `8cfd2243` document that rollback; do not reintroduce that design.
-- **2026-09-28 — 2Embed boot errors fixed; upstream media blocks remain.**
-  2Embed now wraps a swish/2vcdn.skin player (server 1) or a vidsrc.buzz
-  player (other servers). Five relay/client defects were fixed: (1) the
-  JWPlayer base rewrite no longer appends a `#/jwplayer.js` fragment (JW
-  derives its webpack base with `src.slice(0, src.lastIndexOf("/jwplayer.js")+1)`;
-  the fragment made every chunk request hit the jwplayer.js proxy URL, so
-  `provider.hlsjs.js`/`vast.js` 404'd and setup failed with Error 104153);
-  the relay now appends a literal `/jwplayer.js` after the percent-encoded
-  upstream directory; (2) the relay client re-anchors same-origin URLs that
-  provider JS builds from `script.src`/`document.baseURI` onto the upstream
-  origin (fixes `/player/jw8/vast.js` being fetched from aetheris.win);
-  (3) the relay CSP allows `image.tmdb.org` for poster/backdrop artwork that
-  players set via CSS or JS strings the URL hooks cannot see; (4) doctype
-  injection removes quirks mode on pages like 2vcdn.skin; (5) the relay now
-  refuses the TikTok ad-image "segments" of 2vcdn's decoy hls4 playlist
-  (`isDecoyAdImage` in `movie-relay.js`). Without (5) those images fetch and
-  buffer successfully through the relay, hls.js plays a black video whose
-  clock advances, and the page's hls4 → hls3 fallback never fires; with (5)
-  the fallback fires within seconds and the real signed hls3 playlist and
-  segments stream through the relay. Still blocked by
-  the VPS egress (not code-fixable): `tagivi.com` Cloudflare 403,
-  `unfortunatelyejectinflected.com` 403, `relay3.videm.xyz` 429 bursts,
-  some signed segment URLs 404. VidSrc.to remains the default fallback.
+**2026-09-03**
+
+- `vidsrc.to` wraps its player at `vsembed.ru`, which requests root-relative
+  `/assets/sbx.js` and `/vs_src.php?type=movie&id=...`.
+- `www.2embed.cc` wraps a player at `videm.xyz`.
+- `multiembed.mov` (SuperEmbed) redirects to `streamingnow.mov`, which returns
+  `403` to the VPS but `200` from a residential connection. VPS block.
+- `vidsrcme.ru` plays via `cloudorchestranova.com` (player) +
+  `zenithofzircon.space` (HLS). Embed pages, `generate.php` and
+  `master/index.m3u8` proxy fine, but every `/content/.../page-N.html` segment
+  gets a Cloudflare "Attention Required" challenge (`403`,
+  `server: cloudflare`) for non-browser clients, even with a real browser UA.
+  The player then retry-storms `generate.php` (`429`), `master.m3u8` (`401`)
+  and reloads in a loop. VPS block (observed from a local connection).
+
+**2026-09-08**
+
+- Direct-embed fallback removed: every provider goes through `/movie-proxy`.
+  Challenged providers stay unavailable until their CDN accepts the VPS or a
+  second server-side egress is added.
+- 2Embed -> `videm.xyz` (`Server VNE`): embed page, `api.php`
+  (`race`/`play`/`sources`, `200 application/json`) and `_stream` playlists
+  proxy fine, but every segment from ByteDance ImageX
+  (`p16-ttam-va.ibyteimg.com`) returns `{"code":1004,"error":"domain forbidden"}`
+  (`403`) regardless of Referer/Origin/UA. Verified by a full curl replay of
+  the signed chain from the VPS; no cookies involved. VPS block. 2Embed stays
+  proxied per user preference.
+
+**2026-09-28**
+
+- 2Embed now wraps a swish/`2vcdn.skin` player (server 1) or a `vidsrc.buzz`
+  player (other servers). Five relay/client bugs fixed:
+  1. JWPlayer base rewrite no longer appends a `#/jwplayer.js` fragment. JW
+     derives its webpack base with
+     `src.slice(0, src.lastIndexOf("/jwplayer.js")+1)`, so the fragment sent
+     every chunk request to the jwplayer.js proxy URL (`provider.hlsjs.js` /
+     `vast.js` 404, setup Error 104153). The relay now appends a literal
+     `/jwplayer.js` after the percent-encoded upstream directory.
+  2. The relay client re-anchors same-origin URLs built from
+     `script.src`/`document.baseURI` onto the upstream origin (fixed
+     `/player/jw8/vast.js` being fetched from aetheris.win).
+  3. Relay CSP allows `image.tmdb.org` for artwork set via CSS/JS strings the
+     URL hooks can't see.
+  4. Doctype injection removes quirks mode (e.g. 2vcdn.skin).
+  5. The relay refuses the TikTok ad-image "segments" in 2vcdn's decoy hls4
+     playlist (`isDecoyAdImage` in `movie-relay.js`). Otherwise they buffer
+     fine, hls.js plays a black video with a moving clock, and the page's
+     hls4 -> hls3 fallback never fires. With the fix it falls back within
+     seconds and the real signed hls3 stream plays through the relay.
+- Still VPS-blocked: `tagivi.com` (Cloudflare 403),
+  `unfortunatelyejectinflected.com` (403), `relay3.videm.xyz` (429 bursts),
+  some signed segment URLs (404).
+- Titles whose 2Embed servers all funnel to a blocked host still fail, e.g.
+  UNABOMBER tmdb=1492640: no swish server, vidsrc.buzz/Videm-direct both hit
+  `relay3.videm.xyz` 429s, Vcr is dead, and VidSrc.to's new
+  `filamentoffable.space` CDN returns 403/429/401. Workaround: switch source
+  or retry later.
+- The swish path was verified playing real video through the relay, so 2Embed
+  replaced VidSrc.to as the default; VidSrc.to is the fallback. If a 2Embed
+  server regains VPS access, no code change is needed.
+
+**2026-09-29**
+
+- Provider sweep (VPS egress + Playwright playback through the live relay,
+  Backrooms tmdb=1083381), all rejected:
+  - `vidsrc.xyz`, `embed.su`, `cineby.at`, `vidking.net`: DNS dead.
+  - `vidlink.pro`: Cloudflare 403.
+  - SuperEmbed: redirects to `streamingnow.mov` (CF challenge); VIP endpoint 404s.
+  - VidCore: app never calls `/api/sources` (error state, dead video).
+  - `vidzee`: loads but builds no player.
+  - `vidsrc.dev`: parked (sedoparking).
+  - `cinesrc.st`: loads, but its stream API `a.cineflix.st` 502s.
+  - `vidsrc.sh`: same challenged `cloudorchestranova` chain
+    (`sartorialsupernova.space` 403/429/401).
+  - `embos.top`: resolves no stream.
+  - `ployan.me`: needs opaque per-session tokens.
+  - 123moviesfree: their own player JS 404s.
+  - `cineby.ws`: 404s on all watch paths.
+  - `player.videasy.to`: flaps 403 to non-browser clients (curl 200, headless
+    Chromium always 403, relay flaky). Too unreliable.
+- hls.lol removed. The chain resolves and serves 200s end to end, but
+  screenshots showed the video is an "atlantic.st disable Cloudflare Warp VPN"
+  slate for every title, because the VPS egress is flagged as datacenter/VPN.
+  Dropdown entry removed (back to 4 sources); `/hls-resolve` and
+  `hls-player.html` stay, tested, in case egress reputation changes.
+- lul/aether rejected (throttled). P-Stream `lul.aether.cx` lookup and
+  worker-signed `*.tnmr.org` masters resolve (200) and single requests work
+  from the VPS, but follow-on playlist/segment requests 403 more often than
+  not; two screenshot-verified trials gave zero frames. Likely burst
+  throttling, maybe plus fast signature expiry. Entry removed; route kept for
+  a re-test after a long cooldown.
 
 ## Production access
 
 - SSH alias: `craxvps`
-- Application directory: `/var/www/aetheris`
-- Deployment command on the server: `deploy`
-- PM2 application name: `aetheris`
+- App directory: `/var/www/aetheris`
+- Deploy command on the server: `deploy`
+- PM2 app name: `aetheris`
 
-Treat deployment as an external state change: validate locally/remotely first,
-deploy only with authorization, then verify the homepage and every changed route.
+Deploying is an external state change: validate first, deploy only with
+authorization, then check the homepage and every changed route.

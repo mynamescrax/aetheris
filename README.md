@@ -5,60 +5,76 @@
   <p>open source again after 5 months</p>
 </div>
 
-> **Installing this replacement package?** Start with [REPLACEMENT-README.md](REPLACEMENT-README.md). Merge over your existing project so your omitted assets, configuration and live data are retained. See [FIXES.md](FIXES.md) and [QA.md](QA.md) for completed work and verification limits.
-
 ## what's inside
 
-- **Games**: big library with search, filters, favorites, and a popular section
-- **Apps**: a collection of useful web apps
-- **Web Proxy**: browse anything through Scramjet with libcurl/epoxy transports
-- **Movies & TV**: search and watch using TMDB and external sources
-- **Chat**: DMs with user accounts 
-- **Cheats**: bookmarklet tools you can use
-- **Tab Cloaking**: change your tab's title and icon (Google, Drive, Classroom presets and more)
-- **Panic Key**: hit a hotkey and get redirected somewhere safe
-- **Themes**: a few different color themes to pick from
-- **About:blank Launch**: open the site hidden inside an about:blank tab
-- **Performance Mode**: tones down animations if your device is struggling
-- **Bug Reports**: report something broken right from the home page
+- **games**: big library with search, tags, favorites and a popular section
+- **apps**: a handful of web apps
+- **proxy**: Scramjet with libcurl/epoxy transports
+- **movies & tv**: TMDB search plus a few embed sources
+- **chat**: DMs with accounts
+- **ai**: chat and image gen through any OpenAI-compatible API
+- **cheats**: bookmarklets
+- **tab cloak**: fake the tab title and icon (Google, Drive, Classroom...)
+- **panic key**: one key sends you somewhere safe
+- **themes**, **about:blank launch**, **performance mode** and **bug reports** from the home page
 
 ## self-hosting
 
-You need a VPS for this: the proxy needs a server and won't work on Vercel or similar platforms.
+you need a VPS for this: the proxy needs a real server and won't work on Vercel or similar.
 
-**you'll need:** [Node.js](https://nodejs.org) (>=20.19), [Git](https://git-scm.com/download), [pnpm](https://pnpm.io), [Caddy](https://caddyserver.com)
+**you'll need:** [Node.js](https://nodejs.org) (>=20.19), [Git](https://git-scm.com/download), [pnpm](https://pnpm.io), [PM2](https://pm2.keymetrics.io), [Caddy](https://caddyserver.com)
 
 ```bash
 git clone https://github.com/mynamescrax/aetheris.git
 cd aetheris
-pnpm install
+pnpm install --frozen-lockfile
 ```
 
-Set up your environment:
+set up your environment:
 
 ```bash
 cp .env.example .env
-# fill in your values
+# fill in your values - every option is commented in the file
 ```
 
-Start the server with PM2:
+the app listens on `PORT` (default 8080). the Discord webhooks and AI key are optional for the site itself; `monitor.js` won't start without `DISCORD_WEBHOOK`.
+
+start it with PM2:
 
 ```bash
-pm2 start index.js --name aetheris --node-args="--env-file=/path/to/.env" --kill-timeout 5000
+pm2 start index.js --name aetheris --node-args="--env-file=$PWD/.env" --kill-timeout 5000
 pm2 save
 ```
 
-Hook up Caddy:
+hook up Caddy. the `Caddyfile` is the one I run in production, so swap the domains for yours first:
 
 ```bash
-ln -s /path/to/aetheris/Caddyfile /etc/caddy/Caddyfile
-systemctl reload caddy
+caddy validate --adapter caddyfile --config Caddyfile
+sudo install -m 0644 Caddyfile /etc/caddy/Caddyfile
+sudo systemctl reload caddy
+```
+
+### updating
+
+`deploy.sh` does the whole update on the server: pulls `main`, installs deps, runs lint and tests, validates and installs the Caddyfile, reloads Caddy, restarts the PM2 app and checks it answers. set `SKIP_CHECKS=1` to skip lint/tests.
+
+```bash
+./deploy.sh
+```
+
+## development
+
+```bash
+pnpm start     # node index.js (pass --env-file=.env if you want your config)
+pnpm lint      # eslint
+pnpm check     # syntax-check every script, inline <script> and catalog JSON
+pnpm test      # node --test
 ```
 
 ## credits
 
-Game files from [GN-Math](https://gn-math.dev) and [The Ultimate Game Stash](https://docs.google.com/document/d/1_FmH3BlSBQI7FGgAQL59-ZPe8eCxs35wel6JUyVaG8Q/preview?pli=1&pru=AAABnlARoYY*_5r087PNiPkXhHVGgjNYOA&tab=t.0). if you fork this, a star would be appreciated!
+Game files from [GN-Math](https://gn-math.dev) and [The Ultimate Game Stash](https://docs.google.com/document/d/1_FmH3BlSBQI7FGgAQL59-ZPe8eCxs35wel6JUyVaG8Q/preview). if you fork this, a star would be appreciated!
 
 ## license
 
-AGPL-3.0-or-later — see [LICENSE](LICENSE).
+AGPL-3.0-or-later - see [LICENSE](LICENSE).
