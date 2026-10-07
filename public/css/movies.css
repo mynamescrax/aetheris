@@ -49,6 +49,7 @@ body {
     border-color 0.15s;
   background: rgba(255, 255, 255, 0.05);
   color: rgba(255, 255, 255, 0.7);
+  min-height: 44px;
 }
 
 .mode-btn:hover {
@@ -81,6 +82,7 @@ body {
   outline: none;
   transition: border-color 0.15s;
   box-sizing: border-box;
+  min-height: 44px;
 }
 
 .search-wrap input:focus {
@@ -411,12 +413,6 @@ main {
 .ep-bar,
 .player-hint {
   flex-shrink: 0;
-}
-.mode-btn {
-  min-height: 44px;
-}
-.search-wrap input {
-  min-height: 44px;
 }
 
 @media (max-width: 600px) {

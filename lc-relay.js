@@ -1,13 +1,6 @@
-// LC-Wisp relay — port of the game's standalone relay (relay/server.js of the LC
-// project) mounted into Aetheris' Fastify upgrade hook, so the game dials
-// wss://<this domain>/lc-relay and no extra process is needed.
-//
-// Why a relay and not the wisp servers from config.js: wisp servers are pure
-// TCP/UDP tunnels — they open a connection from the browser to an arbitrary
-// host. A WebGL host lives in a browser and cannot accept inbound connections,
-// so a rendezvous point is required. Serving this endpoint from the SAME origin
-// as the game means the WebGL build's same-origin WebSocket rides the same wisp
-// tunnel as the page.
+// Lethal Company multiplayer relay, served at wss://<host>/lc-relay.
+// A WebGL host can't accept inbound connections, so peers meet here instead
+// of going through wisp.
 //
 // Wire protocol (binary frames, integers little-endian):
 //   1 JOIN       C->R  [op][role(0 host,1 client)][roomLen][room utf8][verLen][version utf8]
@@ -29,6 +22,21 @@ const MAX_FRAME_BYTES = 1024 * 1024;
 // whole classroom behind one NAT address hosting concurrently.
 const MAX_ROOMS = 250;
 const MAX_ROOMS_PER_IP = 5;
+// Sockets that never join (or just ping) also cost memory, so cap them too.
+const MAX_CONNECTIONS = 2000;
+const MAX_CONNECTIONS_PER_IP = 64;
+// Join attempts per IP per minute. Unknown room codes get the tight limit, so
+// guessing codes is slow while a classroom behind one NAT can still join.
+const JOIN_WINDOW_MS = 60 * 1000;
+const MAX_JOINS_PER_IP = 60;
+const MAX_FAILED_JOINS_PER_IP = 20;
+// Per-socket token buckets. The game client isn't in this repo, so these are
+// sized well above what a 4-player Netcode session needs (a host at a 30 Hz
+// tick fans out a few hundred messages a second, more during scene loads).
+const MSG_RATE = 1000;
+const MSG_BURST = 4000;
+const BYTE_RATE = 4 * 1024 * 1024;
+const BYTE_BURST = 16 * 1024 * 1024;
 
 const OpJoin = 1;
 const OpJoined = 2;
@@ -70,6 +78,36 @@ function clean(value, max = 80) {
 /** @type {Map<string, Room>} */
 const rooms = new Map();
 const roomsPerIp = new Map(); // host remote address -> rooms currently open
+const connectionsPerIp = new Map();
+let connectionCount = 0;
+const joinAttempts = new Map(); // ip -> { start, joins, failed }
+
+function joinWindow(ip) {
+  const now = Date.now();
+  let entry = joinAttempts.get(ip);
+  if (!entry || now - entry.start >= JOIN_WINDOW_MS) {
+    entry = { start: now, joins: 0, failed: 0 };
+    joinAttempts.set(ip, entry);
+  }
+  return entry;
+}
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of joinAttempts)
+    if (now - entry.start >= JOIN_WINDOW_MS) joinAttempts.delete(ip);
+}, JOIN_WINDOW_MS).unref();
+
+function tokenBucket(rate, burst) {
+  let tokens = burst;
+  let last = Date.now();
+  return (cost) => {
+    const now = Date.now();
+    tokens = Math.min(burst, tokens + ((now - last) / 1000) * rate) - cost;
+    last = now;
+    return tokens >= 0;
+  };
+}
 
 function roomOpened(room) {
   roomsPerIp.set(room.hostIp, (roomsPerIp.get(room.hostIp) || 0) + 1);
@@ -286,6 +324,20 @@ function handleJoin(ws, frame) {
     .subarray(4 + roomLen, 4 + roomLen + verLen)
     .toString("utf8");
 
+  const attempts = joinWindow(ws.remoteAddress || "unknown");
+  if (
+    attempts.joins >= MAX_JOINS_PER_IP ||
+    attempts.failed >= MAX_FAILED_JOINS_PER_IP
+  ) {
+    sendError(
+      ws,
+      "Too many join attempts from this connection. Wait a minute and try again.",
+    );
+    dropClient(ws, "join_rate_limited");
+    return;
+  }
+  attempts.joins++;
+
   if (role === 0) {
     // Host: create the room.
     if (rooms.has(code)) {
@@ -320,6 +372,7 @@ function handleJoin(ws, frame) {
     // Client: join an existing room.
     const room = rooms.get(code);
     if (!room) {
+      attempts.failed++;
       sendError(
         ws,
         "That room doesn't exist. Double-check the code with the host.",
@@ -345,15 +398,30 @@ function handleJoin(ws, frame) {
 }
 
 /**
- * Mount point for Aetheris' upgrade hook: handle a /lc-relay WebSocket upgrade.
- * Same semantics as wss://<origin>/lc-relay on the standalone relay.
- *
- * OPEN RELAY (operator decision 2026-10-03): any Origin may connect, so other
- * sites can use this relay. Abuse surface is bounded by the existing caps
- * (250 rooms, 5 rooms/IP, 4 players/room, 1 MB frames). wisp (index.js) keeps
- * its same-origin check — it is a generic TCP proxy and must stay restricted.
+ * Upgrade handler for /lc-relay. Any Origin may connect on purpose (it only
+ * relays between players); wisp in index.js stays same-origin because it is
+ * a generic TCP proxy.
  */
 function lcRelayUpgrade(req, socket, head) {
+  const ip = clientIp(req);
+  const fromIp = connectionsPerIp.get(ip) || 0;
+  if (connectionCount >= MAX_CONNECTIONS || fromIp >= MAX_CONNECTIONS_PER_IP) {
+    socket.end("HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n");
+    return;
+  }
+  connectionCount++;
+  connectionsPerIp.set(ip, fromIp + 1);
+  let released = false;
+  const release = () => {
+    if (released) return;
+    released = true;
+    connectionCount--;
+    const n = (connectionsPerIp.get(ip) || 1) - 1;
+    if (n <= 0) connectionsPerIp.delete(ip);
+    else connectionsPerIp.set(ip, n);
+  };
+  // Covers both a failed handshake and the WebSocket closing later.
+  socket.once("close", release);
   wss.handleUpgrade(req, socket, head, (ws) => {
     wss.emit("connection", ws, req);
   });
@@ -369,10 +437,23 @@ wss.on("connection", (ws, req) => {
   ws.room = null;
   ws.wireId = null;
   ws.remoteAddress = clientIp(req);
+  const takeMessage = tokenBucket(MSG_RATE, MSG_BURST);
+  const takeBytes = tokenBucket(BYTE_RATE, BYTE_BURST);
 
   ws.on("message", (data) => {
     lastSeen = Date.now();
     const buf = Buffer.isBuffer(data) ? data : Buffer.from(data);
+    // Evaluate both so each bucket stays accurate.
+    const withinMessages = takeMessage(1);
+    const withinBytes = takeBytes(buf.length);
+    if (!withinMessages || !withinBytes) {
+      if (ws.readyState === WebSocket.OPEN) {
+        console.log(`[lc-relay] rate limited ${ws.remoteAddress}`);
+        sendError(ws, "Too much traffic from this connection.");
+        ws.close(1008, "rate_limited");
+      }
+      return;
+    }
     if (!ws.room) {
       if (buf[0] === OpJoin) handleJoin(ws, buf);
       else if (buf[0] !== OpPing) sendError(ws, "join_first");
@@ -385,17 +466,17 @@ wss.on("connection", (ws, req) => {
   ws.on("close", () => handleMemberLeave(ws));
   ws.on("error", () => handleMemberLeave(ws));
 
-  // Heartbeat: drop sockets that stop talking (flaky school connections die silently).
+  // Drop sockets that stop talking; flaky connections often die silently.
   const hb = setInterval(() => {
     if (Date.now() - lastSeen > IDLE_TIMEOUT_MS) {
-      console.log(`[lc-relay] dropping idle connection (${clientIp(req)})`);
+      console.log(`[lc-relay] dropping idle connection (${ws.remoteAddress})`);
       ws.terminate();
       clearInterval(hb);
     }
   }, 15 * 1000);
   ws.on("close", () => clearInterval(hb));
 
-  console.log(`[lc-relay] connection from ${clientIp(req)}`);
+  console.log(`[lc-relay] connection from ${ws.remoteAddress}`);
 });
 
 export { lcRelayUpgrade };

@@ -4,21 +4,18 @@
 	}
 }
 
-# on_demand_tls "ask" endpoint. MUST stay restrictive: returning 200 here
-# tells Caddy (and therefore Let's Encrypt) that we're willing to mint a
-# certificate for the requested domain. An unconditional 200 would let
-# anyone who points DNS at this server get certs minted and the whole site
-# (proxy included) served on their hostname. Only allow our own domains.
+# on_demand_tls "ask" endpoint. A 200 means "issue a cert for this domain",
+# so only our own domains may pass; otherwise anyone pointing DNS here would
+# get the whole site served on their hostname.
 http://127.0.0.1:9999 {
 	@allowed expression {http.request.uri.query.domain}.matches("(?i)^([a-z0-9-]+\\.)*(aetheris\\.win|crax\\.lol|balf-games\\.ink|balf-games\\.xyz)$")
 	respond @allowed 200
 	respond 404
 }
 
-# tls_insecure_skip_verify is deliberate: some of these game CDNs serve
-# certificates that don't match the SNI we connect with. It means the
-# server→upstream leg isn't authenticated — acceptable for game/movie
-# traffic, but don't copy this pattern for anything sensitive.
+# tls_insecure_skip_verify is deliberate: some game CDNs serve certs that
+# don't match the SNI. The upstream leg is unauthenticated, so don't reuse
+# this for anything sensitive.
 (region_proxy) {
 	handle_path {args[0]}/* {
 		reverse_proxy {args[1]}:443 {
@@ -82,18 +79,12 @@ https:// {
 		on_demand
 	}
 
-	# compress text on the wire. the games catalog alone is ~5.5MB of JSON
-	# (~1.1MB gzipped) and the proxy/game JS bundles shrink just as much —
-	# without this every cold visit pays the full uncompressed weight.
+	# The games catalog alone is ~5.5MB of JSON (~1.1MB gzipped).
 	encode zstd gzip
 
-	# Baseline security headers for every host this block serves (app pages,
-	# API, static assets and relayed movie documents). /game-assets keeps its
-	# own -X-Content-Type-Options below because those raw game builds rely on
-	# content sniffing. Referrer-Policy is strict-origin rather than
-	# no-referrer on purpose: cross-origin subresources see only the origin,
-	# so signed /movie-proxy query strings cannot leak, while providers that
-	# expect a Referer header still receive one.
+	# Baseline security headers. /game-assets drops nosniff below because raw
+	# game builds rely on sniffing. strict-origin-when-cross-origin keeps
+	# signed /movie-proxy queries from leaking while still sending a Referer.
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options "nosniff"
@@ -101,10 +92,8 @@ https:// {
 		X-Frame-Options "SAMEORIGIN"
 	}
 
-	# CORS Preflight — answered here for every host EXCEPT the vhosts with
-	# their own OPTIONS handling (crax.lol profile, hosting, gpt) and the
-	# /api/* routes. Wildcard CORS on the authenticated API let any website
-	# drive registration/login/account requests from visitors' browsers.
+	# Wildcard CORS preflight, except for vhosts with their own OPTIONS
+	# handling and the authenticated /api/* routes.
 	@cors_preflight {
 		method OPTIONS
 		not host crax.lol hosting.crax.lol gpt.crax.lol
@@ -116,6 +105,24 @@ https:// {
 		header Access-Control-Allow-Headers "Content-Type, Authorization, Origin, Accept, X-Requested-With"
 		header Access-Control-Max-Age "3600"
 		respond 204
+	}
+
+	# Movie relay origin. Requires a DNS record for m.aetheris.win and
+	# MOVIE_RELAY_HOST=m.aetheris.win in the app env. Only relay paths reach
+	# the app and everything else is a 404, so relayed third-party script
+	# shares its origin with nothing worth stealing. The movies page frames it
+	# cross-origin, so SAMEORIGIN is dropped; relayed pages send their own
+	# frame-ancestors.
+	@movierelay host m.aetheris.win
+	handle @movierelay {
+		header -X-Frame-Options
+		@relaypaths path /movie-proxy /movie-proxy/* /api.php /hls-resolve /movie-ping /js/movie-proxy-client.js /hls-player.html /js/vendor/hls.min.js
+		handle @relaypaths {
+			reverse_proxy http://127.0.0.1:8080
+		}
+		handle {
+			respond 404
+		}
 	}
 
 	# crax.lol profile site
@@ -138,14 +145,15 @@ https:// {
 		file_server browse
 	}
 
-	# gpt.crax.lol — crax-gpt (OpenAI-compatible proxy + chat UI)
+	# gpt.crax.lol: crax-gpt (OpenAI-compatible proxy + chat UI)
 	@craxgpt host gpt.crax.lol
 	handle @craxgpt {
 		reverse_proxy http://127.0.0.1:3002
 	}
 
-	# WebSocket proxy
-	@wsproxy path_regexp wsproxy ^/(wsproxy|tsunamis/wsproxy)/(([^/]+\.)?(veck\.io|growden\.io|tsunamis\.io|stealnow\.io|luckyblocks\.io|2v2\.io))(/.*)$
+	# WebSocket proxy. Subdomain labels are limited to hostname characters so
+	# the captured host can't smuggle in a port, userinfo or another host.
+	@wsproxy path_regexp wsproxy ^/(wsproxy|tsunamis/wsproxy)/(([a-zA-Z0-9-]+\.)*(veck\.io|growden\.io|tsunamis\.io|stealnow\.io|luckyblocks\.io|2v2\.io))(/.*)$
 	handle @wsproxy {
 		rewrite * {re.wsproxy.5}
 		reverse_proxy {re.wsproxy.2}:443 {
@@ -171,7 +179,7 @@ https:// {
 		}
 	}
 
-	# -- 2v2.io -------------------------------------------------
+	# 2v2.io
 	import files_proxy /proxy/2v2/files files.2v2.io
 	import region_proxy /proxy/2v2/asia-1 asia-1.2v2.io 2v2.io
 	import region_proxy /proxy/2v2/fra-1 fra-1.2v2.io 2v2.io
@@ -182,7 +190,7 @@ https:// {
 	import region_proxy /proxy/2v2/usa-4 usa-4.2v2.io 2v2.io
 	import root_proxy /proxy/2v2 2v2.io
 
-	# -- luckyblocks.io -----------------------------------------
+	# luckyblocks.io
 	import files_proxy /proxy/luckyblocks/files files.luckyblocks.io
 	import region_proxy /proxy/luckyblocks/usa-1 usa-1.luckyblocks.io luckyblocks.io
 	import region_proxy /proxy/luckyblocks/usa-2 usa-2.luckyblocks.io luckyblocks.io
@@ -260,7 +268,7 @@ https:// {
 	import region_proxy /tsunamis/usa-2 usa-2.tsunamis.io tsunamis.io
 	import region_proxy /tsunamis/usa-3 usa-3.tsunamis.io tsunamis.io
 
-	# ── Veck init endpoints ──────────────────────────────────────────────────────
+	# Veck init endpoints
 	import veck_init veck-usa-1 USA
 	import veck_init veck-usa-2 USA
 	import veck_init veck-usa-3 USA
@@ -272,7 +280,7 @@ https:// {
 	import veck_init veck-asia-1 ASIA
 	import veck_init veck-asia-2 ASIA
 
-	# ── Veck joinById (must come before catch-all veck-* blocks) ─────────────────
+	# Veck joinById (must come before the veck-* region blocks)
 	import veck_join veck_usa_1 veck-usa-1 usa-1.veck.io
 	import veck_join veck_usa_2 veck-usa-2 usa-2.veck.io
 	import veck_join veck_usa_3 veck-usa-3 usa-3.veck.io
@@ -284,7 +292,7 @@ https:// {
 	import veck_join veck_asia_1 veck-asia-1 asia-1.veck.io
 	import veck_join veck_asia_2 veck-asia-2 asia-2.veck.io
 
-	# ── Veck region handlers ─────────────────────────────────────────────────────
+	# Veck regions
 	import region_proxy /proxy/veck-usa-1 usa-1.veck.io aetheris.win
 	import region_proxy /proxy/veck-usa-2 usa-2.veck.io aetheris.win
 	import region_proxy /proxy/veck-usa-3 usa-3.veck.io aetheris.win
@@ -298,8 +306,7 @@ https:// {
 	import files_proxy /proxy/veck-files files.veck.io
 	import root_proxy /proxy/veck veck.io
 
-	# GitHub-hosted game builds. Stream the raw files through our own
-	# origin instead so browsers also avoid cross-origin restrictions.
+	# GitHub-hosted game builds, served from our origin to avoid CORS issues.
 	@game_javascript path_regexp game_javascript ^/game-assets/.*\.js$
 	header @game_javascript >Content-Type "application/javascript; charset=utf-8"
 
@@ -341,7 +348,6 @@ https:// {
 			}
 		}
 	}
-
 
 	# Online counter
 	@sse path /online

@@ -9,18 +9,13 @@ import { resolvePublicUrl, pinnedLookup } from "./lib/public-network.js";
 const MAX_REDIRECTS = 5;
 const PROXY_ROUTE = "/movie-proxy";
 const MAX_TEXT_BYTES = 16 * 1024 * 1024;
-// Documents that get rewritten in-memory need a tighter cap than JSON/HLS
-// payloads: player HTML/CSS is far below 4 MB in practice, and a smaller
-// document means a shorter synchronous rewrite pass on the event loop.
+// HTML/CSS is rewritten synchronously, so keep it smaller than JSON/HLS.
 const MAX_DOC_BYTES = 4 * 1024 * 1024;
 const MAX_SCRIPT_BYTES = 8 * 1024 * 1024;
 
-// Fail-closed policy for relayed provider documents: scripts and network
-// calls may only reach the relay itself. Images are the one exception that
-// must stay reachable directly — players assign poster/backdrop artwork
-// through CSS or JS strings that the URL hooks cannot see, and TMDB art is
-// the common case on 2Embed/vidsrc pages. Everything else keeps provider
-// traffic on the relay.
+// Relayed documents may only talk to the relay. The image hosts are allowed
+// directly because players set artwork from CSS/JS strings the URL hooks
+// can't see.
 const RELAY_CSP =
   "default-src 'self' data: blob:; " +
   "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; " +
@@ -34,6 +29,38 @@ const RELAY_CSP =
   "form-action 'self'; " +
   "base-uri https:";
 
+// Routes that fetch and serve third-party content.
+const RELAY_ROUTES = [PROXY_ROUTE, "/api.php", "/hls-resolve"];
+// Everything a dedicated relay host serves. Anything else there is a 404, so
+// the relay origin holds no accounts, tokens or first-party pages.
+const RELAY_HOST_PATHS = [
+  ...RELAY_ROUTES,
+  "/movie-ping",
+  "/js/movie-proxy-client.js",
+  "/hls-player.html",
+  "/js/vendor/hls.min.js",
+];
+
+function matchesRoute(path, routes) {
+  return routes.some((r) => path === r || path.startsWith(r + "/"));
+}
+
+function requestHostname(req) {
+  return String(req.headers.host || "")
+    .toLowerCase()
+    .replace(/:\d+$/, "");
+}
+
+// Caddy terminates TLS, so trust its X-Forwarded-Proto for the scheme.
+function requestOrigin(req) {
+  const forwardedProto = req.headers["x-forwarded-proto"];
+  const requestedProto = Array.isArray(forwardedProto)
+    ? forwardedProto[0]
+    : forwardedProto?.split(",")[0];
+  const proto = requestedProto === "https" ? "https" : req.protocol;
+  return new URL(`${proto}://${req.headers.host || req.hostname}`).origin;
+}
+
 const BLOCKED_DOMAINS = new Set([
   "adexchangerapid.com",
   "usrpubtrk.com",
@@ -41,13 +68,9 @@ const BLOCKED_DOMAINS = new Set([
   "s10.histats.com",
 ]);
 
-// 2vcdn.skin's first (hls4) playlist is a decoy: every "segment" is a TikTok
-// ad-creative image. Through the relay those images fetch and buffer
-// "successfully", so hls.js shows a black player whose clock still advances
-// and never raises the fatal fragLoadError that the page's own hls4 → hls3
-// fallback listens for. Refusing the decoy fragments (an ad CDN, never video)
-// restores the provider's fallback; hls3 and its real segments keep going
-// through the relay like every other provider request.
+// 2vcdn.skin's hls4 playlist is a decoy made of TikTok ad images. They
+// "play" as black video and never trigger the player's hls4 -> hls3
+// fallback, so refuse them and let the fallback fire.
 function isDecoyAdImage(raw) {
   let url;
   try {
@@ -91,9 +114,8 @@ function unwrapProxyUrl(rawUrl) {
 
 const HAS_ZSTD = typeof zlib.zstdDecompressSync === "function";
 
-// Never offer upstream an encoding we cannot decode: otherwise it replies
-// with those bytes, decompressBuffer returns them raw, and we serve
-// compressed binary as text/html (browser renders it as garbage text).
+// Never offer upstream an encoding we can't decode, or we'd serve the raw
+// compressed bytes as text.
 function normalizeAcceptEncoding(incoming) {
   const fallback = HAS_ZSTD ? "gzip, deflate, br, zstd" : "gzip, deflate, br";
   if (!incoming || typeof incoming !== "string") return fallback;
@@ -108,13 +130,18 @@ function normalizeAcceptEncoding(incoming) {
   return incoming;
 }
 
-function decompressBuffer(buffer, encoding) {
-  if (!encoding) return buffer;
-  for (const enc of encoding
+// Content-Encoding lists codings in the order they were applied.
+function encodingsToUndo(encoding) {
+  return encoding
     .toLowerCase()
     .split(",")
     .map((v) => v.trim())
-    .reverse()) {
+    .reverse();
+}
+
+function decompressBuffer(buffer, encoding) {
+  if (!encoding) return buffer;
+  for (const enc of encodingsToUndo(encoding)) {
     const options = { maxOutputLength: MAX_TEXT_BYTES };
     if (enc === "gzip") buffer = zlib.gunzipSync(buffer, options);
     else if (enc === "br") buffer = zlib.brotliDecompressSync(buffer, options);
@@ -127,10 +154,8 @@ function decompressBuffer(buffer, encoding) {
   return buffer;
 }
 
-// Async twin of decompressBuffer. zlib's *Sync calls block the event loop for
-// every other request while a multi-megabyte body is decoded (measured ~16 ms
-// for 5.5 MB of gzip on a desktop, more on the VPS). The sync version stays
-// exported for tests and small callers.
+// Async version for the request path, so large bodies don't block the event
+// loop. The sync one is kept for tests.
 const gunzipAsync = promisify(zlib.gunzip);
 const brotliDecompressAsync = promisify(zlib.brotliDecompress);
 const inflateAsync = promisify(zlib.inflate);
@@ -142,11 +167,7 @@ async function decompressBufferAsync(
   maxBytes = MAX_TEXT_BYTES,
 ) {
   if (!encoding) return buffer;
-  for (const enc of encoding
-    .toLowerCase()
-    .split(",")
-    .map((v) => v.trim())
-    .reverse()) {
+  for (const enc of encodingsToUndo(encoding)) {
     const options = { maxOutputLength: maxBytes };
     if (enc === "gzip") buffer = await gunzipAsync(buffer, options);
     else if (enc === "br") buffer = await brotliDecompressAsync(buffer, options);
@@ -157,29 +178,6 @@ async function decompressBufferAsync(
       throw new Error("Unsupported upstream encoding.");
   }
   return buffer;
-}
-
-// The rewriters are synchronous string passes over the whole document; a
-// handful of concurrent multi-megabyte rewrites would block the single event
-// loop for every other request. Cap how many run at once (queued work is
-// already bounded by the relay's per-IP rate limit).
-const MAX_CONCURRENT_REWRITES = 6;
-let activerewrites = 0;
-const rewritewaiters = [];
-
-async function withRewriteSlot(fn) {
-  if (activerewrites >= MAX_CONCURRENT_REWRITES) {
-    await new Promise((resolve) => rewritewaiters.push(resolve));
-  } else {
-    activerewrites++;
-  }
-  try {
-    return fn();
-  } finally {
-    const next = rewritewaiters.shift();
-    if (next) next();
-    else if (activerewrites > 0) activerewrites--;
-  }
 }
 
 function isRealHtml(text) {
@@ -198,7 +196,7 @@ function rewriteHtml(html, targetUrl, proxyOrigin) {
   const origin = baseUrl.origin;
   const href = baseUrl.href;
 
-  // Remove anti-devtools scripts & top checks, enable autoStart for VidSrc players
+  // Drop anti-devtools scripts and top-frame checks; autostart VidSrc players.
   let cleaned = html.replace(
     /<script[^>]*disable-devtool[^>]*>[\s\S]*?<\/script>/gi,
     "",
@@ -209,24 +207,15 @@ function rewriteHtml(html, targetUrl, proxyOrigin) {
   );
   cleaned = cleaned.replace(/"autoStart"\s*:\s*false/g, '"autoStart":true');
 
-  // Obsolete Feature-Policy metas are ignored by current browsers but make
-  // Firefox log "Skipping unsupported feature name" for every iframe load.
-  // Their replacements (Permissions-Policy) are set by the app itself.
+  // Obsolete Feature-Policy metas only produce Firefox console noise.
   cleaned = cleaned.replace(
     /<meta[^>]*\bhttp-equiv\s*=\s*(["']?)feature-policy\1[^>]*>/gi,
     "",
   );
 
-  // The provider's own URL resolution must survive relaying. Pages such as
-  // Videm's player ship `<base href="/">`, and relative API calls
-  // (`fetch('api.php?a=race...')`), track URLs, workers, and beacons all
-  // resolve against it. If the base tag were proxied like any other href,
-  // native resolution would merge those paths onto our own origin
-  // (https://aetheris.win/api.php → 404) and poison the relay client's own
-  // base-tag lookup the same way. So the original base is lifted out here,
-  // anchored on the upstream origin, and re-inserted AFTER the generic
-  // src/href rewrite below so it is never proxied. Absolute provider bases
-  // are preserved as-is; pages without a base tag are left alone.
+  // Keep the provider's <base> pointing upstream (Videm ships <base href="/">
+  // and resolves api.php against it). It is pulled out here and put back
+  // after the src/href rewrite so it never gets proxied.
   let upstreamBaseTag = null;
   const baseTagMatch = cleaned.match(/<base\b[^>]*>/i);
   if (baseTagMatch) {
@@ -260,43 +249,26 @@ function rewriteHtml(html, targetUrl, proxyOrigin) {
     ) {
       return match;
     }
-    // Non-HTTP schemes (mailto:, tel:, ...) can't be relayed. Proxying them
-    // used to turn every footer link into a 403 "SSRF validation failed".
+    // mailto:, tel: etc. can't be relayed.
     const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(decoded);
     if (scheme && !/^https?$/i.test(scheme[1])) return match;
 
     try {
       const abs = new URL(decoded, href).href;
-      // Module identity: rewritten document-asset URLs carry NO referer
-      // parameter (see rewriteJsImports). Browsers deduplicate ES modules
-      // by exact URL string, so one upstream file must equal one proxy URL
-      // everywhere — HTML, JS chunk tables, and dynamic imports alike.
-      // The subtitle picker uses this value as a prefix and appends a
-      // country code (for example, `us.png`) at runtime, so flagcdn
-      // prefixes stay direct (they are allowlisted in the relay CSP).
+      // No referer param here: one upstream file must map to exactly one
+      // proxy URL (see rewriteJsImports).
+      // The subtitle picker appends a country code to this prefix at
+      // runtime, so flagcdn stays direct (allowed in RELAY_CSP).
       if (abs.startsWith("https://flagcdn.com/w40/")) return match;
-      // Use an absolute URL because some players prepend their own CDN base
-      // to iframe attributes. A root-relative proxy path can otherwise become
-      // https://provider.example/e//movie-proxy?... and bypass this relay.
+      // Absolute, because some players prepend their CDN base to iframe
+      // src values and a root-relative path would escape the relay.
       let proxied;
       const parsed = new URL(abs);
       if (/\/jwplayer\.js$/i.test(parsed.pathname)) {
-        // Self-hosted JWPlayer ("unlimited" key, as used by 2Embed's swish
-        // player) finds its base path with
-        //   src.substr(0, src.lastIndexOf("/jwplayer.js") + 1)
-        // and then loads sibling chunks/plugins (provider.hlsjs.js?v=42,
-        // vast.js?v=32, ...) from that base. A plain proxied URL
-        // percent-encodes the upstream path, so the literal "/jwplayer.js"
-        // the lookup needs is absent and setup throws "Could not locate
-        // jwplayer.js script tag". Keep the upstream directory
-        // percent-encoded and append a literal /jwplayer.js: JW then derives
-        //   .../movie-proxy?url=<encoded dir>/jwplayer.js?v=7
-        // for the library itself and
-        //   .../movie-proxy?url=<encoded dir>/provider.hlsjs.js?v=42
-        // for siblings, both of which the relay resolves to the right
-        // upstream files. (Sibling chunks built from this base carry no
-        // referer either, so they resolve to the same canonical URL the
-        // relay serves — no ChunkLoadError, no duplicates.)
+        // Self-hosted JWPlayer finds its base with
+        // src.lastIndexOf("/jwplayer.js") and loads sibling chunks from it,
+        // so the literal "/jwplayer.js" must survive after the encoded
+        // upstream directory.
         const directory =
           parsed.origin +
           parsed.pathname.slice(0, parsed.pathname.lastIndexOf("/"));
@@ -315,9 +287,7 @@ function rewriteHtml(html, targetUrl, proxyOrigin) {
     rewriteAttr,
   );
 
-  // Provider posters and loading backdrops are often embedded in inline CSS
-  // rather than src/href attributes. Rewrite both style blocks and style
-  // attributes so even those image requests stay on the relay origin.
+  // Posters and backdrops often live in inline CSS.
   cleaned = cleaned.replace(
     /(<style\b[^>]*>)([\s\S]*?)(<\/style>)/gi,
     (match, open, css, close) => open + rewriteCss(css, baseUrl) + close,
@@ -335,27 +305,11 @@ function rewriteHtml(html, targetUrl, proxyOrigin) {
     }
   }
 
-  // NOTE on 2Embed's swish player (2vcdn.skin): its boot code is Dean
-  // Edwards-packed per request, so server-side string surgery on the
-  // `links.hls4||links.hls3||links.hls2` expression is not possible (the
-  // identifiers are encoded in transit). No surgery is needed either: the
-  // player listens for its own errors and switches hls4 (currently a
-  // storyboard-only master) to hls3 (verified video) itself. The only
-  // server-side piece it needs is the JWPlayer base rewrite above.
+  const scriptTag = `<script>window.__MOVIE_PROXY_TARGET__=${JSON.stringify(href).replace(/</g, "\\u003c")};window.__MOVIE_PROXY_ORIGIN__=${JSON.stringify(origin).replace(/</g, "\\u003c")};</script><script src="/js/movie-proxy-client.js?v=20261007.1"></script>`;
 
-  const scriptTag = `<script>window.__MOVIE_PROXY_TARGET__=${JSON.stringify(href).replace(/</g, "\\u003c")};window.__MOVIE_PROXY_ORIGIN__=${JSON.stringify(origin).replace(/</g, "\\u003c")};</script><script src="/js/movie-proxy-client.js?v=20260929.13"></script>`;
-
-  // Some provider players (2vcdn.skin's packed boot) call jQuery (`$`)
-  // at top level without loading it. The resulting ReferenceError aborts
-  // the rest of their boot block — including their own error-fallback
-  // switching — so playback silently never starts (seen via error beacon
-  // as "Can't find variable: $"). Inject full jQuery (slim lacks ajax,
-  // which the boot also uses) ahead of body scripts when the page calls
-  // `$` but ships no jQuery. Synchronous head injection guarantees `$`
-  // exists before any body inline script runs. The `$`-call test matches
-  // packed sources too (punctuation survives the packer). A dot must
-  // follow `$` immediately (`$.ajax`); prose like "costs $ . Next"
-  // must not trigger injection.
+  // Some players (2vcdn.skin) call `$` without loading jQuery, which aborts
+  // their boot. Inject full jQuery (they use $.ajax) when the page uses `$(`
+  // or `$.` but neither loads nor defines it.
   let jqueryTag = "";
   if (
     !/<script[^>]*jquery[^>]*>/i.test(cleaned) &&
@@ -375,25 +329,15 @@ function rewriteHtml(html, targetUrl, proxyOrigin) {
     cleaned = scriptTag + "\n" + jqueryTag + "\n" + cleaned;
   }
 
-  // Provider pages frequently omit a doctype (2vcdn.skin's player starts
-  // with <HTML>), which puts the proxied iframe in quirks mode and makes the
-  // browser log a warning while layout and measurements differ from the
-  // provider's intent. Prepending a standards-mode doctype is last so it
-  // stays the very first thing in the document.
+  // Avoid quirks mode on pages without a doctype. Must stay the last step.
   if (!/^\s*<!doctype/i.test(cleaned)) cleaned = `<!DOCTYPE html>\n${cleaned}`;
 
   return cleaned;
 }
 
-// totallyacdn.org bounces media requests whose referer is itself (or
-// missing) to an unrelated YouTube page (302); the same request with an
-// embed-site referer returns video (verified 2026-09-29 from the VPS
-// egress: self-referer 302s, cinecat.eu referer 200s, light volume).
+// These media hosts redirect away unless the referer is an embed site.
 const TOTALLYACDN_REFERER = "https://cinecat.eu/";
-// The P-Stream lul backend mints worker URLs that 302 to signed tnmr.org
-// masters; those media hosts serve the VPS fine as long as the request
-// carries an embed-site referer (verified 2026-09-29).
-const TNM_RORG_REFERER = "https://aether.ist/";
+const TNMR_ORG_REFERER = "https://aether.ist/";
 
 function playlistReferer(targetUrl, override) {
   if (override) return override;
@@ -401,7 +345,7 @@ function playlistReferer(targetUrl, override) {
     const host = new URL(unwrapProxyUrl(targetUrl.href)).hostname.toLowerCase();
     if (host === "totallyacdn.org" || host.endsWith(".totallyacdn.org"))
       return TOTALLYACDN_REFERER;
-    if (host.endsWith(".tnmr.org")) return TNM_RORG_REFERER;
+    if (host.endsWith(".tnmr.org")) return TNMR_ORG_REFERER;
   } catch {
     /* fall through to the playlist URL */
   }
@@ -453,8 +397,7 @@ function rewriteM3u8(playlistText, targetUrl, refererOverride) {
 function rewriteCss(cssText, targetUrl) {
   const baseUrl = new URL(unwrapProxyUrl(targetUrl.href));
   const href = baseUrl.href;
-  // Same canonical-URL rule as rewriteJsImports/rewriteHtml: no referer
-  // parameter, so one upstream file equals one proxy URL everywhere.
+  // No referer param, same as rewriteJsImports.
   let rewritten = cssText.replace(
     /url\((["']?)([^"']+?)\1\)/gi,
     (match, quote, url) => {
@@ -493,24 +436,12 @@ function rewriteJsImports(jsText, targetUrl) {
   const baseUrl = new URL(unwrapProxyUrl(targetUrl.href));
   const href = baseUrl.href;
 
-  // NOTE: rewritten module URLs carry NO referer parameter on purpose.
-  // Browsers deduplicate ES modules by exact URL string, and code-split
-  // bundles import the same shared chunk from several parents (flixer's
-  // VideoPlayer chunk does `from"./index-*.js"`, i.e. back into the entry
-  // bundle). A per-importer referer would fork one upstream file into N
-  // proxy URLs, so shared singletons (React) instantiate N times and the
-  // app dies with "Minified React error #321" plus removeChild teardown
-  // cascades. One upstream file must equal one proxy URL everywhere.
-  // Upstream still gets a Referer header (the asset's own URL fallback in
-  // the request handler); playlists keep their own referer scheme in
-  // rewriteM3u8 because media hosts gate on it.
+  // Module URLs carry no referer param on purpose: browsers dedupe ES
+  // modules by exact URL, and a per-importer param would load shared chunks
+  // (React) more than once and break the app.
 
-  // Vite 5 bundles keep their chunk table in m.f=[...] (the raw chunk paths,
-  // e.g. "assets/vendor-x.js"), which dynamic import(__vite__mapDeps[N])
-  // feeds to the module loader. Left relative they resolve against the proxy
-  // document base instead of the upstream origin, so those chunk loads 404 /
-  // NS_ERROR_CORRUPTED_CONTENT. Rewrite each chunk path to an absolute
-  // proxied URL so the dynamic import goes back through us.
+  // Vite's chunk table (m.f=["assets/x.js", ...]) holds paths relative to
+  // the upstream origin.
   const mapDepsPattern = /m\.f=(\(?)(\[[^;]*?\])(\)?)/g;
   let out = jsText.replace(
     mapDepsPattern,
@@ -531,12 +462,7 @@ function rewriteJsImports(jsText, targetUrl) {
     },
   );
 
-  // NOTE: no early return here — a bundle can contain BOTH the m.f chunk
-  // table AND relative import() calls (e.g. Vite's
-  // `j(()=>import("./Homepage-x.js"),__vite__mapDeps([...]))`). Rewriting
-  // only the table leaves the imports resolving against /movie-proxy
-  // (whose path merges to /<chunk>.js) so every lazy chunk 404s as HTML
-  // and Firefox reports NS_ERROR_CORRUPTED_CONTENT. Rewrite both.
+  // A bundle can have both a chunk table and relative imports.
   out = out.replace(
     /(from\s*["']|import\s*["']|import\(\s*["'])(\.\.?\/[^"']+|\/assets\/[^"']+)(["'])/g,
     (match, prefix, path, suffix) => {
@@ -550,9 +476,7 @@ function rewriteJsImports(jsText, targetUrl) {
     },
   );
 
-  // Asset workers: new URL("/assets/wasmPoolWorker-x.ts", import.meta.url)
-  // resolves against the proxied document (→ /assets/... 404) instead of
-  // the upstream origin once import.meta.url is the /movie-proxy URL.
+  // new URL("/assets/worker.ts", import.meta.url) would resolve against us.
   out = out.replace(
     /(new\s+URL\(\s*["'])(\.\.?\/[^"']+|\/assets\/[^"']+)(["'])/g,
     (match, prefix, path, suffix) => {
@@ -611,19 +535,58 @@ export function registerMovieRelay(
     resolveTarget = resolvePublicUrl,
     hlsApiBase = "https://cdn.hls.lol",
     lulApiBase = "https://lul.aether.cx",
+    // Dedicated hostname for the relay (MOVIE_RELAY_HOST). Empty keeps the
+    // relay on the main site.
+    relayHost = "",
+    // Site hostnames whose pages may frame the relay host
+    // (MOVIE_RELAY_EMBEDDERS). Defaults to the relay's parent domain and its
+    // subdomains (m.example.com -> example.com, *.example.com).
+    embedders = [],
   } = {},
 ) {
-  // A trusted server-side dependency override supports isolated fixture tests.
-  // No request parameter can bypass the default public-network validator.
+  relayHost = String(relayHost || "")
+    .trim()
+    .toLowerCase();
+  const relayHostname = relayHost.replace(/:\d+$/, "");
+  let frameAncestors = "'self'";
+  if (relayHost) {
+    const parent = relayHostname.split(".").slice(1).join(".");
+    const hosts = embedders.length
+      ? embedders
+      : parent.includes(".")
+        ? [parent, `*.${parent}`]
+        : [];
+    if (!hosts.length)
+      console.warn(
+        "[movie-proxy] set MOVIE_RELAY_EMBEDDERS: the movies page can't frame the relay host",
+      );
+    frameAncestors = ["'self'", ...hosts].join(" ");
+  }
+  const relayCsp = `${RELAY_CSP}; frame-ancestors ${frameAncestors}`;
+
+  if (relayHost) {
+    // Root-level hook, so it also covers static files and the 404 handler.
+    server.addHook("onRequest", async (req, reply) => {
+      const path = req.url.split("?")[0];
+      const onRelayHost = requestHostname(req) === relayHostname;
+      if (
+        onRelayHost
+          ? !matchesRoute(path, RELAY_HOST_PATHS)
+          : matchesRoute(path, RELAY_ROUTES)
+      ) {
+        return reply.code(404).type("text/plain").send("Not found");
+      }
+    });
+  }
+
+  // resolveTarget is overridable for tests only; requests can't bypass it.
   async function validateUrl(rawUrl) {
     const resolved = await resolveTarget(unwrapProxyUrl(rawUrl));
     resolved.url.validatedAddresses = resolved.addresses;
     return resolved.url;
   }
 
-  // Minimal validated GET for the /hls-resolve route below: SSRF-checked
-  // like everything else, follows up to 5 redirects, caps the body so a
-  // malicious playlist cannot exhaust memory.
+  // Buffered, SSRF-checked GET used by /hls-resolve.
   function fetchValidated(target, { accept = "*/*", referer = null } = {}) {
     return new Promise((resolve, reject) => {
       const attempt = (currentUrl, redirectsLeft) => {
@@ -703,7 +666,7 @@ export function registerMovieRelay(
         });
         request.end();
       };
-      attempt(target, 5);
+      attempt(target, MAX_REDIRECTS);
     });
   }
   server.register(async function (fastify) {
@@ -721,6 +684,18 @@ export function registerMovieRelay(
         return;
       }
 
+      // Relayed pages are only meant to run inside the movies player frame.
+      // Refusing top-level navigations stops a crafted link from opening
+      // third-party script as a full page. Browsers without Fetch Metadata
+      // send no header and are let through.
+      if (req.headers["sec-fetch-dest"] === "document") {
+        reply
+          .code(403)
+          .type("text/plain")
+          .send("The relay only works inside the movies player.");
+        return;
+      }
+
       rawTarget = unwrapProxyUrl(rawTarget);
 
       if (isDecoyAdImage(rawTarget)) {
@@ -728,16 +703,9 @@ export function registerMovieRelay(
         return;
       }
 
-      const forwardedProto = req.headers["x-forwarded-proto"];
-      const requestedProto = Array.isArray(forwardedProto)
-        ? forwardedProto[0]
-        : forwardedProto?.split(",")[0];
-      const proxyProtocol = requestedProto === "https" ? "https" : req.protocol;
       let proxyOrigin;
       try {
-        proxyOrigin = new URL(
-          `${proxyProtocol}://${req.headers.host || req.hostname}`,
-        ).origin;
+        proxyOrigin = requestOrigin(req);
       } catch {
         return reply.code(400).send("Invalid request host");
       }
@@ -817,12 +785,7 @@ export function registerMovieRelay(
         if (req.headers.range) {
           reqHeaders.range = req.headers.range;
         }
-        // Flixer's /images sources endpoint requires the WASM-signed auth
-        // headers (X-Api-Key, X-Request-*, fingerprints). The browser sends
-        // them to the relay, but without this passthrough they never reach
-        // upstream, which answers 403 {"error":"no sources found"}.
-        // Verified 2026-09-29 by diffing direct vs relayed HARs: metadata
-        // endpoints 200 without auth, only /images 403s when auth is lost.
+        // Flixer's sources endpoint 403s without its WASM-signed headers.
         for (const h of [
           "x-api-key",
           "x-request-timestamp",
@@ -846,11 +809,8 @@ export function registerMovieRelay(
 
         try {
           upstreamRes = await new Promise((resolve, reject) => {
-            // AbortSignal.timeout would also bound the body stream (aborting
-            // destroys the socket mid-transfer), truncating slow-but-healthy
-            // downloads. The absolute cap here only covers connect + response
-            // headers and is cleared the moment they arrive; the idle timeout
-            // below is what guards the body.
+            // This timer only covers connect + headers; the idle timeout
+            // below guards the body, so slow downloads aren't cut off.
             const dialAbort = new AbortController();
             const dialTimer = setTimeout(
               () => dialAbort.abort(new Error("Upstream connect timeout")),
@@ -866,8 +826,7 @@ export function registerMovieRelay(
               },
               (response) => {
                 clearTimeout(dialTimer);
-                // Cover the gap before a body consumer is attached, and
-                // abandoned redirect bodies. Consumers still handle errors.
+                // Until a consumer attaches (or for dropped redirect bodies).
                 response.on("error", () => {});
                 resolve(response);
               },
@@ -888,8 +847,7 @@ export function registerMovieRelay(
             `[movie-proxy] upstream error ${currentUrl.host}${currentUrl.pathname}: ${err.message}`,
           );
           if (abort.signal.aborted) {
-            // client went away mid-request — there is no socket left to
-            // answer with a 502
+            // Client went away; nothing to answer.
             reply.raw.destroy();
             return;
           }
@@ -956,10 +914,7 @@ export function registerMovieRelay(
         "strict-transport-security",
         "etag",
         "content-md5",
-        // Relayed documents and API payloads embed per-visit tokens and the
-        // currently injected client version. Never let browsers, edge caches,
-        // or middleboxes persist them: a stale player document executes stale
-        // provider URLs long after the relay moved on.
+        // Relayed text embeds per-visit tokens; it must never be cached.
         "last-modified",
         "expires",
       ];
@@ -1000,9 +955,6 @@ export function registerMovieRelay(
         contentType.includes("mpegurl") ||
         contentType.includes("m3u8") ||
         cleanPath.endsWith(".m3u8");
-      // application/xhtml+xml documents are HTML for our purposes: without
-      // this they fall through to the octet-stream branch and browsers
-      // offer them as a download instead of rendering the player page.
       const isHtml =
         contentType.includes("text/html") ||
         contentType.includes("application/xhtml+xml");
@@ -1015,19 +967,14 @@ export function registerMovieRelay(
         cleanPath.endsWith(".mjs");
       const isCss =
         contentType.includes("text/css") || cleanPath.endsWith(".css");
-      // text/plain is ambiguous: many embeds mislabel m3u8 playlists or JSON
-      // source payloads as text/plain. Buffer + content-sniff instead of
-      // streaming raw so those get rewritten.
+      // Embeds often label m3u8/JSON as text/plain, so sniff those.
       const isPlain =
         contentType.startsWith("text/plain") &&
         !cleanPath.match(
           /\.(png|jpe?g|gif|webp|avif|ico|mp4|webm|mp3|m4a|ts|aac)$/,
         );
 
-      // One concise log line per text-ish or failed upstream response so a
-      // stuck player session can be diagnosed from `pm2 logs` (endpoint,
-      // title params, status). The query is truncated before any token
-      // material and binary segments stay quiet to avoid log spam.
+      // Log text and failed responses (query truncated before tokens).
       const isTextual = isHtml || isM3u8 || isJson || isJs || isCss || isPlain;
       if (isTextual || upstreamRes.statusCode >= 400) {
         const query = currentUrl.search.slice(0, 48);
@@ -1036,21 +983,14 @@ export function registerMovieRelay(
         );
       }
 
-      // Fast path: clearly non-text payloads (video/audio segments, images,
-      // fonts, blobs) are streamed raw without buffering so playback stays
-      // smooth. text/plain is NOT fast-pathed because it may be a mislabeled
-      // m3u8/JSON that needs rewriting.
+      // Stream binary payloads straight through.
       if (
         req.method === "HEAD" ||
         upstreamRes.statusCode === 206 ||
         (!isHtml && !isM3u8 && !isJson && !isJs && !isCss && !isPlain)
       ) {
-        // reply.header() values are silently dropped after hijack(), so
-        // write status + headers to the raw response explicitly. Without
-        // this, binary went out with no content-type (browsers sniffed it
-        // as text/garbage). content-encoding is preserved so gzipped
-        // binary isn't served as garbage; only framing/policy headers and
-        // content-disposition (force inline playback) stay stripped.
+        // reply.header() is ignored after hijack(), so write headers raw.
+        // Content-Encoding is kept here because the body isn't decoded.
         reply.hijack();
         const passthrough = {};
         for (const [k, v] of Object.entries(upstreamRes.headers)) {
@@ -1077,7 +1017,6 @@ export function registerMovieRelay(
         return;
       }
 
-      // Text files (HTML, JS, CSS, JSON, M3U8) decompressed & checked
       const chunks = [];
       let decompressed;
       try {
@@ -1103,9 +1042,6 @@ export function registerMovieRelay(
         );
       } catch (error) {
         upstreamRes.destroy();
-        // a client disconnect surfaces as an abort while buffering; the
-        // socket is gone, so there's nothing to send a 502 to (and headers
-        // copied earlier must not ride along anywhere)
         if (abort.signal.aborted) {
           reply.raw.destroy();
           return;
@@ -1119,18 +1055,12 @@ export function registerMovieRelay(
       }
       reply.removeHeader("content-length");
 
-      // Guard against binary payloads mislabeled as text — Videm's current
-      // segment host serves MPEG-TS video bytes as text/html, and decoding
-      // those bytes to a UTF-8 string for the rewriters below irreversibly
-      // corrupts them (replacement characters), so playback stalls even
-      // though every request returns 200. NUL bytes in the probe are a
-      // strong binary indicator for any text-ish content-type, so bypass
-      // the rewriters and serve the original bytes untouched.
+      // Some hosts label video segments text/html; decoding them as UTF-8
+      // would corrupt them. NUL bytes mean binary.
       if (decompressed.slice(0, 512).includes(0x00)) {
         return reply.type("application/octet-stream").send(decompressed);
       }
 
-      // See filterHeaders: relayed text must never be cached anywhere.
       reply.header(
         "Cache-Control",
         "no-store, no-cache, must-revalidate, max-age=0",
@@ -1139,64 +1069,47 @@ export function registerMovieRelay(
 
       const rawBody = decompressed.toString("utf-8");
 
-      // For text/plain responses, sniff the body to detect mislabeled m3u8 or
-      // JSON source payloads so they get rewritten instead of streamed raw.
-      const sniffM3u8 =
-        isPlain && /^#EXTM3U|^#EXT-X-/.test(rawBody.trimStart());
       const trimmedStart = rawBody.trimStart();
+      const sniffM3u8 = isPlain && /^#EXTM3U|^#EXT-X-/.test(trimmedStart);
       const sniffJson =
         isPlain &&
         (trimmedStart.startsWith("{") || trimmedStart.startsWith("["));
 
       if (isHtml && isRealHtml(rawBody)) {
-        const rewritten = await withRewriteSlot(() =>
-          rewriteHtml(rawBody, currentUrl, proxyOrigin),
-        );
+        const rewritten = rewriteHtml(rawBody, currentUrl, proxyOrigin);
         reply.type("text/html; charset=utf-8");
         reply.raw.setHeader("Content-Type", "text/html; charset=utf-8");
-        // Rewriting handles normal and dynamically assigned provider URLs.
-        // CSP is the fail-closed boundary: if an unusual browser API escapes
-        // those hooks, it may contact only this relay origin, never upstream.
-        reply.header("Content-Security-Policy", RELAY_CSP);
+        // CSP backs up the URL hooks for anything they miss.
+        reply.header("Content-Security-Policy", relayCsp);
         reply.header("content-length", Buffer.byteLength(rewritten));
         reply.send(rewritten);
       } else if (isHtml) {
-        // Upstream says text/html but content didn't match known HTML
-        // patterns — still serve as HTML rather than falling through to
-        // octet-stream which would trigger a browser download.
+        // Not recognisable HTML; serve unmodified rather than as a download.
         reply.type("text/html; charset=utf-8");
         reply.raw.setHeader("Content-Type", "text/html; charset=utf-8");
-        reply.header("Content-Security-Policy", RELAY_CSP);
+        reply.header("Content-Security-Policy", relayCsp);
         reply.header("content-length", Buffer.byteLength(rawBody));
         reply.send(rawBody);
       } else if (isM3u8 || sniffM3u8) {
-        const rewritten = await withRewriteSlot(() =>
-          rewriteM3u8(rawBody, currentUrl),
-        );
+        const rewritten = rewriteM3u8(rawBody, currentUrl);
         reply.type("application/vnd.apple.mpegurl");
         reply.raw.setHeader("Content-Type", "application/vnd.apple.mpegurl");
         reply.header("content-length", Buffer.byteLength(rewritten));
         reply.send(rewritten);
       } else if (isJson || sniffJson) {
-        const rewritten = await withRewriteSlot(() =>
-          rewriteJson(rawBody, currentUrl),
-        );
+        const rewritten = rewriteJson(rawBody, currentUrl);
         reply.type("application/json");
         reply.raw.setHeader("Content-Type", "application/json");
         reply.header("content-length", Buffer.byteLength(rewritten));
         reply.send(rewritten);
       } else if (isCss) {
-        const rewritten = await withRewriteSlot(() =>
-          rewriteCss(rawBody, currentUrl),
-        );
+        const rewritten = rewriteCss(rawBody, currentUrl);
         reply.type("text/css; charset=utf-8");
         reply.raw.setHeader("Content-Type", "text/css; charset=utf-8");
         reply.header("content-length", Buffer.byteLength(rewritten));
         reply.send(rewritten);
       } else if (isJs) {
-        const rewritten = await withRewriteSlot(() =>
-          rewriteJsImports(rawBody, currentUrl),
-        );
+        const rewritten = rewriteJsImports(rawBody, currentUrl);
         reply.type("application/javascript; charset=utf-8");
         reply.raw.setHeader(
           "Content-Type",
@@ -1205,7 +1118,6 @@ export function registerMovieRelay(
         reply.header("content-length", Buffer.byteLength(rewritten));
         reply.send(rewritten);
       } else {
-        // Fake-named .html video segments or raw binary text
         reply.type("application/octet-stream");
         reply.raw.setHeader("Content-Type", "application/octet-stream");
         reply.send(decompressed);
@@ -1226,10 +1138,8 @@ export function registerMovieRelay(
         .send(),
     );
 
-    // Videm's subtitle menu loads its signed subtitle endpoint from a worker.
-    // Worker requests are outside the page-level fetch/XHR hooks, so the
-    // relative `/api.php?a=sub&ref=...` otherwise lands on Aetheris and 404s.
-    // Keep this compatibility route deliberately limited to subtitle requests.
+    // Videm fetches subtitles from a worker, outside the client hooks, so
+    // `/api.php?a=sub&ref=...` lands here. Only subtitle requests are served.
     fastify.get("/api.php", async (req, reply) => {
       if (
         req.query.a !== "sub" ||
@@ -1241,10 +1151,8 @@ export function registerMovieRelay(
 
       let subtitleUrl;
       try {
-        // The first section of Videm's signed ref is a base64url JSON payload
-        // containing the actual VTT URL. Calling Videm's API server-side is
-        // rejected because its signature is also bound to browser state, while
-        // the signed CDN URL itself is intentionally fetchable by the player.
+        // The ref starts with base64url JSON holding the VTT URL. Videm's API
+        // rejects server-side calls, but the CDN URL itself is fetchable.
         const encodedPayload = req.query.ref.split(".", 1)[0];
         const payload = JSON.parse(
           Buffer.from(encodedPayload, "base64url").toString("utf8"),
@@ -1263,17 +1171,10 @@ export function registerMovieRelay(
       return handleMovieProxy(req, reply);
     });
 
-    // Resolved HLS for the hls-player page: maps a TMDB id to a signed
-    // playlist through a JSON resolver API, then serves the playlist with
-    // every entry rewritten back through /movie-proxy. Supported resolvers
-    // (?via=): "hls" (hls.lol content API, {found,url} shape) and "lul"
-    // (P-Stream lul backend, {stream} shape, worker URL 302s to the signed
-    // master — followed with validation). Media hosts that gate on
-    // referer get the embed referer they require via the rewriteM3u8
-    // rule; without it, segments bounce to an unrelated page.
-    // TMDB ids are digits only and season/episode are small ints, so no
-    // request parameter can steer the API URL anywhere unintended — and
-    // both the API and playlist responses still pass SSRF validation.
+    // For hls-player.html: resolve a TMDB id to a playlist via the hls.lol
+    // (?via=hls) or P-Stream lul (?via=lul) API and serve it rewritten
+    // through /movie-proxy. Params are strictly validated, so they can't
+    // steer the API URL.
     fastify.get("/hls-resolve", async (req, reply) => {
       const type = req.query.type;
       const id = req.query.id;
@@ -1289,8 +1190,6 @@ export function registerMovieRelay(
       let apiPath;
       let pickUrl;
       if (via === "lul") {
-        // lul paths mirror the TMDB route shape: /movie/{id},
-        // /tv/{id}/{s}/{e} (s/e appended below for tv)
         apiPath = type === "movie" ? `/movie/${id}` : `/tv/${id}`;
         pickUrl = (payload) =>
           payload && typeof payload.stream === "string"
@@ -1321,8 +1220,7 @@ export function registerMovieRelay(
         apiPath += `/${s}/${e}`;
       }
       const apiBase = via === "lul" ? lulApiBase : hlsApiBase;
-      // the lul backend rejects referer-less API calls (403); the hls
-      // backend answers without one
+      // lul 403s without a referer.
       const apiReferer = via === "lul" ? "https://aether.ist/" : null;
       let apiUrl;
       try {
@@ -1354,25 +1252,19 @@ export function registerMovieRelay(
         return reply.code(403).send(`SSRF validation failed: ${err.message}`);
       }
       try {
-        // The playlist host bounces throttled clients to an unrelated page;
-        // one retry after a short cooldown rides out a marginal throttle
-        // without hammering. Anything worse surfaces as a 502 and the
-        // viewer can try another source.
+        // Throttled clients get a bounce page instead of a playlist; retry
+        // once after a short pause.
         let playlistText = null;
         let finalUrl = null;
         for (let attempt = 0; attempt < 2 && !playlistText; attempt++) {
           if (attempt > 0)
             await new Promise((resolve) => setTimeout(resolve, 2000));
-          // the playlist endpoint bounces referer-less requests the same
-          // way it bounces throttled ones — always identify as an embed
           const playlistRes = await fetchValidated(playlistUrl, {
             referer: TOTALLYACDN_REFERER,
           });
           if (playlistRes.status !== 200)
             throw new Error(`Playlist answered ${playlistRes.status}`);
           const body = playlistRes.body.toString("utf-8");
-          // Never serve the bounce page as a playlist: the player would
-          // choke on HTML instead of retrying cleanly.
           if (body.trimStart().startsWith("#EXTM3U")) {
             playlistText = body;
             finalUrl = playlistRes.url;
@@ -1380,12 +1272,8 @@ export function registerMovieRelay(
         }
         if (!playlistText)
           throw new Error("Playlist is not an m3u8 document");
-        // rewrite against the final URL after redirects (a worker URL
-        // 302s to the signed master on another host; entries and the
-        // referer rule must use the master, not the worker)
-        const rewritten = await withRewriteSlot(() =>
-          rewriteM3u8(playlistText, finalUrl || playlistUrl),
-        );
+        // Rewrite against the post-redirect URL (the signed master).
+        const rewritten = rewriteM3u8(playlistText, finalUrl || playlistUrl);
         console.log(
           `[movie-proxy] hls-resolve ${type} ${id} -> ${playlistUrl.host}${playlistUrl.pathname.slice(0, 32)}`,
         );
@@ -1401,13 +1289,28 @@ export function registerMovieRelay(
       }
     });
 
-    // Diagnostic beacon fired once by the injected relay client on startup.
-    // Reports which client version executes in the visitor's browser and how
-    // it resolves provider URLs, so a stuck session can be diagnosed from
-    // `pm2 logs`. Carries no tokens or user data.
+    // Tells the movies page where the relay lives. An empty origin means
+    // same-origin URLs.
+    fastify.get("/movie-relay-config.js", (req, reply) => {
+      let origin = "";
+      if (relayHost) {
+        let proto = "https";
+        try {
+          proto = new URL(requestOrigin(req)).protocol.slice(0, -1);
+        } catch {
+          /* malformed Host header; keep https */
+        }
+        origin = `${proto}://${relayHost}`;
+      }
+      reply
+        .header("Cache-Control", "no-cache")
+        .type("application/javascript; charset=utf-8")
+        .send(`window.MOVIE_RELAY_ORIGIN = ${JSON.stringify(origin)};\n`);
+    });
+
+    // Diagnostic beacon from the relay client and movies UI.
     fastify.get("/movie-ping", (req, reply) => {
-      // every field is client-supplied: strip control characters so a
-      // crafted query can't forge extra log lines in `pm2 logs`
+      // Strip control characters so clients can't forge log lines.
       const clean = (v, max = 120) =>
         String(v ?? "?")
           // eslint-disable-next-line no-control-regex -- stripping control characters is the entire point
@@ -1416,8 +1319,6 @@ export function registerMovieRelay(
       const q = req.query;
       let line = `[movie-ping] v=${clean(q.v)} origin=${clean(q.origin)} sample=${clean(q.sample)}`;
       if (q.err) line += ` ERR=${clean(q.err, 300)}`;
-      // UI lifecycle beacons from movies-ui.js (open/play/loaded/timeout).
-      // Carries only TMDB ids + provider index + URL hosts, no tokens.
       if (q.ui)
         line += ` UI ev=${clean(q.ev)} src=${clean(q.src)} kind=${clean(q.kind)} id=${clean(q.id)}${q.host ? ` host=${clean(q.host)}` : ""}`;
       console.log(line);

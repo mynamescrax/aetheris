@@ -3,6 +3,10 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import zlib from "node:zlib";
 import Fastify from "fastify";
+import fastifyStatic from "@fastify/static";
+import { fileURLToPath } from "node:url";
+import { WebSocket } from "ws";
+import { lcRelayUpgrade } from "../lc-relay.js";
 import {
   registerMovieRelay,
   rewriteHtml,
@@ -530,9 +534,7 @@ test("rewriteHtml keeps self-hosted JWPlayer locatable", async (t) => {
 });
 
 test("movie relay forwards flixer signed auth headers upstream", async (t) => {
-  // Flixer's /images sources endpoint 403s with "no sources found" when the
-  // WASM-signed headers never reach it. The browser sends them to the relay,
-  // so the relay must pass them through (verified 2026-09-29 via HAR diff).
+  // Flixer's sources endpoint 403s unless its signed headers reach upstream.
   const seen = {};
   const upstream = http.createServer((req, res) => {
     for (const h of [
@@ -592,5 +594,203 @@ test("movie relay forwards flixer signed auth headers upstream", async (t) => {
     "x-client-fingerprint": "fp",
     "x-fingerprint-lite": "lite",
     bw90agfmywth: "1",
+  });
+});
+
+test("a dedicated relay host keeps relayed pages off the main origin", async (t) => {
+  const upstream = http.createServer((req, res) => {
+    res.writeHead(200, { "content-type": "text/html" });
+    res.end(
+      '<!doctype html><html><head></head><body><img src="/a.png">provider</body></html>',
+    );
+  });
+  await new Promise((resolve) => upstream.listen(0, "127.0.0.1", resolve));
+  const port = upstream.address().port;
+  t.after(async () => {
+    upstream.closeAllConnections();
+    await new Promise((resolve) => upstream.close(resolve));
+  });
+  // Mirrors index.js: relay first, then site routes, static files and a 404.
+  const build = async (options) => {
+    const app = Fastify();
+    registerMovieRelay(app, {
+      resolveTarget: async (raw) => {
+        const url = new URL(raw);
+        if (url.hostname !== "relay-fixture.test")
+          throw new Error("Fixture target rejected.");
+        return { url, addresses: [{ address: "127.0.0.1", family: 4 }] };
+      },
+      ...options,
+    });
+    app.get("/api/accounts/me", () => ({ ok: true }));
+    app.register(fastifyStatic, {
+      root: fileURLToPath(new URL("../public/", import.meta.url)),
+    });
+    app.setNotFoundHandler((_req, reply) => reply.code(404).send("missing"));
+    await app.ready();
+    t.after(() => app.close());
+    return app;
+  };
+  const target =
+    "/movie-proxy?url=" +
+    encodeURIComponent(`http://relay-fixture.test:${port}/page`);
+  const main = { host: "aetheris.test" };
+  const relay = { host: "m.aetheris.test" };
+
+  await t.test("relay routes only answer on the relay host", async () => {
+    const app = await build({ relayHost: "m.aetheris.test" });
+    for (const url of [
+      target,
+      "/hls-resolve?type=movie&id=7",
+      "/api.php?a=sub&ref=x",
+    ]) {
+      const res = await app.inject({ url, headers: main });
+      assert.equal(res.statusCode, 404, url);
+    }
+    const relayed = await app.inject({ url: target, headers: relay });
+    assert.equal(relayed.statusCode, 200);
+    assert.ok(relayed.body.includes("provider"));
+    assert.ok(
+      relayed.body.includes('src="http://m.aetheris.test/movie-proxy?url='),
+      "rewritten URLs must stay on the relay host",
+    );
+    assert.match(
+      relayed.headers["content-security-policy"],
+      /frame-ancestors 'self' aetheris\.test \*\.aetheris\.test$/,
+    );
+    const client = await app.inject({
+      url: "/js/movie-proxy-client.js",
+      headers: relay,
+    });
+    assert.equal(client.statusCode, 200);
+    const ping = await app.inject({ url: "/movie-ping?v=1", headers: relay });
+    assert.equal(ping.statusCode, 204);
+  });
+
+  await t.test("the relay host serves nothing else", async () => {
+    const app = await build({ relayHost: "m.aetheris.test" });
+    for (const url of [
+      "/",
+      "/movies.html",
+      "/api/accounts/me",
+      "/movie-relay-config.js",
+      "/js/chat.js",
+    ]) {
+      const res = await app.inject({ url, headers: relay });
+      assert.equal(res.statusCode, 404, url);
+    }
+    const api = await app.inject({ url: "/api/accounts/me", headers: main });
+    assert.equal(api.statusCode, 200);
+    const page = await app.inject({ url: "/movies.html", headers: main });
+    assert.equal(page.statusCode, 200);
+  });
+
+  await t.test("the movies page learns the relay origin", async () => {
+    const app = await build({
+      relayHost: "m.aetheris.test",
+      embedders: ["site.test"],
+    });
+    const config = await app.inject({
+      url: "/movie-relay-config.js",
+      headers: { ...main, "x-forwarded-proto": "https" },
+    });
+    assert.equal(
+      config.body,
+      'window.MOVIE_RELAY_ORIGIN = "https://m.aetheris.test";\n',
+    );
+    const relayed = await app.inject({ url: target, headers: relay });
+    assert.match(
+      relayed.headers["content-security-policy"],
+      /frame-ancestors 'self' site\.test$/,
+    );
+  });
+
+  await t.test("without a relay host nothing changes", async () => {
+    const app = await build({});
+    const relayed = await app.inject({ url: target, headers: main });
+    assert.equal(relayed.statusCode, 200);
+    assert.ok(relayed.body.includes('src="http://aetheris.test/movie-proxy?url='));
+    assert.match(
+      relayed.headers["content-security-policy"],
+      /frame-ancestors 'self'$/,
+    );
+    const config = await app.inject({
+      url: "/movie-relay-config.js",
+      headers: main,
+    });
+    assert.equal(config.body, 'window.MOVIE_RELAY_ORIGIN = "";\n');
+    for (const host of [main, relay]) {
+      const api = await app.inject({ url: "/api/accounts/me", headers: host });
+      assert.equal(api.statusCode, 200);
+    }
+  });
+
+  await t.test("relayed pages refuse top-level navigation", async () => {
+    const app = await build({});
+    const top = await app.inject({
+      url: target,
+      headers: { ...main, "sec-fetch-dest": "document" },
+    });
+    assert.equal(top.statusCode, 403);
+    const framed = await app.inject({
+      url: target,
+      headers: { ...main, "sec-fetch-dest": "iframe" },
+    });
+    assert.equal(framed.statusCode, 200);
+  });
+});
+
+test("lc-relay limits room-code guessing and message floods", async (t) => {
+  const server = http.createServer();
+  server.on("upgrade", lcRelayUpgrade);
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(async () => {
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
+  });
+  const url = `ws://127.0.0.1:${server.address().port}/lc-relay`;
+  const open = (ip) =>
+    new Promise((resolve, reject) => {
+      const ws = new WebSocket(url, { headers: { "x-forwarded-for": ip } });
+      ws.once("open", () => resolve(ws));
+      ws.once("error", reject);
+    });
+  const joinFrame = (code) =>
+    Buffer.concat([
+      Buffer.from([1, 1, code.length]),
+      Buffer.from(code),
+      Buffer.from([1]),
+      Buffer.from("1"),
+    ]);
+  // Resolves with the first ERROR frame's text.
+  const tryJoin = async (ip, code) => {
+    const ws = await open(ip);
+    return new Promise((resolve) => {
+      ws.once("message", (data) => {
+        resolve(Buffer.from(data).subarray(1).toString());
+        ws.terminate();
+      });
+      ws.send(joinFrame(code));
+    });
+  };
+
+  await t.test("unknown room codes are rate limited per IP", async () => {
+    for (let i = 0; i < 20; i++)
+      assert.match(await tryJoin("203.0.113.7", `guess${i}`), /doesn't exist/);
+    assert.match(await tryJoin("203.0.113.7", "guess20"), /Too many join/);
+    // other addresses are unaffected
+    assert.match(await tryJoin("203.0.113.8", "guess0"), /doesn't exist/);
+  });
+
+  await t.test("a socket flooding messages is closed", async () => {
+    const ws = await open("203.0.113.9");
+    const closed = new Promise((resolve) =>
+      ws.once("close", (code) => resolve(code)),
+    );
+    const ping = Buffer.alloc(9);
+    ping[0] = 8;
+    for (let i = 0; i < 6000 && ws.readyState === WebSocket.OPEN; i++)
+      ws.send(ping);
+    assert.equal(await closed, 1008);
   });
 });

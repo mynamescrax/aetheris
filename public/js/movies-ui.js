@@ -31,11 +31,8 @@
   var focusBeforeModal = null;
   var overflowBeforeModal = "";
 
-  // Debug logging for movies/TV (listing + playback). Console always;
-  // lifecycle moments also beacon to /movie-ping so a session can be
-  // followed in server logs without devtools on the viewer's device.
-  // Beacon carries only TMDB ids + provider index + URL hosts — never
-  // provider URLs, tokens, or queries.
+  // Console logging, plus /movie-ping beacons for key moments. Beacons only
+  // carry TMDB ids, the source index and hostnames.
   function dbg() {
     try {
       console.log.apply(console, ["[movies]"].concat([].slice.call(arguments)));
@@ -79,7 +76,18 @@
     }, 15000);
     try {
       var response = await fetch(url, { signal: controller.signal });
-      if (!response.ok) throw new Error("HTTP " + response.status);
+      if (!response.ok) {
+        var error = new Error("HTTP " + response.status);
+        // 502/503 carry a readable reason (e.g. search not configured).
+        if (response.status === 502 || response.status === 503) {
+          try {
+            var body = await response.json();
+            if (body && typeof body.error === "string" && body.error)
+              error.serverMessage = body.error;
+          } catch (_) {}
+        }
+        throw error;
+      }
       return await response.json();
     } finally {
       clearTimeout(timer);
@@ -217,13 +225,14 @@
       status.textContent = items.length
         ? ""
         : "No results found. Try a different search.";
-    } catch (_) {
+    } catch (err) {
       if (version !== listingVersion) return;
       dbg("listing FAILED:", currentType, query || "(trending)");
       status.textContent =
+        (err && err.serverMessage) ||
         "Could not load " +
-        (query ? "search results" : "titles") +
-        ". Check your connection and try again.";
+          (query ? "search results" : "titles") +
+          ". Check your connection and try again.";
       retry.hidden = false;
       more.hidden = !append;
     } finally {
@@ -381,7 +390,7 @@
     playerStatus.textContent = "Loading provider…";
     playerStatus.classList.remove("hidden");
     hint.textContent =
-      "Movies are fixed — Flixer is now the default source. If a title fails here, try another source.";
+      "not loading? try another source.";
     dbg(
       "play:",
       provider.name,
@@ -440,9 +449,12 @@
       option.textContent = provider.name;
       source.appendChild(option);
     });
-    // Flixer is the default provider (2026-09-29): the relay forwards its
-    // WASM-signed auth headers, so the sources endpoint answers instead of
-    // 403ing with "no sources found". 2Embed stays selectable as a fallback.
+    // Bumping sourceDefaultVersion resets everyone's saved source to the
+    // default once.
+    var defaultIndex = MOVIES_SOURCES.findIndex(function (provider) {
+      return /flixer/i.test(provider.name);
+    });
+    if (defaultIndex < 0) defaultIndex = 0;
     var sourceDefaultVersion = "flixer-default-20260929";
     var savedVersion = Aetheris.storage.getItem("movieSourceVersion");
     var saved = Number(Aetheris.storage.getItem("movieSourceIdx"));
@@ -452,7 +464,7 @@
       Number.isInteger(saved) &&
       MOVIES_SOURCES[saved]
         ? String(saved)
-        : "4";
+        : String(defaultIndex);
     Aetheris.storage.setItem("movieSourceVersion", sourceDefaultVersion);
     Aetheris.storage.setItem("movieSourceIdx", source.value);
     source.disabled = type === "tv";

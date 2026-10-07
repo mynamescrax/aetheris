@@ -106,6 +106,9 @@
           playbtn.classList.remove("show");
         }
         video.addEventListener("playing", started);
+        video.addEventListener("error", function () {
+          fail("Could not load this stream. Try another source.");
+        });
         playbtn.addEventListener("click", function () {
           video
             .play()
@@ -114,7 +117,7 @@
               say("Playback blocked — tap play on the video.");
             });
         });
-        function useNative() {
+        function useNative(unsupportedMessage) {
           if (video.canPlayType("application/vnd.apple.mpegurl")) {
             video.src = src;
             video.play().catch(function () {
@@ -122,7 +125,7 @@
               playbtn.classList.add("show");
             });
           } else {
-            fail("This browser cannot play HLS video.");
+            fail(unsupportedMessage || "This browser cannot play HLS video.");
           }
         }
         if (window.Hls && window.Hls.isSupported()) {
@@ -132,9 +135,8 @@
               try {
                 hls.destroy();
               } catch (e) {}
-              // hls.js cannot handle it (e.g. no MSE) — one native attempt
-              // before giving up, for Safari-type browsers.
-              useNative();
+              // One native attempt for Safari-type browsers before giving up.
+              useNative("Could not load this stream. Try another source.");
             }
           });
           hls.loadSource(src);

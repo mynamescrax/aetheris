@@ -3,12 +3,13 @@
   window.__MOVIE_PROXY_INIT__ = true;
 
   var PROXY_ROUTE = "/movie-proxy";
+  var CLIENT_VERSION = "20261007.1";
+  // Cap error beacons so a provider stuck in an error loop can't flood us.
+  var MAX_ERROR_BEACONS = 25;
+  var errorBeacons = 0;
   var targetUrl = window.__MOVIE_PROXY_TARGET__ || location.href;
-  // Never resolve provider URLs against our own origin: a stale cached page
-  // can miss __MOVIE_PROXY_ORIGIN__, and resolving its <base href="/"> then
-  // sends provider API calls back to us (our /api.php 404s) instead of
-  // upstream. Derive the origin from the target URL whenever the declared
-  // one is absent or points at ourselves.
+  // Never resolve provider URLs against our own origin, even if a stale page
+  // lacks __MOVIE_PROXY_ORIGIN__.
   var declaredOrigin = window.__MOVIE_PROXY_ORIGIN__ || "";
   var targetOrigin = (function () {
     if (declaredOrigin && declaredOrigin !== location.origin)
@@ -20,27 +21,26 @@
     }
   })();
 
-  // One-shot diagnostic beacon helper, defined before any hook so hook
-  // failures themselves can be reported (Safari/WebKit silently rejects
-  // some prototype redefinitions that succeed on Chromium — a PC/iPad
-  // divergence that is otherwise invisible from server logs).
+  // Defined first so hook failures can be reported too (Safari rejects some
+  // prototype redefinitions that work in Chromium).
   function beaconErr(msg) {
+    if (errorBeacons >= MAX_ERROR_BEACONS) return;
+    errorBeacons++;
     try {
       var img = new Image();
       img.src =
-        "/movie-ping?v=20260929.13&origin=" +
+        "/movie-ping?v=" +
+        CLIENT_VERSION +
+        "&origin=" +
         encodeURIComponent(targetOrigin || "none") +
         "&err=" +
         encodeURIComponent(String(msg).slice(0, 300));
     } catch (e) {}
   }
 
-  // SPA providers (flixer.su, vidsrc.pm) route on window.location.pathname,
-  // which inside the relay is /movie-proxy — so their router matches
-  // nothing and the frame stays black with no errors. Mirror the upstream
-  // path/query/hash into the address bar (same-origin, no reload) before
-  // app scripts boot. Network resolution is unaffected: every hook below
-  // resolves against the upstream target URL, never location.href.
+  // SPA providers route on location.pathname, which here is /movie-proxy.
+  // Show them the upstream path instead; the hooks below never resolve
+  // against location.href.
   try {
     var upstreamUrl = new URL(targetUrl);
     var upstreamPath =
@@ -56,16 +56,8 @@
     beaconErr("hook:replaceState:" + ((e && e.message) || e));
   }
 
-  // Providers such as Videm serve their player with `<base href="/">`, so a
-  // request for `api.php` means the site root in their own context. Resolving
-  // only against the proxied document URL would send it to
-  // /embed/.../api.php instead, which answers with an HTML error page rather
-  // than JSON — and the player then reports "No content available". Mirror
-  // the provider's own resolution by honoring their base tag (anchored on
-  // the upstream origin); pages without one keep document-URL resolution.
-  // The negative lookup is deliberately NOT cached: this script is injected
-  // right after <head>, so the provider's <base> tag may not be parsed yet
-  // on the first call. Re-query until one is found, then pin it.
+  // Honour the provider's <base> tag (Videm uses <base href="/">). A miss is
+  // not cached because this script runs before the tag is parsed.
   var upstreamBase = null;
   var baseResolved = false;
   function resolveBase() {
@@ -75,9 +67,7 @@
         var baseHref = baseEl && baseEl.getAttribute("href");
         if (baseHref) {
           var resolved = new URL(baseHref, targetOrigin).href;
-          // A stale cached page may carry a base pointing at ourselves
-          // (older relay versions proxied <base>); never honor those, or
-          // every relative provider URL collapses onto Aetheris and 404s.
+          // Ignore a base that points at us (stale cached pages).
           if (new URL(resolved).origin !== location.origin) {
             upstreamBase = resolved;
             baseResolved = true;
@@ -90,9 +80,7 @@
     return upstreamBase || targetUrl;
   }
 
-  // One-shot diagnostic beacon: reports which client version is executing
-  // and how it resolves provider URLs, so relay sessions can be diagnosed
-  // from `pm2 logs`. Same-origin image ping; any failure stays silent.
+  // Startup beacon: client version and how it resolves provider URLs.
   try {
     var pingSample = "";
     try {
@@ -100,23 +88,19 @@
     } catch (e) {}
     var pingImg = new Image();
     pingImg.src =
-      "/movie-ping?v=20260929.13&origin=" +
+      "/movie-ping?v=" +
+      CLIENT_VERSION +
+      "&origin=" +
       encodeURIComponent(targetOrigin || "none") +
       "&sample=" +
       encodeURIComponent(pingSample);
   } catch (e) {}
 
-  // Temporary playback diagnostic: beacon browser-side script errors back
-  // so a silently-stuck provider player (page loads, assets 200, but no
-  // media requests) can be diagnosed from `pm2 logs` without devtools
-  // access on the viewer's device. Same-origin image ping, no loop risk
-  // (Image src is not hooked below). Remove once playback is stable.
+  // Report script errors so stuck players can be debugged from server logs.
+  // Image src isn't hooked, so this can't loop.
   try {
-    var errBeacon = function (msg) {
-      beaconErr(msg);
-    };
     window.addEventListener("error", function (e) {
-      errBeacon(
+      beaconErr(
         (e.message || "error") +
           " @ " +
           (e.filename || "?") +
@@ -126,7 +110,7 @@
     });
     window.addEventListener("unhandledrejection", function (e) {
       var reason = e.reason;
-      errBeacon(
+      beaconErr(
         "rejection: " +
           String((reason && reason.message) || reason || "?").slice(0, 200),
       );
@@ -150,15 +134,9 @@
       .replace(/&#39;/g, "'");
   }
 
-  // Undo double-proxying: provider code sometimes takes an already-rewritten
-  // relay URL (e.g. a subtitle file URL from a rewritten JSON list) and
-  // embeds it as a parameter of its own API call
-  // (/api/subtitle?url=/movie-proxy?url=...). Forwarding that nesting
-  // upstream makes the provider fetch our relay URL instead of the media
-  // file, which it rejects (observed: 500 on flixer's subtitle endpoint).
-  // Replace nested relay URLs with their direct upstream targets before
-  // proxying the outer URL. Other parameters are spliced byte-for-byte so
-  // signed query strings are never normalized.
+  // Provider code can pass an already-proxied URL as a query param of its own
+  // API (/api/subtitle?url=/movie-proxy?url=...). Swap those back to the
+  // upstream URL; other params are kept byte-for-byte so signatures hold.
   function unnestRelayUrls(raw) {
     var RELAY_MARK = PROXY_ROUTE + "?url=";
     if (
@@ -208,20 +186,13 @@
   function toProxyUrl(rawUrl, ref) {
     if (!rawUrl || typeof rawUrl !== "string") return rawUrl;
     var trimmed = decodeEntities(rawUrl.trim());
-    // Vite's runtime preload helper builds chunk URLs as "/" + path, so an
-    // already-rewritten "/movie-proxy?url=..." becomes "//movie-proxy?..."
-    // (protocol-relative, host "movie-proxy" — DNS failure). Fold it back
-    // to the relay route so preloads hit the same canonical URL the
-    // module loader will import (module identity depends on it).
+    // Vite's preload helper prefixes "/", turning our path into
+    // "//movie-proxy?..." (a hostname).
     if (/^\/\/movie-proxy(?=\/|\?|$)/.test(trimmed))
       trimmed = trimmed.slice(1);
-    // Provider code may embed an already-proxied URL as a parameter of its
-    // own API call (/api/subtitle?url=/movie-proxy?url=...) — unwrap those
-    // before anything else, otherwise the already-proxied check below
-    // returns the nesting untouched and upstream chokes on it.
+    // Must run before the already-proxied check below.
     trimmed = unnestRelayUrls(trimmed);
-    // Some embed scripts blindly prepend their CDN base to an iframe URL.
-    // Recover our absolute relay URL from values such as
+    // Some embeds prepend their CDN base to our URL, e.g.
     // https://cdn.example/e/https://aetheris.win/movie-proxy?url=...
     var absoluteProxy = location.origin + PROXY_ROUTE;
     var embeddedProxyIndex = trimmed.indexOf(absoluteProxy);
@@ -229,9 +200,7 @@
       var providerPrefix = trimmed.slice(0, embeddedProxyIndex);
       var embeddedProxy = trimmed.slice(embeddedProxyIndex);
       try {
-        // Preserve intentional transformations such as
-        // https://2vcdn.skin/e/ + /token while removing the accidentally
-        // embedded Aetheris relay wrapper around that original token path.
+        // Keep their prefix + the original path, drop our wrapper.
         var embeddedTarget = new URL(embeddedProxy).searchParams.get("url");
         var originalTarget = new URL(embeddedTarget);
         var transformedTarget =
@@ -260,9 +229,7 @@
     }
     if (trimmed === "about:blank" || trimmed.charAt(0) === "#") return rawUrl;
 
-    // These are relay-owned control requests injected by this client. All
-    // other same-origin-looking paths belong to the upstream document and
-    // must be resolved against its base before being sent through the relay.
+    // Our own endpoints stay local; every other path belongs to upstream.
     try {
       var localCandidate = new URL(trimmed, location.href);
       if (
@@ -276,14 +243,8 @@
 
     try {
       var absUrl = new URL(trimmed, resolveBase()).href;
-      // Provider code often resolves relative URLs against whatever base it
-      // holds: `new URL("vast.js", script.src)` on a proxied script, or
-      // `new URL("/player/jw8/vast.js", document.baseURI)`. Both collapse
-      // the path onto our origin (for example
-      // https://aetheris.win/player/jw8/vast.js) instead of the provider's,
-      // so the relay ends up fetching its own 404. Re-anchor any non-relay
-      // same-origin URL onto the upstream origin; paths that belong to the
-      // relay itself were already returned untouched above.
+      // URLs built from script.src or document.baseURI land on our origin;
+      // move them back to the upstream origin.
       if (targetOrigin && targetOrigin !== location.origin) {
         var parsedAbs = new URL(absUrl);
         if (parsedAbs.origin === location.origin) {
@@ -309,7 +270,6 @@
     }
   }
 
-  // Overwrite fetch
   var origFetch = window.fetch;
   window.fetch = function (input, init) {
     init = init || {};
@@ -326,7 +286,6 @@
     return origFetch.call(this, input, init);
   };
 
-  // Overwrite XMLHttpRequest
   var origOpen = XMLHttpRequest.prototype.open;
   XMLHttpRequest.prototype.open = function (method, url) {
     var args = Array.prototype.slice.call(arguments);
@@ -336,7 +295,6 @@
     return origOpen.apply(this, args);
   };
 
-  // Overwrite iframe.src & setAttribute
   try {
     var iframeProto = HTMLIFrameElement.prototype;
     var desc = Object.getOwnPropertyDescriptor(iframeProto, "src");
@@ -363,7 +321,6 @@
     beaconErr("hook:iframe-src:" + ((e && e.message) || e));
   }
 
-  // Overwrite video/audio src
   try {
     var mediaProto = HTMLMediaElement.prototype;
     var mediaDesc = Object.getOwnPropertyDescriptor(mediaProto, "src");
@@ -386,18 +343,9 @@
       }
       return mediaSetAttr.call(this, attrName, val);
     };
-    // iPad diagnosis + recovery: report play() rejections (Safari autoplay
-    // policy) and media element errors (codec/HLS failures show as black
-    // video with no JS exception). One beacon each per element to avoid
-    // log spam.
-    //
-    // Safari aborts a pending play() whenever the player reassigns src /
-    // calls load() mid-gesture (React re-render after subtitles/quality
-    // state lands, or a fresh signed URL after an upstream 503 retry does
-    // exactly this). The provider never retries, so the frame sits black
-    // with playlists loaded but zero segments fetched. Retry with backoff:
-    // if the player settles, one of these wins. Guarded by isConnected +
-    // paused so a detached element or an already-playing video never loops.
+    // Safari aborts a pending play() when the player swaps src mid-load and
+    // providers don't retry, so retry a few times with backoff. Also report
+    // play rejections and media errors once per element.
     function retryPlay(el, attempt) {
       var delays = [1000, 2500, 5000, 10000];
       if (attempt >= delays.length) return;
@@ -443,8 +391,6 @@
                         ((playErr && playErr.message) || playErr),
                     );
                   }
-                  // Transient aborts (src reassignment settling) recover on
-                  // their own; the provider won't retry, so we do, bounded.
                   if (playErr && playErr.name === "AbortError")
                     retryPlay(el, 0);
                 } catch (e) {}
@@ -497,12 +443,8 @@
     beaconErr("hook:media-src:" + ((e && e.message) || e));
   }
 
-  // Overwrite subtitle track and source src. Videm assigns track URLs
-  // directly (`tr.src = 'api.php?a=sub&ref=...'`); without this the URL
-  // resolves natively against the proxy document and 404s on Aetheris
-  // instead of reaching the provider.
-  // setAttribute variants are covered too: players on the native-HLS path
-  // (iOS Safari) may set media URLs via setAttribute instead of the IDL.
+  // <track>/<source> src, as property or attribute (Videm sets track.src;
+  // native-HLS players on iOS use setAttribute).
   try {
     ["HTMLTrackElement", "HTMLSourceElement"].forEach(function (name) {
       var ctor = window[name];
@@ -532,14 +474,14 @@
     beaconErr("hook:track-source:" + ((e && e.message) || e));
   }
 
-  // Providers dynamically create scripts, images, links, forms, and embeds.
-  // Static HTML rewriting cannot see those assignments, so hook their URL
-  // properties and setAttribute calls before they can contact upstream.
+  // Dynamically created elements; static HTML rewriting can't see these.
+  // `properties` are attribute names; formaction's IDL name is formAction.
   function hookUrlElement(constructorName, properties) {
     try {
       var ctor = window[constructorName];
       if (!ctor || !ctor.prototype) return;
-      properties.forEach(function (property) {
+      properties.forEach(function (attr) {
+        var property = attr === "formaction" ? "formAction" : attr;
         var descriptor = Object.getOwnPropertyDescriptor(
           ctor.prototype,
           property,
@@ -586,15 +528,9 @@
     hookUrlElement(entry[0], entry[1]);
   });
 
-  // Inline module scripts assembled at runtime (flixer injects
-  // `<script type=module>` whose imports are absolute upstream URLs built
-  // from variables) bypass every network hook: the server never sees the
-  // final specifier, native import fetches it directly, and the relay CSP
-  // blocks that to preserve the proxy-only boundary ("Loading failed for
-  // the module", status 0). Rewrite absolute http(s) URLs in
-  // module-specifier positions to relay URLs at assignment time. Only
-  // import positions are touched, and same-origin URLs are left alone, so
-  // string constants used for comparison or messaging stay intact.
+  // Inline module scripts built at runtime (flixer) import absolute upstream
+  // URLs that no network hook sees and the CSP blocks. Rewrite only import
+  // specifiers when the script text is assigned.
   function rewriteInlineModuleText(text) {
     if (typeof text !== "string" || text.indexOf("import") === -1)
       return text;
@@ -683,9 +619,7 @@
         enumerable: scriptTextDesc.enumerable,
       });
     }
-    // innerHTML is the third way to fill an inline script (flixer's WASM
-    // loader uses `t.innerHTML = ...imports...`). Shadow it on script
-    // elements only — other elements' markup is never module source.
+    // flixer's WASM loader fills its script via innerHTML.
     var scriptInnerHtmlDesc =
       scriptProto &&
       Object.getOwnPropertyDescriptor(Element.prototype, "innerHTML");
@@ -703,8 +637,7 @@
         enumerable: scriptInnerHtmlDesc.enumerable,
       });
     }
-    // Type may be assigned after the text; re-process once it becomes a
-    // module script so ordering never matters.
+    // type may be set after the text.
     var scriptTypeDesc =
       scriptProto && Object.getOwnPropertyDescriptor(scriptProto, "type");
     if (
@@ -735,8 +668,7 @@
   } catch (e) {
     beaconErr("hook:script-text:" + ((e && e.message) || e));
   }
-  // sendBeacon is commonly used with root-relative provider endpoints and is
-  // not routed through fetch. Keep it inside the same proxy boundary.
+
   try {
     var originalSendBeacon = navigator.sendBeacon;
     if (originalSendBeacon) {
@@ -748,8 +680,6 @@
     beaconErr("hook:sendBeacon:" + ((e && e.message) || e));
   }
 
-  // Worker/EventSource constructors also perform network requests without
-  // using fetch or XHR.
   function hookUrlConstructor(name) {
     try {
       var Original = window[name];
@@ -765,7 +695,7 @@
   }
   ["Worker", "SharedWorker", "EventSource"].forEach(hookUrlConstructor);
 
-  // Prevent popups
+  // Block popup ads.
   window.open = function () {
     return null;
   };
