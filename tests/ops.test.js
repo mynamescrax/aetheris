@@ -34,3 +34,8 @@ test("wisp stream limits keep the per-host option disabled", () => {
   assert.match(indexjs, /stream_limit_total:\s*\d+/);
   assert.match(indexjs, /stream_limit_per_host:\s*-1\b/);
 });
+
+test("the TMDB key comes only from the environment", () => {
+  assert.match(indexjs, /const TMDB_KEY = process\.env\.TMDB_API_KEY \|\| "";/);
+  assert.match(indexjs, /"Movies search not configured\."/);
+});

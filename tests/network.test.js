@@ -8,6 +8,7 @@ import {
   pinnedLookup,
 } from "../lib/public-network.js";
 import { createRateLimiter } from "../lib/rate-limit.js";
+import { websocketOriginAllowed } from "../lib/ws-origin.js";
 import {
   rewriteM3u8,
   rewriteHtml,
@@ -82,6 +83,18 @@ test("URL validation rejects alternate local encodings and mixed DNS answers", a
       },
     ),
   );
+});
+
+test("WebSocket origin check: same host, own domains, loopback only for loopback", () => {
+  const allowed = (origin, host) =>
+    websocketOriginAllowed({ headers: { origin, host } });
+  assert.equal(allowed(undefined, "aetheris.win"), true);
+  assert.equal(allowed("null", "aetheris.win"), false);
+  assert.equal(allowed("https://aetheris.win", "aetheris.win:443"), true);
+  assert.equal(allowed("https://balf-games.xyz", "aetheris.win"), true);
+  assert.equal(allowed("http://localhost:3000", "127.0.0.1:8080"), true);
+  assert.equal(allowed("http://localhost:3000", "aetheris.win"), false);
+  assert.equal(allowed("https://evil.example", "aetheris.win"), false);
 });
 
 test("rate limiting keeps per-key windows and a full table admits new keys", () => {

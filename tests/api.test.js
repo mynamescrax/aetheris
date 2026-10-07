@@ -53,8 +53,19 @@ before(async () => {
       res.setHeader("content-type", "application/json");
       return res.end(JSON.stringify({ seen: req.url }));
     }
-    req.resume();
+    if (req.url.startsWith("/3/search/badkey")) {
+      res.writeHead(401, { "content-type": "application/json" });
+      return res.end(JSON.stringify({ status_message: "Invalid API key" }));
+    }
+    let body = "";
+    req.on("data", (chunk) => (body += chunk));
     req.on("end", () => {
+      // model "upstream-NNN" makes the fixture fail with that status
+      const fault = /"model":"upstream-(\d+)"/.exec(body);
+      if (fault) {
+        res.writeHead(Number(fault[1]), { "content-type": "application/json" });
+        return res.end(JSON.stringify({ error: { message: "Invalid API key" } }));
+      }
       if (req.url === "/v1/chat/completions") {
         res.writeHead(200, { "content-type": "text/event-stream" });
         res.end(
@@ -644,4 +655,157 @@ test("authenticated API GETs are rate limited per account", async () => {
     headers: headers(alice.data.token),
   });
   assert.equal(other.status, 200);
+});
+
+test("polling a DM thread does not use up the send limit", async () => {
+  const a = await register("PollerA");
+  const b = await register("PollerB");
+  for (let i = 0; i < 125; i++) {
+    const res = await api("/api/dm/PollerB", { headers: headers(a.data.token) });
+    assert.equal(res.status, 200);
+  }
+  const sent = await api("/api/dm/PollerB", {
+    method: "POST",
+    headers: headers(a.data.token),
+    body: JSON.stringify({ message: "hi" }),
+  });
+  assert.equal(sent.status, 200);
+  assert.equal(b.status, 200);
+});
+
+test("marking an unknown conversation read does not grow the user file", async () => {
+  for (const other of ["NobodyOne", "NobodyTwo"]) {
+    const res = await api("/api/dm-inbox/read/" + other, {
+      method: "POST",
+      headers: headers(alice.data.token),
+      body: "{}",
+    });
+    assert.equal(res.status, 200);
+  }
+  const stored = JSON.parse(
+    readFileSync(join(runtime, "database", "testalice.json"), "utf8"),
+  );
+  assert.equal(Object.hasOwn(stored.lastRead || {}, "nobodyone"), false);
+  assert.equal(Object.hasOwn(stored.lastRead || {}, "nobodytwo"), false);
+});
+
+test("TMDB passthrough cannot climb out of the API base path", async () => {
+  const res = await fetch(base + "/api/tmdb/x%2F..%2F..%2Fv1%2Fmodels");
+  assert.equal(res.status, 400);
+});
+
+test("TMDB rejecting the server key is a 502, not a 401", async () => {
+  const res = await api("/api/tmdb/search/badkey?query=x");
+  assert.equal(res.status, 502);
+  assert.match(res.data.error, /misconfigured/);
+});
+
+test("AI upstream auth errors are reported as server misconfiguration", async () => {
+  for (const stream of [false, true]) {
+    const res = await api("/api/ai/chat", {
+      method: "POST",
+      headers: headers(alice.data.token),
+      body: JSON.stringify({
+        model: "upstream-401",
+        messages: [{ role: "user", content: "test" }],
+        stream,
+      }),
+    });
+    assert.equal(res.status, 502);
+    assert.match(res.data.error, /AI service misconfigured/);
+  }
+  const busy = await api("/api/ai/chat", {
+    method: "POST",
+    headers: headers(alice.data.token),
+    body: JSON.stringify({
+      model: "upstream-429",
+      messages: [{ role: "user", content: "test" }],
+    }),
+  });
+  assert.equal(busy.status, 429);
+  assert.match(busy.data.error, /busy/);
+});
+
+test("DM sends are limited per account, not per shared IP", async () => {
+  const noisy = await register("DmNoisy");
+  const quiet = await register("DmQuiet");
+  const send = (from, to, message) =>
+    api("/api/dm/" + to, {
+      method: "POST",
+      headers: headers(from.data.token),
+      body: JSON.stringify({ message }),
+    });
+  let limited = false;
+  for (let i = 0; i < 65; i++) {
+    const res = await send(noisy, "DmQuiet", "msg " + i);
+    if (res.status === 429) {
+      limited = true;
+      break;
+    }
+    assert.equal(res.status, 200);
+  }
+  assert.equal(limited, true);
+  // another account behind the same IP is unaffected
+  assert.equal((await send(quiet, "DmNoisy", "hi")).status, 200);
+});
+
+function login(username, password, ip) {
+  return api("/api/accounts/login", {
+    method: "POST",
+    headers: { ...headers(), "X-Forwarded-For": ip },
+    body: JSON.stringify({ username, password }),
+  });
+}
+
+test("failed logins from one IP cannot lock the account out elsewhere", async () => {
+  let limited = false;
+  for (let i = 0; i < 12; i++) {
+    const res = await login("TestAlice", "wrong-password", "203.0.113.7");
+    if (res.status === 429) {
+      limited = true;
+      break;
+    }
+    assert.equal(res.status, 401);
+  }
+  assert.equal(limited, true);
+  // even the right password is refused from the attacking IP
+  const blocked = await login("TestAlice", "local-test-password", "203.0.113.7");
+  assert.equal(blocked.status, 429);
+  const victim = await login(
+    "TestAlice",
+    "local-test-password",
+    "198.51.100.20",
+  );
+  assert.equal(victim.status, 200);
+});
+
+test("one IP cannot spray failed logins across many usernames", async () => {
+  let limited = false;
+  for (let i = 0; i < 55; i++) {
+    const res = await login("Spray" + i, "wrong-password", "203.0.113.8");
+    if (res.status === 429) {
+      limited = true;
+      break;
+    }
+    assert.equal(res.status, 401);
+  }
+  assert.equal(limited, true);
+  const other = await login("Spray0", "wrong-password", "198.51.100.21");
+  assert.equal(other.status, 401);
+});
+
+test("new passwords need 6 characters but old short ones can still log in", async () => {
+  const res = await api("/api/accounts/register", {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify({
+      username: "ShortPassword",
+      password: "12345",
+      deviceId: device(),
+    }),
+  });
+  assert.equal(res.status, 400);
+  // a 4-character password is a valid login format (wrong, not malformed)
+  const old = await login("TestAlice", "abcd", "198.51.100.22");
+  assert.equal(old.status, 401);
 });

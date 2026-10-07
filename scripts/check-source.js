@@ -90,7 +90,7 @@ for (const file of [
   const result = spawnSync(process.execPath, ["--check", file], {
     encoding: "utf8",
   });
-  if (result.status !== 0) failures.push(result.stderr);
+  if (result.status !== 0) failures.push(file + ": " + result.stderr.trim());
   checked++;
 }
 if (failures.length) {

@@ -32,6 +32,7 @@ import { uniqueOnlineCount } from "./lib/online.js";
 import {
   createGeoResolver,
   formattopcountries,
+  normalizeip,
   topcountries,
 } from "./lib/geo.js";
 import { websocketOriginAllowed } from "./lib/ws-origin.js";
@@ -50,21 +51,11 @@ if (typeof process.loadEnvFile === "function") {
 
 const _require = createRequire(import.meta.url);
 const epoxypath = dirname(_require.resolve("@mercuryworkshop/epoxy-transport"));
-// libcurl-transport 2.0.5 dropped the libcurlPath helper entirely — the whole
-// package was restructured from "ships a static bundle + a path export" to
-// "a single ProxyTransport class" (dist/index.mjs default-exports
-// LibcurlClient). The frontend (public/js/scramjet-init.js) only ever
-// dynamically imports /libcurl/index.mjs and uses whatever it default-exports,
-// so this still works — it just needs the same dirname(require.resolve(...))
-// pattern epoxypath already uses one line up, since the package itself no
-// longer hands us the path directly.
+// libcurl-transport and scramjet-controller don't export a path helper, so
+// serve the directory their entry point resolves to.
 const libcurlPath = dirname(
   _require.resolve("@mercuryworkshop/libcurl-transport"),
 );
-// scramjet-controller (v2) doesn't export a path helper either — same
-// dirname(require.resolve(...)) trick as libcurl above. require.resolve
-// follows the package's "main"/"exports" field to dist/controller-external.mjs,
-// so dirname(...) is already the dist/ folder we need to serve statically.
 const scramjetControllerPath = dirname(
   _require.resolve("@mercuryworkshop/scramjet-controller"),
 );
@@ -92,25 +83,18 @@ async function verifypw(pw, stored) {
     return false;
   const [, salt, hash] = stored.split(":");
   const expected = Buffer.from(hash, "hex");
-  // a malformed/truncated stored hash must fail closed, not throw (scrypt
-  // rejects keylen 0 and would turn every login into a 500)
-  if (!salt || expected.length === 0) return false;
   const actual = await scryptAsync(pw, salt, expected.length, SCRYPT_OPTS);
   return timingSafeEqual(expected, actual);
 }
 
-// burnt once at startup so a login for an unknown username can run scrypt
-// against it — without that, "unknown user" (no hash) and "wrong password"
-// (hash) answer identically but take measurably different time, which turns
-// the login endpoint into a username enumerator.
+// Logins for unknown usernames verify against this so they take as long as a
+// wrong password; otherwise response timing reveals which usernames exist.
 const DUMMY_HASH = await hashpw("aetheris-login-timing-equalizer");
 
 // --- helpers ---
 
-// req.ip is computed by proxy-addr from X-Forwarded-For, walking right-to-left
-// past trusted proxies (trustProxy is pinned to the local Caddy below). NEVER
-// parse X-Forwarded-For manually: the leftmost entries are client-supplied and
-// spoofable, which used to defeat every IP-based rate limit on this server.
+// req.ip honours X-Forwarded-For only from the local Caddy (see trustProxy).
+// Never parse that header by hand: its leftmost entries are client-supplied.
 function getclientip(req) {
   return req.ip;
 }
@@ -131,20 +115,15 @@ function maketoken() {
   return randomBytes(36).toString("base64url");
 }
 
-// Sessions are stored with sha256(token) as the key, so a read of the data
-// directory (wrong perms, stray backup, accidental copy) never yields a
-// working bearer token. The raw token only ever exists in memory and in the
-// login response.
+// Sessions are stored under sha256(token) so a leaked user file never
+// contains a working bearer token.
 function tokenkey(token) {
   return createHash("sha256").update(token).digest("hex");
 }
 
-// Every key this server writes is a 64-hex sha256. Tokens themselves are
-// 48-char base64url, so a 64-hex *presented* token can only be a stored key
-// that leaked — never a key we wrote before the hashing change. Lookups that
-// accept a legacy raw key must exclude 64-hex values, or a leaked stored key
-// would be accepted as a bearer token (and could even evict the real session
-// from the in-memory index).
+// Stored keys are 64-hex sha256 digests; real tokens are 48-char base64url.
+// The legacy raw-key fallback must reject 64-hex input, or a leaked stored key
+// would work as a bearer token.
 const HASHED_KEY = /^[a-f0-9]{64}$/;
 
 function islegacykey(value) {
@@ -177,8 +156,8 @@ function readuser(username) {
   }
 }
 
+// write-then-rename so a crash mid-write can't leave a truncated file
 function writeuser(data) {
-  // write-then-rename so a crash mid-write can't corrupt the file
   const dest = userpath(data.username);
   const tmp = `${dest}.${process.pid}.${Date.now()}.tmp`;
   writeFileSync(tmp, JSON.stringify(data));
@@ -191,7 +170,8 @@ function deleteuser(user) {
   const lc = user.username.toLowerCase();
 
   usernames.delete(lc);
-  if (user.deviceId) deviceindex.delete(user.deviceId);
+  if (user.deviceId && deviceindex.get(user.deviceId) === lc)
+    deviceindex.delete(user.deviceId);
 
   try {
     unlinkSync(userpath(user.username));
@@ -225,9 +205,7 @@ function finduser(token) {
   if (!username) return null;
 
   const user = readuser(username);
-  // sha256(token) is the current key. Pre-hash rows kept the raw 48-char
-  // token as the key and are accepted only while they are genuinely
-  // legacy-shaped; startup migrates them to hashed keys (see rebuildindices).
+  // raw-token keys only survive if the startup migration failed to write
   const session =
     user?.sessions?.[tokenkey(token)] ??
     (islegacykey(token) ? user?.sessions?.[token] : undefined);
@@ -236,9 +214,8 @@ function finduser(token) {
     return null;
   }
 
-  // expired session: treat as invalid. we deliberately don't write the file
-  // here — finduser runs on every request outside the per-user locks; the
-  // dead session gets pruned from disk at the user's next login instead.
+  // No write here: this runs outside the user lock. Expired sessions are
+  // pruned from disk at the next login.
   if (
     !Number.isFinite(session.createdAt) ||
     Date.now() - session.createdAt > SESSION_TTL
@@ -270,20 +247,13 @@ function prunesessions(user, keeptoken) {
   const kept = new Set(entries.map(([t]) => t));
   if (kept.size === all.length) return; // nothing dropped
   user.sessions = Object.fromEntries(entries);
-  for (const [t] of all) {
-    // `t` is a storage key, not a bearer token — delete it from the index
-    // directly (forgettoken applies bearer-shaped rules and would skip a
-    // 64-hex key).
-    if (!kept.has(t)) tokenindex.delete(t);
-  }
+  // these are storage keys, not bearer tokens, so bypass forgettoken()
+  for (const [t] of all) if (!kept.has(t)) tokenindex.delete(t);
 }
 
 // --- per-user write serialization ---
-// user files are read-modify-write JSON documents; two concurrent requests for
-// the same user (two DMs, a DM + a login) would silently drop whichever write
-// lands first. every mutating endpoint runs its read→write inside one of these
-// per-user promise chains. two-user operations lock in sorted order so
-// concurrent A→B and B→A requests can't deadlock.
+// User files are read-modify-write, so every mutation runs inside a per-user
+// promise chain. Two-user operations lock in sorted order to avoid deadlock.
 
 const userlocks = new Map();
 const deletingUsers = new Set();
@@ -304,11 +274,9 @@ function withuserlocks(a, b, fn) {
   return withuserlock(first, () => withuserlock(second, fn));
 }
 
-// --- in-memory indices ---
-// rebuilt on startup, kept in sync on writes. saves us from scanning
-// every json file on every request.
+// --- in-memory indices (rebuilt on startup, kept in sync on writes) ---
 
-const tokenindex = new Map(); // token -> username (lowercase)
+const tokenindex = new Map(); // session storage key -> username (lowercase)
 const usernames = new Map(); // lowercase name -> original case
 const deviceindex = new Map(); // device fingerprint -> username (lowercase)
 
@@ -319,10 +287,6 @@ function indexuser(u) {
   if (u.deviceId) deviceindex.set(u.deviceId, lc);
 }
 
-// tokenindex maps a *storage key* to a username. Sessions created since the
-// hashing change are keyed by sha256(token); rows from before it keep the raw
-// token as the key, so reads try the hash first and fall back for genuinely
-// legacy-shaped values only.
 function tokenlookup(token) {
   const hashed = tokenindex.get(tokenkey(token));
   if (hashed) return hashed;
@@ -334,9 +298,6 @@ function remembertoken(token, username) {
 }
 
 function forgettoken(token) {
-  // `token` is a bearer token: drop its hashed index entry, and for legacy
-  // raw tokens the raw entry too. A 64-hex value is a storage key that leaked,
-  // not a token — never let it delete the stored entry it names.
   tokenindex.delete(tokenkey(token));
   if (islegacykey(token)) tokenindex.delete(token);
 }
@@ -350,8 +311,7 @@ function rebuildindices() {
     indexuser(u);
     if (!u.sessions) continue;
 
-    // One-time upgrade: re-key sessions still stored under the raw 48-char
-    // token so a leaked user file holds nothing that works as a bearer.
+    // re-key sessions still stored under the raw token
     let changed = false;
     for (const key of Object.keys(u.sessions)) {
       if (!islegacykey(key)) continue;
@@ -364,8 +324,7 @@ function rebuildindices() {
       try {
         writeuser(u);
       } catch (err) {
-        // keep the raw key in memory and on disk; the legacy fallback in
-        // finduser still accepts it until a later startup can migrate
+        // finduser's legacy fallback keeps the raw key working meanwhile
         console.error(`could not migrate sessions for ${u.username}:`, err);
       }
     }
@@ -381,8 +340,7 @@ function rebuildindices() {
 }
 rebuildindices();
 
-// --- play counts (gameplays.json) ---
-// we only track plays for games in the aetheris catalog, not arbitrary ids.
+// --- play counts (gameplays.json), catalog ids only ---
 
 const gamesfile = join(publicpath, "assets/data/aetheris.json");
 
@@ -464,7 +422,6 @@ logging.set_level(logging.NONE);
 Object.assign(wisp.options, {
   allow_udp_streams: false,
   hostname_blacklist: [
-    // yes ik im blocking porn sites but why not
     /(^|\.)pornhub\.com$/i,
     /(^|\.)xvideos\.com$/i,
     /(^|\.)xhamster\.com$/i,
@@ -495,15 +452,10 @@ Object.assign(wisp.options, {
     /(^|\.)simpcity\.su$/i,
   ],
   port_blacklist: [8080],
-  // Bound what a single Wisp connection can do. The default is -1 (unlimited),
-  // which lets any anonymous client open unbounded upstream streams through
-  // the VPS; 128 total makes port-scanning and bandwidth laundering
-  // impractical while staying far above what real browsing needs. Limits are
-  // per WebSocket connection.
-  // stream_limit_per_host must stay -1 on wisp-js 0.4.1: its check does
-  // `for (const stream of connection.streams)` while `streams` is a plain
-  // object, so any other value throws "connection.streams is not iterable"
-  // and the stream never opens. Do not enable it without an upstream fix.
+  // Per-connection cap; the default (-1) lets one client open unlimited
+  // upstream streams through the VPS.
+  // stream_limit_per_host must stay -1 on wisp-js 0.4.1: its check iterates
+  // a plain object and throws, so no stream ever opens.
   stream_limit_total: 128,
   stream_limit_per_host: -1,
   dns_servers: ["1.1.1.3", "1.0.0.3"],
@@ -512,16 +464,11 @@ Object.assign(wisp.options, {
 // --- online counter (SSE) ---
 
 const clients = new Set();
-// SSE stream -> persistent per-browser id (?c=... in the /online URL), so
-// several tabs (or reconnects) from one device count once. Streams without
-// an id — old cached shells, bots, health checks — count individually.
-const clientids = new Map();
+const clientids = new Map(); // SSE stream -> per-browser id from ?c=
 let broadcastpending = null;
 
-// Bound the online-counter fan-out: every SSE stream holds a socket and gets
-// a heartbeat every 30 s, so without caps one host can exhaust file
-// descriptors. The per-IP limit is deliberately generous (a school behind one
-// NAT opens many streams); the total cap is the real protection.
+// Every SSE stream holds a socket. The per-IP cap is generous because a whole
+// school can share one NAT IP; the total cap is the real protection.
 function envcount(name, fallback) {
   const n = Number(process.env[name]);
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
@@ -530,8 +477,6 @@ const MAX_SSE_CLIENTS = envcount("MAX_SSE_CLIENTS", 2000);
 const MAX_SSE_PER_IP = envcount("MAX_SSE_PER_IP", 128);
 const sseperip = new Map();
 
-// Remove an SSE stream everywhere it is tracked (close handler, heartbeat and
-// broadcast write failures).
 function dropclient(res) {
   if (!clients.delete(res)) return;
   clientids.delete(res);
@@ -576,10 +521,7 @@ setInterval(() => {
 
 function handleupgrade(req, socket, head) {
   if (req.url.endsWith("/wisp/")) {
-    // Reject cross-origin upgrades: without this any website could speak the
-    // Wisp protocol to this endpoint from a visitor's browser and use the
-    // server (and their connection) as a TCP relay. Non-browser clients with
-    // no Origin header still work.
+    // otherwise any website could use visitors' browsers to drive our TCP relay
     if (!websocketOriginAllowed(req)) {
       console.log(
         `[wisp] rejected cross-origin upgrade origin=${req.headers?.origin} host=${req.headers?.host}`,
@@ -596,7 +538,7 @@ function handleupgrade(req, socket, head) {
     return;
   }
 
-  // Lethal Company relay — game's WispRelayTransport dials wss://<origin>/lc-relay
+  // Lethal Company relay; deliberately open to any origin (see lc-relay.js)
   if (req.url === "/lc-relay" || req.url.startsWith("/lc-relay/")) {
     lcRelayUpgrade(req, socket, head);
     return;
@@ -605,10 +547,9 @@ function handleupgrade(req, socket, head) {
   socket.end();
 }
 
-// Fallback ws proxy for growden.io only. Caddy's @wsproxy block handles the
-// primary /wsproxy/ traffic, but its regex requires a "/" after the host, so
-// bare /wsproxy/<host> (no trailing path) falls through to us. Keep in sync
-// with the Caddyfile or remove both if growden's direct ws ever goes away.
+// growden.io-only WebSocket proxy for bare /wsproxy/<host> URLs, which the
+// Caddyfile's @wsproxy matcher (it needs a path after the host) misses.
+// Keep the two in sync.
 function proxywsconnection(req, socket, head) {
   const path = req.url.slice("/wsproxy/".length);
   const slash = path.indexOf("/");
@@ -674,9 +615,7 @@ function proxywsconnection(req, socket, head) {
 }
 
 const fastify = Fastify({
-  // only the local Caddy is a proxy. with `true` here, proxy-addr trusts every
-  // X-Forwarded-For entry and req.ip becomes the client-supplied leftmost
-  // value — i.e. anyone could spoof their IP past the rate limiters.
+  // only the local Caddy; `true` would let clients spoof req.ip
   trustProxy: ["127.0.0.1", "::1"],
   serverFactory: (handler) =>
     createServer()
@@ -688,107 +627,81 @@ const fastify = Fastify({
       .on("upgrade", handleupgrade),
 });
 
-registerMovieRelay(fastify);
+// MOVIE_RELAY_HOST moves the relay to its own origin; see movie-relay.js.
+registerMovieRelay(fastify, {
+  relayHost: process.env.MOVIE_RELAY_HOST || "",
+  embedders: (process.env.MOVIE_RELAY_EMBEDDERS || "")
+    .split(",")
+    .map((h) => h.trim())
+    .filter(Boolean),
+});
 registerImageProxy(fastify);
+
+// Returns { group, limit, windowMs, perAccount } for metered requests, or null.
+// Relay and image routes fetch upstream per request, and authenticated GETs do
+// blocking file I/O, so those are capped alongside the POST APIs.
+function ratelimitfor(method, path) {
+  if (method === "OPTIONS") return null;
+  if (
+    path === "/movie-proxy" ||
+    path.startsWith("/movie-proxy/") ||
+    path === "/hls-resolve" ||
+    path === "/api.php"
+  )
+    // a classroom behind one NAT IP streams a few hundred HLS requests a minute
+    return { group: "movie-proxy", limit: 600 };
+
+  if (method === "GET") {
+    if (path === "/img") return { group: "img-proxy", limit: 6000 };
+    if (path === "/movie-ping") return { group: "movie-ping", limit: 60 };
+    if (path.startsWith("/api/tmdb/")) return { group: "tmdb", limit: 120 };
+    if (path === "/api/ai/models") return { group: "ai-models", limit: 30 };
+    // chat polling is ~40 requests/min per account
+    if (path.startsWith("/api/"))
+      return { group: "api-get", limit: 300, perAccount: true };
+    return null;
+  }
+
+  if (method !== "POST") return null;
+  if (path === "/api/accounts/register") return { group: path, limit: 30 };
+  if (path === "/api/accounts/login") return { group: path, limit: 60 };
+  if (path === "/api/report")
+    return { group: path, limit: 10, windowMs: 120_000 };
+  // schools share one IP, so sends are metered per account; the IP ceiling
+  // only stops one client farming many accounts
+  if (path.startsWith("/api/dm/"))
+    return { group: "dm-send", limit: 60, perAccount: true, ipLimit: 600 };
+  if (path.startsWith("/api/dm-inbox/read/"))
+    return { group: "dm-read", limit: 300, perAccount: true };
+  // per IP, so rotating deviceIds can't inflate play counts
+  if (path.startsWith("/api/plays/")) return { group: "plays", limit: 60 };
+  if (path === "/api/ai/chat") return { group: path, limit: 30 };
+  if (path === "/api/ai/images") return { group: path, limit: 6 };
+  return null;
+}
 
 const consumeRate = createRateLimiter();
 fastify.addHook("onRequest", async (req, reply) => {
   const path = req.url.split("?")[0];
   if (path.startsWith("/api/")) reply.header("Cache-Control", "no-store");
-  // a few GET routes burn server/upstream resources and need a keyed cap
-  // too, not just the POST APIs
-  const isModels = req.method === "GET" && path === "/api/ai/models";
-  const isTmdb = req.method === "GET" && path.startsWith("/api/tmdb/");
-  const isImg = req.method === "GET" && path === "/img";
-  const isPing = req.method === "GET" && path === "/movie-ping";
-  const isRelay =
-    req.method !== "OPTIONS" &&
-    (path === "/movie-proxy" ||
-      path.startsWith("/movie-proxy/") ||
-      // the hls-resolve route fetches upstream per request (content API +
-      // playlist); keep it under the same cap or it becomes an unmetered
-      // relay bypass
-      path === "/hls-resolve" ||
-      // subtitle compatibility route calls the same proxy handler; keep it
-      // under the same cap or it becomes an unmetered relay bypass
-      path === "/api.php");
-  // every other authenticated GET does blocking file I/O per request, so a
-  // single account must not be able to hammer them; keyed per account when a
-  // bearer token is present, otherwise per IP
-  const isApiGet =
-    req.method === "GET" &&
-    path.startsWith("/api/") &&
-    !isModels &&
-    !isTmdb;
-  if (
-    req.method !== "POST" &&
-    !isModels &&
-    !isTmdb &&
-    !isRelay &&
-    !isImg &&
-    !isPing &&
-    !isApiGet
-  )
-    return;
-  let limit = 0,
-    windowMs = 60000,
-    group = path;
-  if (isRelay) {
-    // the relay is an open CORS-wide proxy; a classroom behind one NAT IP
-    // legitimately streams a few hundred HLS requests a minute, so the cap
-    // sits well above that but still stops bulk laundering/scraping
-    limit = 600;
-    group = "movie-proxy";
-  } else if (isImg) {
-    // covers are browser-cached and LRU-cached server-side; this only bounds
-    // bulk scraping. A classroom cold-loading a full library stays well under.
-    limit = 6000;
-    group = "img-proxy";
-  } else if (isTmdb) {
-    limit = 120;
-    group = "tmdb";
-  } else if (isModels) {
-    limit = 30;
-    group = "ai-models";
-  } else if (path === "/api/accounts/register") limit = 30;
-  else if (path === "/api/accounts/login") limit = 60;
-  else if (path === "/api/report") {
-    limit = 10;
-    windowMs = 120000;
-  } else if (path.startsWith("/api/dm/")) {
-    limit = 120;
-    group = "dm-send";
-  } else if (path.startsWith("/api/plays/")) {
-    // stops play-count inflation by rotating deviceIds — one IP can only
-    // bump 60 plays a minute no matter how many fingerprints it mints
-    limit = 60;
-    group = "plays";
-  } else if (path === "/api/ai/chat") limit = 30;
-  else if (path === "/api/ai/images") {
-    limit = 6;
-    windowMs = 60000;
-  } else if (isPing) {
-    // diagnostic beacon: useful, but unmetered it writes attacker-controlled
-    // text to pm2 logs on every request
-    limit = 60;
-    group = "movie-ping";
-  } else if (isApiGet) {
-    // normal chat polling is ~40 requests/min/account; 300 leaves headroom
-    // while bounding the per-request file I/O one session can trigger
-    limit = 300;
-    group = "api-get";
-  }
-  if (!limit) return;
-  let ratekey = getclientip(req);
-  if (isApiGet) {
-    // key by resolved account, not by the raw bearer: random/garbage tokens
-    // then fall back to the IP bucket instead of minting a new limiter entry
-    // per request. tokenlookup is an O(1) map read.
+  const rule = ratelimitfor(req.method, path);
+  if (!rule) return;
+
+  const ip = getclientip(req);
+  const windowms = rule.windowMs || 60_000;
+  let ratekey = ip;
+  if (rule.perAccount) {
+    // key by resolved account, so garbage tokens share the IP bucket instead
+    // of minting a limiter entry each
     const token = gettoken(req);
     const account = token ? tokenlookup(token) : null;
     if (account) ratekey = `acct:${account}`;
   }
-  const result = consumeRate(`${group}:${ratekey}`, limit, windowMs);
+  let result = consumeRate(`${rule.group}:${ratekey}`, rule.limit, windowms);
+  // only allowed requests count toward the IP ceiling, so one noisy account
+  // can't use up the budget of everyone else behind the same IP
+  if (result.allowed && rule.ipLimit && ratekey !== ip)
+    result = consumeRate(`${rule.group}:ip:${ip}`, rule.ipLimit, windowms);
   if (!result.allowed)
     return reply
       .header("Retry-After", result.retryAfter)
@@ -819,7 +732,7 @@ fastify.get("/online", (req, reply) => {
     "X-Accel-Buffering": "no",
     "Access-Control-Allow-Origin": "*",
   });
-  // Detect dead peers instead of counting them until the OS TCP timeout.
+  // detect dead peers instead of counting them until the OS TCP timeout
   try {
     req.raw.socket.setKeepAlive(true, 30_000);
   } catch {
@@ -849,7 +762,7 @@ fastify.get("/online-count", (_req, reply) => {
   reply.send({ count: onlinecount() });
 });
 
-// cached responses for the top/counts endpoints — recalculated every 10s at most
+// top/counts responses are recalculated at most every 10s
 let toppopular = null;
 let topstale = 0;
 let countscache = null;
@@ -881,7 +794,7 @@ fastify.get("/api/plays/counts", (_req, reply) => {
   reply.send(countscache);
 });
 
-// one bump per (fingerprint, game) per minute — stops trivial loop inflation
+// one bump per (fingerprint, game) per minute
 const BUMP_WINDOW = 60_000;
 const playbumps = new Map();
 
@@ -903,7 +816,6 @@ fastify.post("/api/plays/:id", (req, reply) => {
     return reply.send({ ok: true, throttled: true });
   playbumps.set(key, now);
 
-  // gc: if the map gets big, drop expired entries
   if (playbumps.size > 20_000) {
     const cutoff = now - BUMP_WINDOW;
     for (const [k, ts] of playbumps) {
@@ -920,12 +832,10 @@ fastify.post("/api/plays/:id", (req, reply) => {
 const REPORT_WEBHOOK_URL = process.env.REPORT_WEBHOOK_URL || "";
 const STATS_WEBHOOK_URL = process.env.STATS_WEBHOOK_URL || "";
 
-const STATS_INTERVAL = 5 * 60 * 1000; // post stats every 5min
+const STATS_INTERVAL = 5 * 60 * 1000;
 const georesolver = createGeoResolver();
 
-// One IP per distinct online person, using the same dedupe as onlinecount():
-// streams sharing a ?c= browser id collapse into one, anonymous streams count
-// individually.
+// one IP per distinct online person, deduped the same way as onlinecount()
 function onlinepeopleips() {
   const people = new Map();
   for (const res of clients) {
@@ -935,13 +845,15 @@ function onlinepeopleips() {
   return [...people.values()];
 }
 const REPORT_COOLDOWN = 2 * 60 * 1000; // 2min between reports per fingerprint
-const LOGIN_WINDOW = 30 * 1000; // 30s sliding window for login attempts
-const MAX_LOGIN_PER_FP = 5; // per device per window
-const MAX_LOGIN_PER_ACCT = 15; // per account per window
+// Login limits are keyed by IP, never by account alone: an account-wide
+// limit would let anyone lock a known user out from everywhere.
+const LOGIN_WINDOW = 5 * 60 * 1000;
+const MAX_LOGIN_PER_IP_USER = 10; // attempts per (IP, username) per window
+const MAX_LOGIN_FAILS_PER_IP = 50; // failed attempts per IP per window
 
 const reporttimes = new Map();
-const loginattempts = new Map();
-const loginbyaccount = new Map();
+const loginattempts = new Map(); // "ip|username" -> attempts
+const loginfailsbyip = new Map(); // ip -> failed attempts
 
 fastify.post("/api/report", async (req, reply) => {
   const { game, issue, steps, notes, url, deviceId: deviceid } = req.body || {};
@@ -1052,7 +964,7 @@ fastify.post("/api/report", async (req, reply) => {
     reply.send({ ok: true });
   } catch (e) {
     console.error("report webhook error:", e);
-    reply.code(500).send({ ok: false, error: "Internal error." });
+    reply.code(502).send({ ok: false, error: "Failed to send report." });
   }
 });
 
@@ -1073,7 +985,7 @@ async function poststats() {
     const ips = onlinepeopleips();
     const lookup = await georesolver.resolve(ips);
     const top = topcountries(
-      ips.map((ip) => lookup.get(String(ip || "").replace(/^::ffff:/, ""))),
+      ips.map((ip) => lookup.get(normalizeip(ip))),
       5,
     );
     countriesvalue = formattopcountries(top);
@@ -1112,8 +1024,6 @@ async function poststats() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
-      // same bound as the report webhook — a hung Discord call shouldn't
-      // park this fetch (and its memory) until undici's header timeout
       signal: AbortSignal.timeout(15000),
     });
     if (!res.ok) console.error("stats webhook failed:", res.status);
@@ -1141,16 +1051,13 @@ function requireauth(req, reply) {
   return user;
 }
 
-// full account removal. dm cleanup happens FIRST, each other user under their
-// own lock — locks are never nested here, which keeps the sorted-order
-// deadlock prevention in withuserlocks() sound (a concurrent A→B DM holds
-// locks in sorted order; we only ever take one at a time).
+// Removes the account and its conversations from the other side. Takes one
+// lock at a time (never nested) so withuserlocks() ordering stays deadlock-free.
 async function deleteaccount(lc) {
   const victim = await withuserlock(lc, () => {
     const user = readuser(lc);
     if (!user || deletingUsers.has(lc)) return null;
     deletingUsers.add(lc);
-    // storage keys, not bearer tokens — delete them from the index directly
     for (const key of Object.keys(user.sessions || {})) tokenindex.delete(key);
     return user;
   });
@@ -1181,9 +1088,7 @@ async function deleteaccount(lc) {
   }
 }
 
-// --- account creation rate limiting ---
-// register writes a file per account; without a limiter a trivial script
-// could mint unlimited users (and json files) with random device ids.
+// --- account creation rate limiting (each account is a file on disk) ---
 const REGISTER_WINDOW = 60 * 1000;
 const MAX_REGISTER_PER_FP = 3;
 const registerattempts = new Map();
@@ -1209,6 +1114,9 @@ function registerallowed(req) {
   return entry.count <= MAX_REGISTER_PER_FP;
 }
 
+// new passwords only; login still accepts the old 4-character minimum
+const MIN_PASSWORD_LENGTH = 6;
+
 fastify.post("/api/accounts/register", async (req, reply) => {
   const ip = getclientip(req);
   const { username, password, deviceId: deviceid } = req.body || {};
@@ -1220,21 +1128,11 @@ fastify.post("/api/accounts/register", async (req, reply) => {
         ok: false,
         error: "Use a valid 2–32 character username and a text password.",
       });
-  if (username.length < 2 || username.length > 32)
-    return reply
-      .code(400)
-      .send({ ok: false, error: "Username must be 2–32 characters." });
-  if (password.length < 4 || password.length > 128)
-    return reply
-      .code(400)
-      .send({ ok: false, error: "Password must be 4–128 characters." });
-  if (!/^[a-zA-Z0-9_.-]+$/.test(username))
-    return reply
-      .code(400)
-      .send({
-        ok: false,
-        error: "Username may only contain letters, numbers, _, -, .",
-      });
+  if (password.length < MIN_PASSWORD_LENGTH || password.length > 128)
+    return reply.code(400).send({
+      ok: false,
+      error: `Password must be ${MIN_PASSWORD_LENGTH}–128 characters.`,
+    });
   if (!isvaliddeviceid(deviceid))
     return reply
       .code(400)
@@ -1265,12 +1163,11 @@ fastify.post("/api/accounts/register", async (req, reply) => {
           ok: false,
           error: `This device already has an account (${existing.username}). Log in or delete it first.`,
         });
-    // stale index entry — clean up and continue
+    // stale index entry
     deviceindex.delete(deviceid);
   }
 
-  // create + first session inside the lock so a racing duplicate register
-  // or login can't interleave with the write
+  // re-check and create inside the locks so racing registrations can't both win
   const result = await withuserlock("device:" + deviceid, () =>
     withuserlock(loweruser, async () => {
       if (deviceindex.has(deviceid)) return { deviceConflict: true };
@@ -1306,13 +1203,13 @@ fastify.post("/api/accounts/register", async (req, reply) => {
     return reply
       .code(409)
       .send({ ok: false, error: "Username already taken." });
-  // hand back a session right away — no second login round trip
   reply.send({ ok: true, token: result.token, username });
 });
 
 fastify.post("/api/accounts/login", async (req, reply) => {
   const ip = getclientip(req);
-  const { username, password, deviceId: deviceid } = req.body || {};
+  const { username, password } = req.body || {};
+  // older accounts may have passwords shorter than MIN_PASSWORD_LENGTH
   if (
     !isvalidusername(username) ||
     typeof password !== "string" ||
@@ -1323,56 +1220,51 @@ fastify.post("/api/accounts/login", async (req, reply) => {
       .code(400)
       .send({ ok: false, error: "Invalid username or password format." });
 
-  const now = Date.now();
   const userlc = String(username).toLowerCase();
-  const fp = isvaliddeviceid(deviceid) ? `dev:${deviceid}` : `ip:${ip}`;
-  const fpkey = `${userlc}|${fp}`;
-  const acctkey = userlc;
+  const pairkey = `${ip}|${userlc}`;
 
-  function bump(map, key) {
-    const entry = map.get(key) || { count: 0, windowstart: now };
-    if (now - entry.windowstart > LOGIN_WINDOW) {
-      entry.count = 0;
-      entry.windowstart = now;
+  // returns the live entry for key, starting a new window if it expired
+  function loginentry(map, key) {
+    const now = Date.now();
+    let entry = map.get(key);
+    if (!entry || now - entry.windowstart > LOGIN_WINDOW) {
+      entry = { count: 0, windowstart: now };
+      map.set(key, entry);
+      if (map.size > 10_000) {
+        for (const [k, v] of map)
+          if (now - v.windowstart > LOGIN_WINDOW) map.delete(k);
+      }
     }
-    entry.count++;
-    map.set(key, entry);
     return entry;
   }
 
-  function gc(map) {
-    if (map.size <= 10_000) return;
-    const cutoff = now - LOGIN_WINDOW;
-    for (const [k, v] of map) {
-      if (v.windowstart < cutoff) map.delete(k);
-    }
-  }
-
-  const fpattempt = bump(loginattempts, fpkey);
-  const acctattempt = bump(loginbyaccount, acctkey);
-  gc(loginattempts);
-  gc(loginbyaccount);
-
-  const overfp = fpattempt.count > MAX_LOGIN_PER_FP;
-  const overacct = acctattempt.count > MAX_LOGIN_PER_ACCT;
-  if (overfp || overacct) {
-    const worst = overfp ? fpattempt : acctattempt;
-    const retryafter = Math.ceil(
-      (LOGIN_WINDOW - (now - worst.windowstart)) / 1000,
+  const pair = loginentry(loginattempts, pairkey);
+  const ipfails = loginentry(loginfailsbyip, ip);
+  const blocked =
+    pair.count >= MAX_LOGIN_PER_IP_USER
+      ? pair
+      : ipfails.count >= MAX_LOGIN_FAILS_PER_IP
+        ? ipfails
+        : null;
+  if (blocked) {
+    const retryafter = Math.max(
+      1,
+      Math.ceil((LOGIN_WINDOW - (Date.now() - blocked.windowstart)) / 1000),
     );
     return reply
       .code(429)
+      .header("Retry-After", retryafter)
       .send({
         ok: false,
         error: `Too many login attempts. Try again in ${retryafter}s.`,
       });
   }
+  pair.count++;
 
   const user = await withuserlock(userlc, async () => {
     const u = readuser(userlc);
     if (!u || deletingUsers.has(userlc)) {
-      // no user to hash against — burn scrypt on the dummy so this path
-      // costs the same as a wrong-password attempt
+      // same cost as a wrong password
       await verifypw(password, DUMMY_HASH);
       return null;
     }
@@ -1390,11 +1282,13 @@ fastify.post("/api/accounts/login", async (req, reply) => {
   });
 
   if (!user) {
+    loginentry(loginfailsbyip, ip).count++;
     return reply
       .code(401)
       .send({ ok: false, error: "Invalid username or password." });
   }
 
+  loginattempts.delete(pairkey);
   reply.send({ ok: true, token: user.token, username: user.user.username });
 });
 
@@ -1428,10 +1322,8 @@ fastify.delete("/api/accounts/delete", async (req, reply) => {
 });
 
 fastify.delete("/api/accounts/delete-all-mine", async (req, reply) => {
-  // the device fingerprint alone must NOT be enough to destroy an account —
-  // it's readable from any shared browser and rides along in the settings
-  // export file. require a valid session AND that it belongs to the same
-  // device being wiped.
+  // The device id alone is not proof of ownership (it is readable from a shared
+  // browser and included in settings exports), so require a session too.
   const me = requireauth(req, reply);
   if (!me) return;
 
@@ -1524,8 +1416,6 @@ fastify.post("/api/dm/:recipient", async (req, reply) => {
   if (senderlower === recipientlower)
     return reply.code(400).send({ ok: false, error: "Cannot DM yourself." });
 
-  // both files are read AND written inside the same sorted two-user lock, so
-  // concurrent messages in either direction can't drop each other's writes
   const delivered = await withuserlocks(senderlower, recipientlower, () => {
     const sender = readuser(senderlower);
     const recipient = readuser(recipientlower);
@@ -1613,24 +1503,24 @@ fastify.post("/api/dm-inbox/read/:other", async (req, reply) => {
     const other = req.params.other.toLowerCase();
     if (!isvalidusername(other)) return;
     const messages = fresh.dms?.[other];
-    const latest = Array.isArray(messages) ? messages.at(-1)?.time || 0 : 0;
+    // no conversation: don't let arbitrary names accumulate in lastRead
+    if (!Array.isArray(messages) || !messages.length) return;
+    const latest = messages.at(-1)?.time || 0;
     const requested = Number(req.body?.through);
     const through =
       Number.isFinite(requested) && requested >= 0
         ? Math.min(requested, latest)
         : latest;
     fresh.lastRead ??= {};
-    fresh.lastRead[other] = Math.max(fresh.lastRead[other] || 0, through);
+    const next = Math.max(fresh.lastRead[other] || 0, through);
+    if (next === fresh.lastRead[other]) return;
+    fresh.lastRead[other] = next;
     writeuser(fresh);
   });
   reply.send({ ok: true });
 });
 
-// --- crax-gpt AI proxy ---
-// The API key lives server-side in env so it's never shipped to the browser.
-// CRAX_GPT_BASE_URL defaults to the OpenAI-compatible endpoint at gpt.crax.lol.
-// The whole point of proxying is to keep Authorization out of client code;
-// the frontend only ever talks to these two same-origin routes.
+// --- crax-gpt AI proxy (keeps the API key server-side) ---
 
 const CRAX_GPT_KEY = process.env.CRAX_GPT_KEY || "";
 const CRAX_GPT_BASE = (
@@ -1687,10 +1577,6 @@ function chatTextSize(messages) {
   return total;
 }
 
-function aiTimeout(ms) {
-  return AbortSignal.timeout(ms);
-}
-
 function isTimeoutError(error) {
   return (
     error && (error.name === "AbortError" || error.name === "TimeoutError")
@@ -1707,22 +1593,74 @@ async function readAiResponse(res) {
   }
 }
 
-function sendAiFailure(reply, error, operation) {
-  console.error(`[ai] ${operation} error:`, error);
-  if (isTimeoutError(error)) {
-    return reply
-      .code(504)
-      .send({
-        ok: false,
-        error: "The AI request timed out. Please try again.",
-      });
-  }
-  return reply
-    .code(502)
-    .send({
+function upstreamerror(data, res) {
+  return (
+    (data.error && (data.error.message || data.error.code)) ||
+    `Upstream ${res.status}`
+  );
+}
+
+// 401/403/429/5xx from an upstream are our problem, not the caller's
+function isupstreamfault(status) {
+  return status === 401 || status === 403 || status === 429 || status >= 500;
+}
+
+// An upstream 401/403 means the server key or config is wrong. Passing it on
+// would look like the user's own session expired, so it becomes a 502.
+function sendUpstreamError(reply, res, data, label, service = "AI service") {
+  const detail = upstreamerror(data, res);
+  if (res.status === 401 || res.status === 403) {
+    console.error(
+      `[${label}] upstream rejected our credentials (${res.status}):`,
+      detail,
+    );
+    return reply.code(502).send({
       ok: false,
-      error: "Could not reach the AI service. Please try again.",
+      error: `${service} misconfigured on this server. Please try again later.`,
     });
+  }
+  if (res.status === 429) {
+    const retry = res.headers.get("retry-after");
+    if (retry && /^\d+$/.test(retry)) reply.header("Retry-After", retry);
+    return reply.code(429).send({
+      ok: false,
+      error: `${service} is busy right now. Please try again in a moment.`,
+    });
+  }
+  if (res.status >= 500) {
+    console.error(`[${label}] upstream ${res.status}:`, detail);
+    return reply.code(502).send({
+      ok: false,
+      error: `${service} had a problem. Please try again.`,
+    });
+  }
+  return reply.code(res.status).send({ ok: false, error: detail });
+}
+
+function sendUpstreamFailure(reply, error, label, service = "the AI service") {
+  console.error(`[${label}] error:`, error);
+  if (isTimeoutError(error))
+    return reply.code(504).send({
+      ok: false,
+      error: `The request to ${service} timed out. Please try again.`,
+    });
+  return reply.code(502).send({
+    ok: false,
+    error: `Could not reach ${service}. Please try again.`,
+  });
+}
+
+// Sends the error and returns false when AI is unavailable to this request.
+function aiallowed(req, reply) {
+  if (!CRAX_GPT_KEY) {
+    reply
+      .code(503)
+      .send({ ok: false, error: "AI is not configured on this server." });
+    return false;
+  }
+  if (process.env.AI_REQUIRE_LOGIN === "true" && !requireauth(req, reply))
+    return false;
+  return true;
 }
 
 if (!CRAX_GPT_KEY) {
@@ -1731,18 +1669,12 @@ if (!CRAX_GPT_KEY) {
   );
 }
 
-// Chat Completions — proxies to POST {base}/chat/completions. Streaming is
-// passed straight through so the client can render tokens as they arrive.
+// Streaming responses are piped straight through.
 fastify.post(
   "/api/ai/chat",
   { bodyLimit: 20 * 1024 * 1024 },
   async (req, reply) => {
-    if (!CRAX_GPT_KEY)
-      return reply
-        .code(503)
-        .send({ ok: false, error: "AI is not configured on this server." });
-    if (process.env.AI_REQUIRE_LOGIN === "true" && !requireauth(req, reply))
-      return;
+    if (!aiallowed(req, reply)) return;
     const clientip = getclientip(req);
     if (!acquireAiSlot(clientip))
       return reply.code(429).send({
@@ -1801,16 +1733,16 @@ fastify.post(
           Authorization: `Bearer ${CRAX_GPT_KEY}`,
         },
         body: JSON.stringify(payload),
-        signal: AbortSignal.any([abort.signal, aiTimeout(AI_CHAT_TIMEOUT_MS)]),
+        signal: AbortSignal.any([
+          abort.signal,
+          AbortSignal.timeout(AI_CHAT_TIMEOUT_MS),
+        ]),
       });
 
       if (stream === true) {
         if (!res.ok) {
           const data = await readAiResponse(res);
-          const errmsg =
-            (data.error && (data.error.message || data.error.code)) ||
-            `Upstream ${res.status}`;
-          return reply.code(res.status).send({ ok: false, error: errmsg });
+          return sendUpstreamError(reply, res, data, "ai chat");
         }
         reply.hijack();
         reply.raw.writeHead(res.status, {
@@ -1833,15 +1765,11 @@ fastify.post(
       }
 
       const data = await readAiResponse(res);
-      if (!res.ok) {
-        const errmsg =
-          (data.error && (data.error.message || data.error.code)) ||
-          `Upstream ${res.status}`;
-        return reply.code(res.status).send({ ok: false, error: errmsg });
-      }
+      if (!res.ok) return sendUpstreamError(reply, res, data, "ai chat");
       reply.send(data);
     } catch (e) {
-      if (!reply.raw.destroyed && !reply.sent) sendAiFailure(reply, e, "chat");
+      if (!reply.raw.destroyed && !reply.sent)
+        sendUpstreamFailure(reply, e, "ai chat");
     } finally {
       reply.raw.removeListener("close", stop);
       releaseAiSlot(clientip);
@@ -1849,30 +1777,15 @@ fastify.post(
   },
 );
 
-// Models list — proxied so the client can build a model picker without
-// exposing the key. Same login gate as chat/images (each call spends an
-// authenticated upstream request), plus a GET rate limit in the onRequest hook.
 fastify.get("/api/ai/models", async (req, reply) => {
-  if (!CRAX_GPT_KEY)
-    return reply
-      .code(503)
-      .send({ ok: false, error: "AI is not configured on this server." });
-  if (process.env.AI_REQUIRE_LOGIN === "true" && !requireauth(req, reply))
-    return;
+  if (!aiallowed(req, reply)) return;
   try {
     const res = await fetch(`${CRAX_GPT_BASE}/models`, {
       headers: { Authorization: `Bearer ${CRAX_GPT_KEY}` },
-      signal: aiTimeout(AI_MODELS_TIMEOUT_MS),
+      signal: AbortSignal.timeout(AI_MODELS_TIMEOUT_MS),
     });
     const data = await readAiResponse(res);
-    if (!res.ok)
-      return reply
-        .code(res.status)
-        .send({
-          ok: false,
-          error: (data.error && data.error.message) || `Upstream ${res.status}`,
-        });
-    // normalize to the site's { ok, data } convention
+    if (!res.ok) return sendUpstreamError(reply, res, data, "ai models");
     reply.send({
       ok: true,
       data: Array.isArray(data.data) ? data.data : [],
@@ -1880,22 +1793,15 @@ fastify.get("/api/ai/models", async (req, reply) => {
       default_image_model: CRAX_GPT_IMG_MODEL,
     });
   } catch (e) {
-    sendAiFailure(reply, e, "models");
+    sendUpstreamFailure(reply, e, "ai models");
   }
 });
 
-// Image generation — proxies to POST {base}/images/generations. Returns the
-// standard OpenAI images payload (url or b64_json) to the client.
 fastify.post(
   "/api/ai/images",
   { bodyLimit: 24 * 1024 * 1024 },
   async (req, reply) => {
-    if (!CRAX_GPT_KEY)
-      return reply
-        .code(503)
-        .send({ ok: false, error: "AI is not configured on this server." });
-    if (process.env.AI_REQUIRE_LOGIN === "true" && !requireauth(req, reply))
-      return;
+    if (!aiallowed(req, reply)) return;
     const clientip = getclientip(req);
     if (!acquireAiSlot(clientip))
       return reply.code(429).send({
@@ -1978,19 +1884,12 @@ fastify.post(
           Authorization: `Bearer ${CRAX_GPT_KEY}`,
         },
         body: JSON.stringify(payload),
-        signal: aiTimeout(AI_IMAGE_TIMEOUT_MS),
+        signal: AbortSignal.timeout(AI_IMAGE_TIMEOUT_MS),
       });
       const data = await readAiResponse(res);
-      if (!res.ok) {
-        const errmsg =
-          (data.error && (data.error.message || data.error.code)) ||
-          `Upstream ${res.status}`;
-        return reply.code(res.status).send({ ok: false, error: errmsg });
-      }
-      // Some image backends return a short-lived URL on a separate CDN. School
-      // filters commonly allow Aetheris but block that CDN, leaving an empty
-      // image on managed iPads. Fetch URL results here and return base64 so the
-      // browser never has to contact the third-party image host directly.
+      if (!res.ok) return sendUpstreamError(reply, res, data, "ai images");
+      // Inline URL results as base64: school filters often block the
+      // provider's image CDN while allowing this site.
       if (Array.isArray(data.data)) {
         data.data = await Promise.all(
           data.data.map(async (image) => {
@@ -2011,8 +1910,7 @@ fastify.post(
                 mime_type: contentType,
               };
             } catch (error) {
-              // Generation succeeded. Preserve the provider URL instead of turning a
-              // secondary CDN relay problem into a failed generation/502 response.
+              // generation succeeded; fall back to the provider URL if it is public
               console.warn(
                 "[ai] generated image relay failed; returning provider URL:",
                 error.message,
@@ -2029,39 +1927,42 @@ fastify.post(
       }
       reply.send(data);
     } catch (e) {
-      sendAiFailure(reply, e, "images");
+      sendUpstreamFailure(reply, e, "ai images");
     } finally {
       releaseAiSlot(clientip);
     }
   },
 );
 
-// --- tmdb passthrough ---
-// movie-sources.js used to carry the TMDB API key in client code. Every TMDB
-// call now goes through this same-origin route so the key stays server-side
-// (same rationale as the AI proxy above). Only the /3 API is exposed, GET
-// only, with a per-IP rate limit from the onRequest hook.
-// The key is hardcoded as the fallback default so the movies page works with
-// zero configuration; TMDB_API_KEY in .env overrides it if it ever needs
-// rotating.
-const TMDB_KEY = process.env.TMDB_API_KEY || "2713804610e1e236b1cf44bfac3a7776";
+// --- tmdb passthrough (GET only, keeps the key out of client code) ---
+const TMDB_KEY = process.env.TMDB_API_KEY || "";
 const TMDB_BASE = (
   process.env.TMDB_BASE_URL || "https://api.themoviedb.org/3"
 ).replace(/\/+$/, "");
+
+if (!TMDB_KEY) {
+  console.warn(
+    "[tmdb] TMDB_API_KEY is not set - /api/tmdb/* will return 503 and movie search is disabled.",
+  );
+}
 
 fastify.get("/api/tmdb/*", async (req, reply) => {
   if (!TMDB_KEY)
     return reply
       .code(503)
-      .send({ ok: false, error: "TMDB is not configured on this server." });
+      .send({ ok: false, error: "Movies search not configured." });
 
   let url;
   try {
     url = new URL(`${TMDB_BASE}/${req.params["*"]}`);
   } catch {
-    return reply.code(400).send({ ok: false, error: "Invalid TMDB path." });
+    url = null;
   }
-  // forward the caller's query but never their api_key — ours is appended
+  // ".." segments must not climb out of the API base path
+  const basepath = new URL(TMDB_BASE).pathname.replace(/\/+$/, "");
+  if (!url || !url.pathname.startsWith(basepath + "/"))
+    return reply.code(400).send({ ok: false, error: "Invalid TMDB path." });
+  // forward the caller's query, but always with our api_key
   const params = new URLSearchParams();
   for (const [k, v] of Object.entries(req.query)) {
     if (k === "api_key" || typeof v !== "string") continue;
@@ -2082,12 +1983,13 @@ fastify.get("/api/tmdb/*", async (req, reply) => {
     } catch {
       data = { ok: false, error: text.slice(0, 500) };
     }
-    // TMDB posters/lists barely change — let the browser cache briefly so
-    // paging back and forth doesn't re-hit the upstream every time
-    reply.header("Cache-Control", "public, max-age=300");
+    if (isupstreamfault(res.status))
+      return sendUpstreamError(reply, res, data, "tmdb", "Movies search");
+    // don't let browsers cache upstream errors such as 404s
+    if (res.ok) reply.header("Cache-Control", "public, max-age=300");
     return reply.code(res.status).send(data);
   } catch (e) {
-    sendAiFailure(reply, e, "tmdb");
+    sendUpstreamFailure(reply, e, "tmdb", "TMDB");
   }
 });
 
@@ -2102,10 +2004,7 @@ fastify.addHook("onSend", (req, reply, payload, done) => {
   if (path === "/sw.js" || path === "/register-sw.js") {
     reply.header("Cache-Control", "no-store");
   } else if (path.startsWith("/assets/games/")) {
-    // game bundles are huge (Unity wasm builds run 30MB+) and their
-    // filenames are content-hashed; they only change when a game is
-    // updated. a day of freshness + background revalidation turns repeat
-    // game loads into instant ones (these used to be max-age=0).
+    // game builds are large (30MB+ Unity wasm) and rarely change
     if (/\.html?$/i.test(path)) {
       reply.header(
         "Cache-Control",
@@ -2118,8 +2017,7 @@ fastify.addHook("onSend", (req, reply, payload, done) => {
       );
     }
   } else if (/^\/(scramjet|controller|libcurl|epoxy)\//.test(path)) {
-    // proxy engine bundles — version-pinned in package.json, only change
-    // on deploy. same policy as /css/ + /js/: short freshness, long SWR.
+    // version-pinned proxy engine bundles
     reply.header(
       "Cache-Control",
       "public, max-age=600, stale-while-revalidate=604800",
@@ -2163,7 +2061,8 @@ fastify.addHook("onSend", (req, reply, payload, done) => {
     reply.header("Content-Type", "application/javascript");
   if (path.endsWith(".wasm")) reply.header("Content-Type", "application/wasm");
 
-  if (/\/(scramjet|controller|libcurl)\//.test(req.url)) {
+  // match the path only, so a query string can't add CORS headers to /api/*
+  if (/\/(scramjet|controller|libcurl)\//.test(path)) {
     reply.header("Cross-Origin-Resource-Policy", "cross-origin");
     reply.header("Access-Control-Allow-Origin", "*");
   }
@@ -2171,8 +2070,21 @@ fastify.addHook("onSend", (req, reply, payload, done) => {
   done(null, payload);
 });
 
-// Epoxy 3.0.1 iterates headers with for..of, but BareHeaders is a plain
-// object. We patch the one broken line at serve time instead of forking the pkg.
+// --- serve-time patches for pinned proxy dependencies ---
+
+// Replaces one minified snippet; warns instead of failing if the dependency
+// version changed and the snippet is gone.
+function patchsource(raw, broken, fixed, label) {
+  if (!raw.includes(broken)) {
+    console.warn(
+      `[scramjet-patch] ${label} pattern not found; shipping it unpatched (did the dependency version change?)`,
+    );
+    return raw;
+  }
+  return raw.split(broken).join(fixed);
+}
+
+// Epoxy 3.0.1 iterates headers with for..of, but BareHeaders is a plain object.
 let patchedepoxy = null;
 fastify.get("/epoxy/index.mjs", (_req, reply) => {
   if (!patchedepoxy) {
@@ -2185,38 +2097,9 @@ fastify.get("/epoxy/index.mjs", (_req, reply) => {
   reply.type("application/javascript").send(patchedepoxy);
 });
 
-// scramjet 2.0.67-alpha.2's History.prototype.pushState/replaceState patch
-// does `String(ctx.args[2])` unconditionally — when a router omits the url
-// arg (very common: `history.replaceState(state, title)`), that's
-// `String(undefined)`, the literal three-letter string "undefined", which
-// then gets treated as a real relative URL and rewritten onto the proxied
-// site's origin (e.g. https://example.com/undefined). Every SPA whose router
-// makes that call renders its own "page not found" for a route literally
-// named "undefined". Fixed upstream the day after this alpha was published
-// (MercuryWorkshop/scramjet@98c1864, "[core] fix undefined popping up in
-// history") but never republished to npm — patch the one-line regression at
-// serve time the same way the epoxy fix above does, instead of forking the
-// package or waiting on a new alpha release.
-// scramjet's htmlRules strips `integrity` from <script>/<link> tags by
-// setting the attribute to "" instead of removing it outright (unlike the
-// adjacent nonce/csp rule right next to it in the same array, which does
-// `fn: () => null` and gets fully removed). An empty-but-present `integrity`
-// attribute is supposed to mean "no SRI check" per spec, and a synthetic
-// same-shape test confirms Chromium treats it that way — but real sites
-// (confirmed on discord.com, a Webflow-hosted page with 2MB+ stylesheets)
-// still get their CSS/JS blocked with a computed-hash mismatch. Since we
-// necessarily rewrite url()/@import references inside CSS (and JS bodies),
-// any original integrity hash can never validate again regardless — so
-// match the nonce/csp rule's approach and remove the attribute entirely
-// instead of leaving an empty one behind.
-// scramjet 2.0.67-alpha.2 relies on two APIs that Safari only shipped in
-// 15.4: Object.hasOwn (its HTML parser calls it for every parsed document)
-// and BroadcastChannel (the controller constructs one unconditionally for
-// cross-tab cookie sync, and the client walks BroadcastChannel.prototype
-// while installing its event hooks). On iPadOS 14.1–15.3 the rest of the
-// bundle (class fields, optional chaining) runs fine, so prepend
-// feature-detected shims to the served bundles instead of refusing to boot;
-// both checks are no-ops on every newer browser.
+// Scramjet 2.0.67-alpha.2 needs Object.hasOwn and BroadcastChannel, which
+// Safari only shipped in 15.4. The rest of the bundle runs on iPadOS 14.1+,
+// so shim both (no-ops on newer browsers).
 const legacybrowsercompat =
   "(()=>{" +
   'if(typeof Object.hasOwn!=="function"){' +
@@ -2235,114 +2118,62 @@ fastify.get("/scramjet/scramjet.js", (_req, reply) => {
   if (!patchedscramjetcore) {
     let raw = readFileSync(join(scramjetPath, "scramjet.js"), "utf8");
 
-    const undefinedhistorybroken = "s=(0,n.Qf)(t.args[2]);";
-    if (!raw.includes(undefinedhistorybroken)) {
-      console.warn(
-        "[scramjet-patch] expected minified history.ts pattern not found — shipping that part unpatched (did the alpha version change?)",
-      );
-    } else {
-      raw = raw.replace(
-        undefinedhistorybroken,
-        "s=t.args[2]?(0,n.Qf)(t.args[2]):void 0;",
-      );
-    }
+    // history.replaceState(state, title) without a url became a navigation to
+    // "/undefined". Fixed upstream in scramjet@98c1864 but never published.
+    raw = patchsource(
+      raw,
+      "s=(0,n.Qf)(t.args[2]);",
+      "s=t.args[2]?(0,n.Qf)(t.args[2]):void 0;",
+      "history.ts undefined-url",
+    );
 
-    const integritybroken = '{fn:()=>"",integrity:["script","link"]}';
-    if (!raw.includes(integritybroken)) {
-      console.warn(
-        "[scramjet-patch] expected minified htmlRules integrity pattern not found — shipping that part unpatched (did the alpha version change?)",
-      );
-    } else {
-      raw = raw.replace(
-        integritybroken,
-        '{fn:()=>null,integrity:["script","link"]}',
-      );
-    }
+    // Rewritten resources can never match their original SRI hash, so remove
+    // integrity attributes instead of emptying them (an empty attribute still
+    // failed on discord.com).
+    raw = patchsource(
+      raw,
+      '{fn:()=>"",integrity:["script","link"]}',
+      '{fn:()=>null,integrity:["script","link"]}',
+      "htmlRules integrity",
+    );
 
-    // The htmlRules fix above only covers *declarative* <script>/<link
-    // integrity="...">. Scramjet's fetch()/Request() proxies rewrite the
-    // URL argument to point at our (necessarily modified — url()/@import
-    // references get rewritten) proxied content, but never touch a
-    // caller-supplied `integrity` option in the init object. Any site
-    // calling fetch(url, { integrity: "sha384-..." }) would hit the
-    // browser's fetch-level SRI check against the *original* hash
-    // regardless of what the DOM says. Strip it the same way the HTML
-    // rewriter strips the declarative form. (Didn't end up being what was
-    // actually breaking discord.com — see the Link-header fix right below
-    // — but it's a real gap in its own right, worth keeping.)
-    const fetchintegritybroken =
+    // Same for fetch(url, { integrity }) calls.
+    const fetchrewrite =
       "let r=(0,n.Qf)(t.args[0]);t.args[0]=e.rewriteUrl(r,s(t.args[1]))";
-    if (!raw.includes(fetchintegritybroken)) {
-      console.warn(
-        "[scramjet-patch] expected minified fetch()/Request() rewrite pattern not found — shipping that part unpatched (did the alpha version change?)",
-      );
-    } else {
-      raw = raw
-        .split(fetchintegritybroken)
-        .join(
-          fetchintegritybroken +
-            ';if(t.args[1]&&t.args[1].integrity)t.args[1]={...t.args[1],integrity:""}',
-        );
-    }
+    raw = patchsource(
+      raw,
+      fetchrewrite,
+      fetchrewrite +
+        ';if(t.args[1]&&t.args[1].integrity)t.args[1]={...t.args[1],integrity:""}',
+      "fetch()/Request() rewrite",
+    );
 
-    // This is the one that actually explains discord.com's CSS not
-    // applying: the ORIGIN's document response itself carries a
-    // `Link: <url>; rel=preload; as=style; integrity="sha384-..."` HTTP
-    // response header (Webflow emits these for critical-CSS preloading).
-    // rewriteResponseHeaders() rewrites the <url> inside each Link-header
-    // entry to point at our (necessarily modified) proxied content, but
-    // never strips the `integrity=` parameter riding along with it — so
-    // the browser preloads our rewritten URL while still holding it to
-    // the original, now-mismatched hash, entirely independent of the
-    // <link> tag's own (correctly-stripped) integrity attribute. Strip
-    // `integrity=...` out of the header value after the URL rewrite.
-    const linkheaderintegritybroken =
-      'A.replace(/<([^>]+)>/gi,(e,t)=>`<${(0,i.Oy)(t,l,c)}>`));s.set("link",t)}';
-    if (!raw.includes(linkheaderintegritybroken)) {
-      console.warn(
-        "[scramjet-patch] expected minified Link-header rewrite pattern not found — shipping that part unpatched (did the alpha version change?)",
-      );
-    } else {
-      raw = raw.replace(
-        linkheaderintegritybroken,
-        'A.replace(/<([^>]+)>/gi,(e,t)=>`<${(0,i.Oy)(t,l,c)}>`).replace(/;\\s*integrity\\s*=\\s*(?:"[^"]*"|\'[^\']*\'|[^;,]*)/gi,""));s.set("link",t)}',
-      );
-    }
+    // And for `Link: <url>; rel=preload; integrity=...` response headers, which
+    // is what actually broke discord.com's CSS.
+    raw = patchsource(
+      raw,
+      'A.replace(/<([^>]+)>/gi,(e,t)=>`<${(0,i.Oy)(t,l,c)}>`));s.set("link",t)}',
+      'A.replace(/<([^>]+)>/gi,(e,t)=>`<${(0,i.Oy)(t,l,c)}>`).replace(/;\\s*integrity\\s*=\\s*(?:"[^"]*"|\'[^\']*\'|[^;,]*)/gi,""));s.set("link",t)}',
+      "Link-header rewrite",
+    );
 
-    // Blob/data URL requests can arrive with the URL percent-encoded in the
-    // path (blob%3Ahttps%3A%2F%2F...), because that form is what the default
-    // codec produces for a normal URL rewrite. handleFetch's blob/data
-    // branch then tests the raw pathname for a literal "blob:" prefix,
-    // misses, and falls into fetchDataUrl() with a relative string — which
-    // resolves against our own origin and answers 404. Bing and GitHub both
-    // trip this on blob module workers (observed as /blob%3A... 404s and
-    // "No frame found for request" noise). Decode the encoded cases before
-    // the branch; literal blob:/data: paths are left untouched.
-    const blobdatabroken =
-      'c=t.rawUrl.pathname.substring(e.context.prefix.pathname.length);c.startsWith("blob:")?(';
-    if (!raw.includes(blobdatabroken)) {
-      console.warn(
-        "[scramjet-patch] expected minified blob/data path pattern not found — shipping that part unpatched (did the alpha version change?)",
-      );
-    } else {
-      raw = raw.replace(
-        blobdatabroken,
-        'c=t.rawUrl.pathname.substring(e.context.prefix.pathname.length);if(/^(blob|data)%3a/i.test(c))try{c=decodeURIComponent(c)}catch(_){}c.startsWith("blob:")?(',
-      );
-    }
+    // Blob/data URLs can arrive percent-encoded (blob%3Ahttps%3A...), miss the
+    // literal "blob:" check and 404 against our origin (seen on Bing, GitHub).
+    raw = patchsource(
+      raw,
+      'c=t.rawUrl.pathname.substring(e.context.prefix.pathname.length);c.startsWith("blob:")?(',
+      'c=t.rawUrl.pathname.substring(e.context.prefix.pathname.length);if(/^(blob|data)%3a/i.test(c))try{c=decodeURIComponent(c)}catch(_){}c.startsWith("blob:")?(',
+      "blob/data path",
+    );
 
     patchedscramjetcore = legacybrowsercompat + raw;
   }
   reply.type("application/javascript").send(patchedscramjetcore);
 });
 
-// The controller bundle constructs its BroadcastChannel immediately (see the
-// compat note above), so it gets the same prefix. It also gets one behaviour
-// patch: when a frame is torn down (search.html replaces its iframe while the
-// old page's analytics/keepalive requests are still in flight), the
-// controller's request handler logs a full stack trace for every such request
-// — "No frame found for request" is expected there, not a bug. Suppress just
-// that message; every other controller error still logs normally.
+// The controller also gets the compat prefix. "No frame found for request" is
+// expected when a frame is torn down with requests in flight, so stop it
+// logging a stack trace each time.
 let patchedcontrollerapi = null;
 fastify.get("/controller/controller.api.js", (_req, reply) => {
   if (!patchedcontrollerapi) {
@@ -2350,53 +2181,26 @@ fastify.get("/controller/controller.api.js", (_req, reply) => {
       join(scramjetControllerPath, "controller.api.js"),
       "utf8",
     );
-    const framelogbroken =
-      't.suppressError||console.error("Error in controller request handler:",o)';
-    if (!raw.includes(framelogbroken)) {
-      console.warn(
-        "[scramjet-patch] expected minified controller error-log pattern not found — shipping that part unpatched (did the controller version change?)",
-      );
-    } else {
-      raw = raw.replace(
-        framelogbroken,
-        't.suppressError||/No frame found/.test((o&&o.message)||"")||console.error("Error in controller request handler:",o)',
-      );
-    }
-    // The RPC layer logs every rejected method call itself, so the same
-    // teardown race surfaces here even with the log above guarded.
-    const rpclogbroken = ".catch(e=>{console.error(e),this.sendRaw(";
-    if (!raw.includes(rpclogbroken)) {
-      console.warn(
-        "[scramjet-patch] expected minified controller RPC log pattern not found — shipping that part unpatched (did the controller version change?)",
-      );
-    } else {
-      raw = raw.replace(
-        rpclogbroken,
-        '.catch(e=>{(e&&e.message==="No frame found for request")||console.error(e),this.sendRaw(',
-      );
-    }
+    raw = patchsource(
+      raw,
+      't.suppressError||console.error("Error in controller request handler:",o)',
+      't.suppressError||/No frame found/.test((o&&o.message)||"")||console.error("Error in controller request handler:",o)',
+      "controller error-log",
+    );
+    // the RPC layer logs the same rejection separately
+    raw = patchsource(
+      raw,
+      ".catch(e=>{console.error(e),this.sendRaw(",
+      '.catch(e=>{(e&&e.message==="No frame found for request")||console.error(e),this.sendRaw(',
+      "controller RPC log",
+    );
     patchedcontrollerapi = legacybrowsercompat + raw;
   }
   reply.type("application/javascript").send(patchedcontrollerapi);
 });
 
-// controller.sw.js used to be patched here to buffer the request body before
-// relaying it to the page-side Controller. That work moved into public/sw.js
-// (buildrouteevent), which reads the body with .arrayBuffer() and hands
-// route() an ArrayBuffer directly — stock route() already accepts an
-// ArrayBuffer body and already puts it in the postMessage transfer list, so
-// there is nothing left to rewrite here. Doing it on our side also fixes the
-// case the patch could never reach: Request.prototype.body (a request body
-// ReadableStream) is Chromium-only, so on other engines route()'s read of
-// event.request.body yielded undefined and POSTs went out empty regardless of
-// what this patch did to the relay. Serve the file untouched.
-
 fastify.register(fastifyStatic, { root: publicpath, decorateReply: true });
-// scramjet v2's controller package hardcodes these two path prefixes as its
-// defaults (Config.scramjetPath / Config.injectPath / Config.wasmPath in
-// @mercuryworkshop/scramjet-controller) — keep them as-is rather than
-// overriding, so every call site that builds a Controller without a custom
-// `config` just works.
+// /scramjet/ and /controller/ are the controller package's default prefixes
 fastify.register(fastifyStatic, {
   root: scramjetPath,
   prefix: "/scramjet/",
@@ -2433,7 +2237,7 @@ fastify.server.on("listening", () => {
 async function shutdown() {
   console.log("shutting down");
   flushplays();
-  // force exit after 3s if graceful close hangs (websocket connections keep the port held)
+  // open WebSockets can keep close() pending
   setTimeout(() => process.exit(0), 3000).unref();
   await fastify.close();
   process.exit(0);
@@ -2442,13 +2246,9 @@ process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 
 // --- port ownership detection + duplicate-instance recovery ---
-// The classic failure here: a stale `node index.js` started outside pm2 grabs
-// port 8080, pm2's copy hits EADDRINUSE, and this catch used to exit(1) — which
-// pm2 turns into a blind crash-loop that's opaque until you manually hunt the
-// squatter. Instead, identify who owns the port, and if it's a duplicate of
-// this exact app (same cwd, running index.js), optionally terminate it and take
-// the port. Recovery is opt-in; by default no existing process is terminated.
-// A foreign owner is never killed — diagnose, then fail loudly.
+// On EADDRINUSE, report which process holds the port. With
+// RECOVER_DUPLICATE_INSTANCE=true, a stale copy of this app (same cwd, running
+// index.js) is terminated; any other owner is never touched.
 
 function findPortOwnerPid(port) {
   try {

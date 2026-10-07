@@ -1,9 +1,7 @@
 #!/usr/bin/env node
 
-/**
- * monitor.js — site uptime monitor & auto-recovery for Caddy + Fastify
- * with Discord webhook alerts and periodic status reports.
- */
+// Uptime monitor with auto-recovery for Caddy + the app, Discord alerts and
+// periodic status reports.
 
 import { exec }             from "node:child_process";
 import { createWriteStream } from "node:fs";
@@ -14,19 +12,15 @@ import { promisify }        from "node:util";
 
 const execAsync = promisify(exec);
 
-// ─── CONFIG ──────────────────────────────────────────────────────────────────
+// --- config ---
 
 const DISCORD_WEBHOOK = process.env.DISCORD_WEBHOOK;
 if (!DISCORD_WEBHOOK) throw new Error("DISCORD_WEBHOOK env var not set");
 
-// the app directory: this file ships inside the repo, so its own location is
-// the correct cwd/env-file anchor even when the monitor itself was started
-// from somewhere else (pm2 from /root, systemd, nohup, ...)
+// this file lives in the repo, so its directory is the app directory
 const APP_DIR = process.env.APP_DIR || dirname(fileURLToPath(import.meta.url));
 
-// Env values are operator-supplied strings; a typo like CHECK_INTERVAL=abc
-// used to become setInterval(tick, NaN) (a hot loop) or connect({port: NaN})
-// (an uncaught RangeError). Parse defensively with bounds.
+// bounded parse: a typo must not become setInterval(fn, NaN), a hot loop
 function num(value, fallback, min = 1, max = Number.MAX_SAFE_INTEGER) {
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) && parsed >= min && parsed <= max
@@ -45,20 +39,22 @@ const CONFIG = {
   fallbackPort:   num(process.env.FALLBACK_PORT, 8080, 1, 65535),
   intervalMs:     num(process.env.CHECK_INTERVAL, 60) * 1000,
   timeoutMs:      num(process.env.TIMEOUT, 8000),
-  appService:     process.env.APP_SERVICE       || "aetheris",
+  // interpolated into shell commands, so restrict it to a plain pm2 name
+  appService:     /^[\w.-]+$/.test(process.env.APP_SERVICE || "")
+    ? process.env.APP_SERVICE
+    : "aetheris",
   logFile:        process.env.LOG_FILE          || "/var/log/monitor.log",
   appDir:         APP_DIR,
   envFile:        process.env.ENV_FILE          || `${APP_DIR}/.env`,
 
-  // Minimum gap between automatic recovery actions. Without it a full outage
-  // reloads Caddy / restarts the app every check interval forever.
+  // minimum gap between automatic recovery actions
   recoveryCooldownMs: num(process.env.RECOVERY_COOLDOWN, 300) * 1000,
 
-  // How often to post a summary report to Discord, in MINUTES. Default: 15.
+  // minutes between Discord summary reports
   reportIntervalMs: num(process.env.REPORT_INTERVAL, 15) * 60 * 1000,
 };
 
-// ─── LOGGING ─────────────────────────────────────────────────────────────────
+// --- logging ---
 
 let logStream;
 try {
@@ -67,9 +63,7 @@ try {
   logStream = null;
 }
 if (logStream) {
-  // createWriteStream failures (ENOENT, EACCES, disk full) arrive as an async
-  // 'error' event, not a synchronous throw — without this listener the first
-  // unwritable write would take down the whole monitor process
+  // open/write failures arrive as an async 'error' event; unhandled, it crashes
   logStream.on("error", err => {
     console.error("log stream error:", err.message);
     logStream = null;
@@ -82,8 +76,7 @@ function log(msg) {
   logStream?.write(line + "\n");
 }
 
-// Drop malformed DOMAINS entries now: new URL() runs deep inside tick() and
-// sendReport(), and an uncaught TypeError there would kill the monitor.
+// drop malformed DOMAINS entries up front so new URL() can't throw later
 CONFIG.domains = CONFIG.domains.filter((url) => {
   try {
     new URL(url);
@@ -94,10 +87,8 @@ CONFIG.domains = CONFIG.domains.filter((url) => {
   }
 });
 
-// ─── HELPERS ─────────────────────────────────────────────────────────────────
+// --- helpers ---
 
-// async exec — execSync blocked the event loop for up to its 15s timeout,
-// which could stack ticks on a slow box (pm2 daemon cold-start etc.)
 async function run(cmd) {
   try {
     const { stdout } = await execAsync(cmd, { timeout: 15_000 });
@@ -108,9 +99,7 @@ async function run(cmd) {
   }
 }
 
-// the app runs under pm2 (see notes.md) — `pm2 pid` prints the pid, or 0
-// when the process is stopped/missing. systemd was retired when the stack
-// moved to pm2, so systemctl is only used for caddy below.
+// `pm2 pid` prints 0 when the process is stopped or missing
 async function pm2Active(name) {
   const { ok, out } = await run(`pm2 pid ${name}`);
   return ok && /^\d+$/.test(out) && parseInt(out, 10) > 0;
@@ -137,8 +126,7 @@ function httpCheck(url, timeoutMs) {
     fetch(url, { signal: ctrl.signal, redirect: "follow" })
       .then(res => {
         clearTimeout(timer);
-        // cancel the unread body so undici can put the connection back in
-        // its pool instead of waiting for GC
+        // release the connection without waiting for GC
         if (res.body) res.body.cancel().catch(() => {});
         resolve({ ok: res.status < 500, status: res.status });
       })
@@ -165,7 +153,7 @@ function formatDuration(ms) {
   return `${s}s`;
 }
 
-// ─── DISCORD ─────────────────────────────────────────────────────────────────
+// --- discord ---
 
 async function sendWebhook(payload) {
   try {
@@ -173,8 +161,6 @@ async function sendWebhook(payload) {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify(payload),
-      // a hung Discord call must not stall the reporting loop for undici's
-      // full default header timeout
       signal:  AbortSignal.timeout(15_000),
     });
     if (!res.ok) log(`Discord webhook failed: ${res.status} ${await res.text()}`);
@@ -183,7 +169,6 @@ async function sendWebhook(payload) {
   }
 }
 
-// Instant alert — site went down
 async function alertDown(url, reason) {
   await sendWebhook({
     embeds: [{
@@ -191,8 +176,7 @@ async function alertDown(url, reason) {
       description: `**${url}** is unreachable.`,
       color:       0xe74c3c,
       fields: [
-        // Discord embed fields cap at 1024 chars — a longer error message
-        // would make the whole webhook 400 and the alert would be lost
+        // Discord rejects the whole embed if a field exceeds 1024 chars
         { name: "Error",     value: String(reason).slice(0, 1000),  inline: true },
         { name: "Time",      value: new Date().toUTCString(),      inline: false },
       ],
@@ -202,7 +186,6 @@ async function alertDown(url, reason) {
   });
 }
 
-// Instant alert — site recovered
 async function alertUp(url, downtimeMs) {
   await sendWebhook({
     embeds: [{
@@ -219,15 +202,14 @@ async function alertUp(url, downtimeMs) {
   });
 }
 
-// Instant alert — recovery action taken
 async function alertRecovery(type, detail) {
   await sendWebhook({
     embeds: [{
       title:       "🔧 Recovery Action",
       color:       0xf39c12,
       fields: [
-        { name: "Type",   value: type,   inline: true },
-        { name: "Action", value: detail, inline: true },
+        { name: "Type",   value: type,                         inline: true },
+        { name: "Action", value: String(detail).slice(0, 1000), inline: true },
       ],
       footer: { text: "Aetheris Uptime Monitor" },
       timestamp: new Date().toISOString(),
@@ -235,16 +217,13 @@ async function alertRecovery(type, detail) {
   });
 }
 
-// Periodic summary report
 async function sendReport() {
   const windowMs    = CONFIG.reportIntervalMs;
   const windowHours = windowMs / (1000 * 60 * 60);
   const windowLabel = windowHours % 1 === 0 ? `${windowHours}-Hour` : `${(windowHours * 60).toFixed(0)}-Minute`;
 
-  // snapshot each domain's stats and reset them synchronously, BEFORE any
-  // webhook await — increments landing during a slow Discord call belong to
-  // the next window, not the one being reported, and overlapping reports
-  // must not double-reset
+  // snapshot and reset before awaiting any webhook, so checks during a slow
+  // Discord call land in the next window
   const reports = [];
   for (const url of CONFIG.domains) {
     const s = state.get(url);
@@ -256,10 +235,8 @@ async function sendReport() {
       totalChecks: s.totalChecks,
       upChecks:    s.upChecks,
       isUp:        !s.down,
-      // Downtime that occurred during THIS window only: completed outages
-      // plus the part of an ongoing outage not reported yet. Resetting a
-      // cumulative total here used to double-count the same outage in every
-      // subsequent report (and again at recovery).
+      // this window only: finished outages plus the unreported part of an
+      // ongoing one
       downtimeMs:  s.windowDowntimeMs + Math.max(0, ongoing - s.reportedOngoingMs),
       lastError:   s.lastError,
     });
@@ -306,7 +283,7 @@ async function sendReport() {
           },
           {
             name:   "Last Recorded Error",
-            value:  r.lastError || "None",
+            value:  r.lastError ? String(r.lastError).slice(0, 1000) : "None",
             inline: true,
           },
         ],
@@ -317,7 +294,7 @@ async function sendReport() {
   }
 }
 
-// ─── RECOVERY ────────────────────────────────────────────────────────────────
+// --- recovery ---
 
 let lastRecoveryAt = 0;
 
@@ -353,16 +330,13 @@ async function recover(fallbackReachable) {
     }
 
   } else {
-    // app-side recovery — pm2, not systemd (the old aetheris.service is
-    // disabled; see notes.md)
+    // the app runs under pm2, not systemd
     if (!(await pm2Active(CONFIG.appService))) {
       log(`Running: pm2 restart ${CONFIG.appService}`);
       const res = await run(`pm2 restart ${CONFIG.appService} --update-env`);
       if (!res.ok) {
-        // not in the pm2 process list at all — start it fresh. --cwd pins
-        // the app to ITS directory: index.js resolves the user database
-        // and .env from process.cwd(), so a start from the monitor's cwd
-        // could boot a healthy-looking app against an empty database.
+        // Not in pm2 at all: start it fresh. --cwd matters because index.js
+        // finds its database relative to process.cwd().
         log(`pm2 restart failed. Running: pm2 start index.js --cwd ${CONFIG.appDir}`);
         const res2 = await run(
           `pm2 start index.js --name ${CONFIG.appService} --cwd "${CONFIG.appDir}" ` +
@@ -375,8 +349,7 @@ async function recover(fallbackReachable) {
         await alertRecovery("Node App", `pm2 restart ${CONFIG.appService} → ok`);
       }
     } else {
-      // pm2 knows the process but the port check failed — it's crash-looping
-      // or hung; restart it to be safe
+      // pm2 has it but nothing answers: crash-looping or hung
       log(`Running: pm2 restart ${CONFIG.appService}`);
       const res = await run(`pm2 restart ${CONFIG.appService} --update-env`);
       log(`${CONFIG.appService} restart result: ${res.ok ? "ok" : "FAILED — " + res.out}`);
@@ -385,7 +358,7 @@ async function recover(fallbackReachable) {
   }
 }
 
-// ─── STATE ───────────────────────────────────────────────────────────────────
+// --- state ---
 
 const state = new Map(
   CONFIG.domains.map(url => [url, {
@@ -393,20 +366,18 @@ const state = new Map(
     since:            null,
     totalChecks:      0,
     upChecks:         0,
-    totalDowntimeMs:  0,
     windowDowntimeMs: 0,
     reportedOngoingMs: 0,
     lastError:        null,
   }])
 );
 
-// ─── TICK ────────────────────────────────────────────────────────────────────
+// --- checks ---
 
 let ticking = false;
 
 async function tick() {
-  // a slow tick (8s http timeouts + recovery with its sleeps) must never
-  // stack on top of a still-running one
+  // a slow tick (timeouts + recovery) must not overlap the next one
   if (ticking) return;
   ticking = true;
   try {
@@ -433,7 +404,6 @@ async function tickinner() {
     s.upChecks++;
     if (s.down) {
       const downtimeMs = Date.now() - s.since;
-      s.totalDowntimeMs += downtimeMs;
       s.windowDowntimeMs += downtimeMs;
       s.reportedOngoingMs = 0;
       log(`${url} is back UP. Downtime: ${formatDuration(downtimeMs)}`);
@@ -459,10 +429,8 @@ async function tickinner() {
     }
   }
 
-  // only take recovery action when EVERY domain is down — that means the box
-  // itself (caddy or the app). a partial outage means caddy is serving and
-  // the app answers for the other domains, so restarting anything globally
-  // would knock over the healthy domains for nothing. alert only.
+  // Only recover when every domain is down. A partial outage means Caddy and
+  // the app are serving, and a global restart would hit the healthy domains.
   if (failed.length > 0 && failed.length === CONFIG.domains.length) {
     const fallbackReachable = await tcpReachable(CONFIG.fallbackHost, CONFIG.fallbackPort);
     log(`Fallback (port ${CONFIG.fallbackPort}) reachable: ${fallbackReachable}`);
@@ -472,13 +440,12 @@ async function tickinner() {
   }
 }
 
-// ─── START ───────────────────────────────────────────────────────────────────
+// --- start ---
 
 log(`Monitor starting. Watching ${CONFIG.domains.length} domain(s) every ${CONFIG.intervalMs / 1000}s:`);
 for (const d of CONFIG.domains) log(`  ${d}`);
 
-// One rejected promise must never take down the monitor — it needs to be
-// alive precisely when the site is broken. Errors are logged instead.
+// the monitor must survive its own errors; it matters most when things break
 function guard(promise, label) {
   return Promise.resolve(promise).catch((err) => {
     log(`${label} error: ${(err && err.message) || err}`);
