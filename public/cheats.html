@@ -14,7 +14,7 @@
     <link rel="stylesheet" href="./css/cards.css?v=20260907.1" />
     <link rel="stylesheet" href="./css/themes.css?v=20261005.1" />
     <link rel="stylesheet" href="./css/nav.css?v=20260907.1" />
-    <script src="./js/theme.js?v=20261005.2"></script>
+    <script src="./js/theme.js?v=20261007.1"></script>
 
     <meta name="theme-color" content="#0f0f0f" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -263,22 +263,22 @@
             clickcheat(item);
           };
 
-          card.innerHTML =
-            '<div class="menu-item-img"><span>' +
-            (item.emoji || "🎮") +
-            "</span></div>" +
-            '<div class="menu-item-body">' +
-            '<div class="menu-item-title">' +
-            item.name +
-            "</div>" +
-            '<div class="menu-item-meta">' +
-            (item.tag
-              ? '<span class="menu-item-tag">' + item.tag + "</span>"
-              : "<span></span>") +
-            (item.note
-              ? '<span class="menu-item-note">' + item.note + "</span>"
-              : "") +
-            "</div></div>";
+          function el(tag, className, text) {
+            var node = document.createElement(tag);
+            if (className) node.className = className;
+            if (text) node.textContent = text;
+            return node;
+          }
+          var img = el("div", "menu-item-img");
+          img.appendChild(el("span", "", item.emoji || "🎮"));
+          var meta = el("div", "menu-item-meta");
+          meta.appendChild(
+            item.tag ? el("span", "menu-item-tag", item.tag) : el("span"),
+          );
+          if (item.note) meta.appendChild(el("span", "menu-item-note", item.note));
+          var body = el("div", "menu-item-body");
+          body.append(el("div", "menu-item-title", item.name), meta);
+          card.append(img, body);
 
           menugrid.appendChild(card);
         });
@@ -296,20 +296,18 @@
           openinproxy(item.url, item.name);
           return;
         }
-        // No action defined (e.g. the Kahoot placeholder): say so instead of
-        // silently doing nothing and looking broken.
+        // placeholder entries have no action; say so instead of doing nothing
         var grid = document.getElementById("menuGrid");
         if (!grid || grid.querySelector(".cheat-unavailable")) return;
         var note = document.createElement("p");
         note.className = "cheat-unavailable";
         note.setAttribute("role", "status");
-        note.textContent = "No cheats for this game yet — check back later.";
+        note.textContent = "no cheats for this one yet, check back later.";
         note.style.cssText = "opacity:0.7;font-size:0.85rem;";
         grid.appendChild(note);
       }
 
-      // The Blooket bookmarklet is hardcoded to aetheris.win; build it from
-      // the origin this page is actually served from so self-hosted forks work.
+      // point the bookmarklet at whatever origin is serving this page
       function buildcopytext(text) {
         return String(text).replace(
           /https:\/\/aetheris\.win(?=\/)/,
@@ -392,8 +390,7 @@
           var p = await getproxy();
           var frameel = document.createElement("iframe");
           frameel.style.cssText = "width:100%;height:100%;border:0;";
-          // iPad Safari needs autoplay/fullscreen delegated to the frame or
-          // the proxied page cannot start audio or go fullscreen.
+          // iPad Safari needs these delegated for audio/fullscreen
           frameel.allow = "autoplay; fullscreen; encrypted-media";
           var frame = p.createFrame(frameel);
           contentarea.replaceChildren(frameel);
@@ -450,11 +447,11 @@
           var worked = document.execCommand("copy");
           alert(
             worked
-              ? 'Copied "' + itemname + '" to clipboard! (fallback method)'
-              : "copy failed — please copy manually.",
+              ? 'Copied "' + itemname + '" to clipboard!'
+              : "copy failed, copy it manually.",
           );
         } catch (err) {
-          alert("copy failed — please copy manually.");
+          alert("copy failed, copy it manually.");
           console.error("fallback copy error:", err);
         }
 

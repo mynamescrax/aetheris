@@ -17,7 +17,7 @@
     <link rel="stylesheet" href="./css/themes.css?v=20261005.1" />
     <link rel="stylesheet" href="./css/nav.css?v=20260907.1" />
 
-    <script src="./js/theme.js?v=20261005.2"></script>
+    <script src="./js/theme.js?v=20261007.1"></script>
 
     <script src="/scramjet/scramjet.js" defer></script>
     <script src="/controller/controller.api.js" defer></script>
@@ -255,10 +255,7 @@
 
       async function waitforbackend() {
         if (window.aetherisProxy) return;
-        // backend init is a plain (non-deferred) script, but if this
-        // fires from the inline ?q= auto-search below it can still beat the
-        // browser finishing those loads — poll for the helper instead of
-        // assuming it's there.
+        // the ?q= auto-search can run before the proxy helper loads, so poll
         await new Promise(function (resolve, reject) {
           var waited = 0;
           var t = setInterval(function () {
@@ -270,7 +267,7 @@
               clearInterval(t);
               reject(
                 new Error(
-                  "Backend failed to load — check your connection and retry.",
+                  "backend didn't load. check your connection and retry.",
                 ),
               );
             }
@@ -390,9 +387,7 @@
         } catch (err) {
           if (version !== navigationVersion) return;
           console.error("navigation error:", err);
-          // The next attempt should rebuild the transport — it may have died
-          // while the tab was suspended, which a retry through the same
-          // controller could never recover from.
+          // rebuild the transport next time, it may have died while suspended
           try {
             if (window.aetherisProxy) window.aetherisProxy.reset();
           } catch (_) {}

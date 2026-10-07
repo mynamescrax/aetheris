@@ -15,23 +15,27 @@ async function migrateifneeded() {
 
   console.log("[SW] running one-time DB migration v" + MIGRATION_VERSION);
 
-  await new Promise(function (resolve) {
+  var deleted = await new Promise(function (resolve) {
     var req = indexedDB.deleteDatabase("scramjet-config");
     req.onsuccess = function () {
       console.log("[SW] scramjet-config deleted");
-      resolve();
+      resolve(true);
     };
     req.onerror = function () {
       console.warn("[SW] scramjet-config delete error");
-      resolve();
+      resolve(false);
     };
     req.onblocked = function () {
-      console.warn("[SW] scramjet-config blocked — will retry next install");
-      resolve();
+      console.warn("[SW] scramjet-config blocked - will retry next install");
+      resolve(false);
     };
-    setTimeout(resolve, 3000);
+    setTimeout(function () {
+      resolve(false);
+    }, 3000);
   });
 
+  // only record the migration once it actually ran, so a blocked delete retries
+  if (!deleted) return;
   try {
     var meta2 = await caches.open("__sw_meta__");
     await meta2.put(
@@ -44,14 +48,11 @@ async function migrateifneeded() {
 var scramjetloaded = false;
 var spoofdesktopua = false;
 
-// derive every same-origin check from the SW's own origin so self-hosters on
-// other domains get the same bypass/rewrite behavior as aetheris.win
+// use the SW's own origin so self-hosted copies behave like aetheris.win
 var SITE_ORIGIN = self.location.origin;
 var SITE_HOST = self.location.hostname;
 
-// spoofdesktopua lives in SW memory, which the browser can recycle at any
-// time — persist it in the __sw_meta__ cache so a restarted SW restores the
-// user's setting instead of silently dropping it.
+// the SW can be recycled at any time, so the spoof setting is persisted
 (function restorespoofstate() {
   caches
     .open("__sw_meta__")
@@ -76,12 +77,9 @@ function persistspoofstate(enabled) {
     .catch(function () {});
 }
 
-// Desktop-UA spoofing. On a Chromium browser the claimed Chrome version
-// follows the real one, so the spoofed navigator.userAgent matches the
-// Sec-CH-UA request headers the browser actually generates. Safari (iPad)
-// has no Chrome version to borrow, so it claims a recent stable one — keep
-// CHROME_FALLBACK_MAJOR roughly current or version-gated sites start
-// treating the spoof as an unsupported browser.
+// Desktop-UA spoofing. Chromium reuses its real major version so the UA
+// matches the Sec-CH-UA headers it sends; Safari has none to borrow, so keep
+// CHROME_FALLBACK_MAJOR roughly current or version-gated sites reject it.
 var CHROME_FALLBACK_MAJOR = "154";
 var spoofchromemajor = (function () {
   var match = /(?:Chrome|Chromium)\/(\d+)/.exec(navigator.userAgent);
@@ -162,19 +160,9 @@ var desktopuashim =
   "})();" +
   "<\/script>";
 
-// scramjet v2 restructured the service worker from a self-contained proxy
-// engine (v1's ScramjetServiceWorker — proxy.route()/proxy.fetch() did all the
-// rewriting right here) into a thin relay: controller.sw.js only knows how to
-// forward a fetch to whichever browser tab's Controller registered the
-// matching /~/sj/<id>/ prefix (see the "$controller$init" postMessage in
-// scramjet-init.js) and get the already-rewritten Response back over a
-// MessageChannel. There's no more loadConfig()/configready gate — a request
-// either matches a live tab's prefix (shouldRoute) or it doesn't.
-// Import at startup is the happy path, but a transient network failure during
-// a service-worker cold start must not disable the proxy until the next
-// deploy: re-attempt the import from the fetch handler whenever a request
-// actually needs the controller. importScripts is idempotent inside one
-// worker, so repeat calls after a success are a no-op (scramjetloaded gate).
+// controller.sw.js relays /~/sj/<id>/ fetches to the tab whose Controller
+// registered that prefix (see scramjet-init.js). Retried from the fetch
+// handler so one failed import on a cold start doesn't disable the proxy.
 function ensurecontrollerloaded() {
   if (scramjetloaded) return true;
   try {
@@ -188,31 +176,11 @@ function ensurecontrollerloaded() {
 }
 ensurecontrollerloaded();
 
-// Builds the object we hand to $scramjetController.route(). It duck-types the
-// fields route()/shouldRoute() actually read off a FetchEvent, for two reasons.
-//
-// 1. Request body. route() forwards `event.request.body` — the live
-//    ReadableStream — to the controller. Request body streams are a
-//    Chromium-only feature; in other engines (Firefox, where the Discord 400
-//    was reproduced) `Request.prototype.body` is not exposed on requests at
-//    all, so that read yields undefined and the POST reaches the origin with
-//    an empty body. Discord's API answers a bodyless JSON POST with
-//    400 Bad Request. Reading the body with .arrayBuffer() instead works
-//    everywhere, and an ArrayBuffer is already one of the RPC's documented
-//    body types — route()'s own transfer-list check accepts it unchanged.
-//    Buffering also sidesteps the live-stream-transfer semantics that made
-//    bodies arrive empty in Chromium too.
-//
-// 2. Desktop-UA spoofing. v1 let us mutate request headers in-SW via
-//    proxy.addEventListener("request", ...) before the request went out. v2's
-//    route() builds its headers straight off event.request on the controller
-//    side, so the headers have to be right before route() ever sees them.
-//    This can't be `new Request(event.request, { headers })`: a Request's
-//    .headers always has guard "request", and the Fetch spec's header-fill
-//    algorithm silently drops forbidden names (User-Agent, every Sec-CH-UA-*)
-//    when filling a "request"-guarded Headers object — regardless of what
-//    guard the source headers had. A bare `new Headers()` is unguarded and has
-//    no such filtering, so we copy into one of those instead.
+// Duck-typed FetchEvent for $scramjetController.route():
+// - bodies are buffered with arrayBuffer() because Request.body streams are
+//   Chromium-only; elsewhere POSTs went out empty (Discord answered 400).
+// - spoofed headers go in a bare Headers(): a Request's "request"-guarded
+//   headers silently drop User-Agent and Sec-CH-UA-*.
 function hasrequestbody(req) {
   return req.method !== "GET" && req.method !== "HEAD";
 }
@@ -233,9 +201,7 @@ async function buildrouteevent(event) {
       headers.set("User-Agent", desktopua);
       headers.set("Sec-CH-UA-Mobile", "?0");
       headers.set("Sec-CH-UA-Platform", '"Windows"');
-      // Client hints would otherwise leak the real engine/version and
-      // contradict the spoofed UA. A bare Headers() is unguarded, so these
-      // Sec- names are not filtered out here (see the note above).
+      // client hints would otherwise contradict the spoofed UA
       headers.set("Sec-CH-UA", spoofuach);
       headers.set("Sec-CH-UA-Full-Version-List", spoofuachfull);
       headers.set("Sec-CH-UA-Platform-Version", '"10.0.0"');
@@ -245,8 +211,7 @@ async function buildrouteevent(event) {
       headers = req.headers;
     }
 
-    // clone() so the original request stays unconsumed for the error paths.
-    // Must happen before the first await, while the body is still undisturbed.
+    // clone before any await so the original stays usable on error paths
     var bodypromise = withbody ? req.clone().arrayBuffer() : null;
     var body = bodypromise ? await bodypromise : null;
 
@@ -417,12 +382,8 @@ var audiounlockshim =
   "})();" +
   "<\/script>";
 
-// Ad spoof shim. Inlined into proxied documents once the source has been
-// fetched, with the external tag as the fallback until then (and if the fetch
-// ever fails). The inline form matters for sites like YouTube that enumerate
-// script elements: scramjet's patched URL getters call unrewriteUrl() on every
-// local <script src> they see, which logs an "unexpected url" error each time.
-// Inline executes synchronously before game scripts, same as before.
+// Ad spoof shim, inlined once fetched (external tag until then). Inline avoids
+// scramjet logging "unexpected url" for every local <script src> it unrewrites.
 var ADSPOOF_SRC = "/js/ad-spoof.js?v=20260928.3";
 var adspoofshim = '<script src="' + ADSPOOF_SRC + '"><\/script>';
 var adspoofinline = null;
@@ -441,9 +402,7 @@ var adspoofinline = null;
     });
 })();
 
-// Panic key — reads the same origin localStorage the settings page writes
-// (proxied pages are same-origin under /~/sj/, so this works inside games
-// too). One keypress navigates the whole tab away to the "safe" URL.
+// panic key inside proxied pages (same origin, so same localStorage)
 var panicshim =
   "<script>" +
   "(function(){" +
@@ -465,13 +424,8 @@ var panicshim =
   "})();" +
   "<\/script>";
 
-// scramjet v2 doesn't patch navigator.cookieEnabled — proxied pages see the
-// real browser's value unmodified. Some sites (e.g. Bloxity/legionsdk.com)
-// gate signin on `navigator.cookieEnabled === false` and show "your browser
-// is blocking cookies" when it does, even though scramjet's own document.cookie
-// is fully virtualized (backed by its own cookie jar + IndexedDB persistence)
-// and works regardless of that flag. Always true in the proxied world, so
-// force it — unconditional, not gated behind any toggle.
+// scramjet virtualizes cookies but leaves navigator.cookieEnabled alone, and
+// some sites (e.g. legionsdk.com) block sign-in when it's false
 var cookieenabledshim =
   "<script>" +
   "(function(){" +
@@ -483,21 +437,12 @@ var cookieenabledshim =
   "})();" +
   "<\/script>";
 
-// Cap on how much HTML to buffer while looking for the <head>/<html> tag.
-// Documents are expected to have one near the top; anything larger than this
-// is treated as "no usable tag" and the shims go at the front, matching the
-// previous non-streaming fallback.
+// past this many bytes without <head>/<html>, shims go at the front
 var SHIM_SCAN_LIMIT = 256 * 1024;
 
-// Streams an HTML body through a UTF-8 decode/re-encode so the shims can be
-// inserted as soon as the insertion point is found. The previous version
-// buffered the whole document (text(), replace, re-encode) before the page
-// could render anything, which is both a memory spike and a visible delay on
-// exactly the weak devices this proxy targets. The pump reads ahead until
-// the stream queue is full and pull() resumes it, so memory stays bounded.
-// (A pull-only source cannot be used here: a pull that finds nothing to
-// enqueue yet — the common case while scanning for <head> — is not followed
-// by another pull in every engine.)
+// Streams HTML and inserts the shims at the first insertion point, so pages
+// render without buffering the whole document. Reads ahead until the queue is
+// full; not pull-only because some engines don't re-pull after an empty pull.
 function streamwithshims(body, shims) {
   var reader = body.getReader();
   var decoder = new TextDecoder("utf-8");
@@ -644,18 +589,9 @@ function injecthtmlshims(response, options) {
   }
 }
 
-// controller.sw.js's route() has its own try/catch that swallows EVERY
-// controller-side failure and resolves with
-//   new Response("Internal Service Worker Error: " + e.message, { status: 500 })
-// It never rejects, so the .catch() on route() below is dead code for anything
-// that goes wrong inside the controller. That plain-text body is what the page
-// receives, so any site that does `await res.json()` on a failed API call
-// reports a JSON syntax error at position 0 ("Unexpected token 'I'") and the
-// real message — "No frame found for request", a transport error, whatever —
-// never surfaces anywhere. Sniff that exact shape and log the real reason.
-// (String bodies get Content-Type: text/plain;charset=UTF-8 from the Response
-// constructor, so this check is cheap and can't match a real proxied response,
-// which always carries the origin's own headers.)
+// route() never rejects: controller failures come back as a 500 text/plain
+// "Internal Service Worker Error: ..." body. Detect that shape and log the
+// real reason instead of letting pages choke on it as JSON.
 var SW_ERROR_PREFIX = "Internal Service Worker Error";
 
 async function surfacerouteerror(response, request) {
@@ -667,10 +603,7 @@ async function surfacerouteerror(response, request) {
     var text = await response.clone().text();
     if (text.indexOf(SW_ERROR_PREFIX) !== 0) return response;
 
-    // Expected during navigation: the search page replaces its iframe while
-    // the old page's background requests are still finishing, and the
-    // controller drops them with this exact message. Keep it out of the
-    // error stream.
+    // normal when a frame is replaced mid-request; not worth logging
     if (text.indexOf("No frame found for request") !== -1) {
       console.warn(
         "[SW] dropped request from a closed frame:",
@@ -703,8 +636,7 @@ var fetcherrors = new Map();
 function logfetchfail(req, err) {
   var now = Date.now();
   if (now - (fetcherrors.get(req.url) || 0) < 5000) return;
-  // cap: one entry per failing url, cleared wholesale once it grows — the SW
-  // is recycled eventually, but don't let a pathological page grow it forever
+  // bound memory on pages that fail lots of distinct URLs
   if (fetcherrors.size > 500) fetcherrors.clear();
   fetcherrors.set(req.url, now);
   console.error(
@@ -715,16 +647,8 @@ function logfetchfail(req, err) {
   );
 }
 
-// scramjet v2's default codec is plain encodeURIComponent, so a proxied
-// request's URL *contains the whole remote URL in readable form* — e.g.
-// https://aetheris.win/~/sj/<id>/<frameId>/https%3A%2F%2Fexample.com%2Findex.html
-// Only "/" ":" "?" "&" "=" "#" get percent-encoded; hostnames, dots and file
-// extensions survive verbatim. That makes every substring/extension rule below
-// match proxied URLs too, which would silently take them away from scramjet and
-// hand them to a plain same-origin fetch (→ our own 404 page). v1's codec
-// mangled the URL so these rules were safe there; in v2 every one of them has
-// to be gated on this. Anything under the /~/sj/ prefix belongs to scramjet,
-// full stop.
+// Proxied URLs embed the remote URL nearly verbatim (encodeURIComponent), so
+// every substring/extension rule must skip /~/sj/ or it steals proxy traffic.
 function isproxiedurl(url) {
   return url.indexOf("/~/sj/") !== -1;
 }
@@ -738,10 +662,7 @@ function shouldbypass(url) {
   )
     return true;
 
-  // scramjet v2 also serves its own per-frame bootstrap file at
-  // /~/sj/<id>/<frameId>/scramjet.wasm.js (a virtual file synthesized by the
-  // controller, not a real one on disk — see Controller.methods.request's
-  // virtualWasmPath handling), whose name matches ".wasm" too.
+  // includes the controller's virtual /~/sj/.../scramjet.wasm.js
   if (isproxiedurl(url)) return false;
 
   if (url.indexOf(".unityweb") !== -1 || url.indexOf(".wasm") !== -1)
@@ -777,9 +698,7 @@ self.addEventListener("fetch", function (event) {
   var url = event.request.url;
   var proxied = isproxiedurl(url);
 
-  // Recovery page shim — own origin + exact paths only. A bare substring
-  // match would also swallow cross-origin subresources like
-  // https://cdn.example/api/recovery/data.json (and /recovery, /precovery…).
+  // recovery page: own origin and exact paths only
   if (!proxied && url.indexOf("/recover") !== -1) {
     var recoverparsed = null;
     try {
@@ -803,17 +722,16 @@ self.addEventListener("fetch", function (event) {
     }
   }
 
-  if (!proxied && url.indexOf("api.1games.io") !== -1) {
-    var rewritten = url.replace(
-      "https://api.1games.io/",
-      SITE_ORIGIN + "/api-proxy/",
-    );
+  // match the host exactly; a substring match also caught unrelated URLs
+  // (e.g. ones carrying it in a query string) and refetched them unchanged
+  if (!proxied && url.indexOf("https://api.1games.io/") === 0) {
+    var rewritten = SITE_ORIGIN + "/api-proxy/" + url.slice(22);
     event.respondWith(
       event.request.text().then(function (body) {
         return fetch(rewritten, {
           method: event.request.method,
           headers: event.request.headers,
-          body: event.request.method !== "GET" ? body : undefined,
+          body: hasrequestbody(event.request) ? body : undefined,
         });
       }),
     );
@@ -843,8 +761,6 @@ self.addEventListener("fetch", function (event) {
     return;
   }
 
-  // Same gate as the /recover rule above: without !proxied this swallows
-  // proxied assets whose URL merely contains the substring.
   if (!proxied && url.indexOf("disable-devtool") !== -1) {
     event.respondWith(
       new Response("", {
@@ -858,10 +774,7 @@ self.addEventListener("fetch", function (event) {
 
   if (!ensurecontrollerloaded()) {
     if (proxied) {
-      // /~/sj/ URLs exist only as a scramjet prefix; letting them fall
-      // through to the origin would answer with our 404 page and look like a
-      // dead site. Send navigations to the recovery flow and fail the rest
-      // honestly (the route() failure path below does the same).
+      // /~/sj/ only exists as a proxy prefix; the origin would just 404
       if (event.request.mode === "navigate") {
         event.respondWith(Response.redirect("/recover", 302));
       } else {
@@ -881,10 +794,7 @@ self.addEventListener("fetch", function (event) {
     return;
   }
 
-  // shouldRoute() only matches URLs under a live tab's /~/sj/<id>/ prefix
-  // (registered by that tab's Controller — see scramjet-init.js). Anything
-  // else — same-origin site assets, requests from a tab whose Controller
-  // hasn't finished registering yet — just falls through to a normal fetch.
+  // only URLs under a live tab's /~/sj/<id>/ prefix are routed
   var shouldroute = false;
   try {
     shouldroute = $scramjetController.shouldRoute(event);
@@ -909,12 +819,8 @@ self.addEventListener("fetch", function (event) {
         logfetchfail(event.request, err);
         if (event.request.mode === "navigate")
           return Response.redirect("/recover", 302);
-        // Deliberately NOT `fetch(event.request)` here. This URL is under
-        // /~/sj/, which exists only as a scramjet prefix — our own origin has
-        // no such route, so fastify answers it with the 404.html page. That
-        // turns a proxy failure into "<!DOCTYPE html>..." arriving at whatever
-        // called .json(), which is where a lot of the "invalid JSON" noise
-        // comes from. Fail honestly instead.
+        // not fetch(event.request): the origin would return 404.html, which
+        // callers then fail to parse as JSON
         return new Response("", {
           status: 503,
           statusText: "Proxy unavailable",

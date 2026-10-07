@@ -557,6 +557,14 @@
           throw new Error("Invalid setting: " + entry[0]);
         if (entry[0] === "panicurl" && entry[1] && !Aetheris.httpUrl(entry[1]))
           throw new Error("The backup contains an invalid panic URL.");
+        if (entry[0] === "tabIcon" && entry[1] && !Aetheris.httpUrl(entry[1]))
+          throw new Error("The backup contains an invalid tab icon URL.");
+        if (
+          entry[0] === "aetheris-customBg" &&
+          entry[1] &&
+          !/^data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=]+$/i.test(entry[1])
+        )
+          throw new Error("The backup contains an invalid background image.");
         settings[entry[0]] = entry[1];
       }
     }

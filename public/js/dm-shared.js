@@ -1,8 +1,5 @@
-// Shared DM/auth logic for chat.html and minichat.html. Both pages used to
-// carry identical inline copies of this code that had already started to
-// drift; anything non-rendering lives here now. The pages keep their own
-// showapp()/showauth()/rendering and define them AFTER this script loads —
-// only user-triggered flows (submitauth) may call into them.
+// DM session/auth helpers. Used by the chat pages (with dm-ui.js, which
+// defines showapp) and by home.html/load.html for getdeviceid.
 var autologin = Aetheris.storage.getItem("dmAutoLogin") !== "false";
 var authtoken = Aetheris.getToken();
 var myusername = Aetheris.storage.getItem("dmUsername") || "";
@@ -52,8 +49,6 @@ function timeago(ts) {
   });
 }
 
-// the ONE device id generator (home.html and load.html used to carry
-// slightly different copies writing the same localStorage key)
 async function getdeviceid() {
   var stored = Aetheris.storage.getItem("dmDeviceId");
   if (stored && /^[a-f0-9]{64}$/.test(stored)) return stored;
@@ -100,6 +95,7 @@ async function getdeviceid() {
 }
 
 var currenttab = "login";
+var REGISTER_MIN_PASSWORD = 6;
 function switchtab(t) {
   if (authSubmitting) return;
   currenttab = t;
@@ -118,8 +114,16 @@ function switchtab(t) {
   document.getElementById("auth-submit").textContent =
     t === "login" ? "Log in" : "Register";
   document.getElementById("auth-err").textContent = "";
-  document.getElementById("f-pass").autocomplete =
-    t === "login" ? "current-password" : "new-password";
+  var pass = document.getElementById("f-pass");
+  pass.autocomplete = t === "login" ? "current-password" : "new-password";
+  // new accounts need 6+ chars; older accounts can still log in with 4+
+  if (t === "register") {
+    pass.minLength = REGISTER_MIN_PASSWORD;
+    pass.placeholder = "Password (6+ characters)";
+  } else {
+    pass.removeAttribute("minlength");
+    pass.placeholder = "Password";
+  }
 }
 
 var authSubmitting = false;
@@ -139,6 +143,11 @@ async function submitauth() {
   e.textContent = "";
   if (!u || !p) {
     e.textContent = "Fill in both fields.";
+    return;
+  }
+  if (currenttab === "register" && p.length < REGISTER_MIN_PASSWORD) {
+    e.textContent =
+      "Passwords need at least " + REGISTER_MIN_PASSWORD + " characters.";
     return;
   }
   authSubmitting = true;
@@ -163,7 +172,7 @@ async function submitauth() {
       e.textContent = d.error || "Something went wrong.";
       return;
     }
-    // register returns a session token directly now — no second login call
+    // login and register both return a session token
     if (!savetoken(d.token)) {
       e.textContent = "The server did not return a session. Please try again.";
       return;
@@ -184,8 +193,7 @@ async function submitauth() {
   }
 }
 
-// auth-form wiring only exists on the chat pages; home.html and load.html
-// load this file purely for the helpers above, so guard the element access
+// the auth form only exists on the chat pages
 if (document.getElementById("f-user") && document.getElementById("f-pass")) {
   document.getElementById("f-user").addEventListener("keydown", function (e) {
     if (e.key === "Enter") document.getElementById("f-pass").focus();

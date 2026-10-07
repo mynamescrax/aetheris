@@ -15,8 +15,10 @@ html, body {
   margin: 0 0 22px;
 }
 
+/* Montserrat is only loaded by the shell, so framed pages fell back to Arial */
 .center-container h2 {
   margin: 22px 0 10px;
+  font-family: "JetBrains Mono", monospace;
 }
 
 .center-container h4 {

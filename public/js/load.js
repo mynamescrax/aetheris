@@ -92,7 +92,7 @@
   }
 
   function wantsdesktopua() {
-    return localStorage.getItem("spoofDesktopUA") === "true";
+    return Aetheris.storage.getItem("spoofDesktopUA") === "true";
   }
 
   function syncuaspoof() {
@@ -184,19 +184,14 @@
       });
     }
 
-    // Don't cache the controller here: aetherisProxy.getController() already
-    // caches it and, after a reset (failed transport, suspended iPad tab),
-    // hands back a fresh one. A local cache would pin a dead transport and
-    // make "Try again" fail the same way forever.
+    // getController() caches and resets itself; a local cache would pin a dead transport.
     backend = await window.aetherisProxy.getController();
     syncuaspoof();
   }
 
   async function loaditem(item) {
     var container = document.getElementById("game-frame");
-    // igroutka ships some entries with only an "iframe" URL (their own game
-    // page wrapper) and a null "url"; without the fallback those cards cannot
-    // launch at all.
+    // some igroutka entries only have an "iframe" URL.
     var url = Aetheris.httpUrl(item.url || item.html || item.iframe || "");
 
     if (!container) {
@@ -208,7 +203,7 @@
     setgameinfo(item);
 
     if (!appid && (item.source || "aetheris") === "aetheris") {
-      var deviceid = localStorage.getItem("dmDeviceId") || "";
+      var deviceid = Aetheris.storage.getItem("dmDeviceId") || "";
       fetch("/api/plays/" + encodeURIComponent(item.id), {
         method: "POST",
         headers: { "Content-Type": "application/json" },

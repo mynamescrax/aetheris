@@ -1,20 +1,8 @@
 "use strict";
 
-// Shared scramjet v2 bootstrap, used by every page that can launch the proxy
-// (index.html's pre-warm, cheats.html, search.html, load.js). Centralizing
-// this in one file means there's exactly one place that knows how the new
-// Controller/transport wiring works, instead of four near-identical copies
-// that could drift out of sync.
-//
-// scramjet v2 replaced v1's single "scramjet.all.js" + $scramjetLoadController()
-// global with two separate IIFE bundles that must load in order:
-//   /scramjet/scramjet.js     -> sets window.$scramjet (core rewriter/runtime)
-//   /controller/controller.api.js -> sets window.$scramjetController, whose
-//                                     module-level code reads $scramjet.defaultConfig
-//                                     immediately, so it MUST load after scramjet.js
-// bare-mux is gone entirely in v2 — transports (LibcurlClient/EpoxyClient) are
-// constructed directly and handed to the Controller, which relays them to the
-// service worker over its own RPC channel.
+// scramjet bootstrap shared by index.html, cheats.html, search.html and load.js.
+// controller.api.js reads $scramjet.defaultConfig as soon as it runs, so it
+// has to load after scramjet.js.
 
 (function () {
   var SCRAMJET_CORE_SRC = "/scramjet/scramjet.js";
@@ -77,7 +65,7 @@
     if (loadedpromise) return loadedpromise;
 
     loadedpromise = (async function () {
-      // order matters — see note above.
+      // order matters, see the note at the top
       if (typeof $scramjet === "undefined") await loadscript(SCRAMJET_CORE_SRC);
       if (typeof $scramjet === "undefined") {
         throw new Error(
@@ -107,11 +95,8 @@
     return loadedpromise;
   }
 
-  // Give up on a transport that never finishes starting. libcurl-transport
-  // never rejects when its WASM cannot start (LibcurlClient.init() only
-  // awaits the module's onload event and ignores libcurl's abort event), so
-  // on a device where WebAssembly is blocked or the module fails to compile
-  // the old code waited forever and the game never left "Loading…".
+  // libcurl's init() never rejects if its WASM can't start, so time it out
+  // instead of sitting on "Loading..." forever.
   var TRANSPORT_INIT_TIMEOUT = 15000;
 
   function withtimeout(promise, ms, message) {
@@ -138,12 +123,9 @@
     }
   }
 
-  // The two transports are interchangeable, with different failure modes
-  // (Apple: only epoxy works; elsewhere libcurl is preferred but can fail to
-  // initialize, and its bundled CA list rejects some certificates epoxy
-  // accepts). Falling back to the other one turns "sometimes the proxy never
-  // starts" or "a site just 500s on some devices" into a slower-but-working
-  // launch instead of a dead spinner.
+  // try the preferred transport first, then fall back to the other one.
+  // apple only works with epoxy; libcurl is faster elsewhere but its CA list
+  // rejects some certs epoxy accepts.
   async function createtransport(wispurl, avoidname) {
     var requested = Aetheris.storage.getItem("proxyTransport");
     var preferred = requested || (APPLE_UA_CHECK ? "epoxy" : "libcurl");
@@ -265,16 +247,7 @@
     }
   }
 
-  // Thin wrapper around Frame#go — kept as the one place call sites route
-  // navigation through, in case cross-cutting logic is needed here again.
-  // (Previously carried a client-side workaround for a scramjet 2.0.67-alpha.2
-  // bug where History.prototype.pushState/replaceState — when called with no
-  // url arg, e.g. `history.replaceState(state, title)` — coerced the missing
-  // arg to the literal string "undefined" and rewrote it as if it were a real
-  // relative URL. That's now patched at serve time in index.js instead, which
-  // fixes it at the source for every frame instead of racing to catch and
-  // correct it after the fact — see the comment above the
-  // GET /scramjet/scramjet.js route in index.js.)
+  // every call site navigates through here so there's one place to hook later
   function safego(frame, url) {
     return frame.go(url);
   }

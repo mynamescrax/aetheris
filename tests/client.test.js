@@ -3,26 +3,13 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
 
-// Load the real relay client in a minimal browser sandbox and drive its
-// observable behavior (window.fetch URL rewriting). This tests the actual
-// shipped code, not a copy of it.
+// Runs the shipped relay client in a minimal browser sandbox and checks how it
+// rewrites window.fetch URLs.
 function loadClient() {
   const source = fs.readFileSync(
     new URL("../public/js/movie-proxy-client.js", import.meta.url),
     "utf8",
   );
-
-  function makeDescriptorStore() {
-    const store = {};
-    return {
-      get(name) {
-        return store[name];
-      },
-      set(name, value) {
-        store[name] = value;
-      },
-    };
-  }
 
   const fetched = [];
 
@@ -88,11 +75,8 @@ function loadClient() {
   function Image() {}
   Image.prototype = {};
 
-  const hooks = makeDescriptorStore();
-  void hooks;
-
   const sandbox = {
-    // bare vm contexts lack WHATWG URL globals — inject Node's.
+    // bare vm contexts have no URL globals
     URL,
     URLSearchParams,
     location: {
@@ -180,4 +164,48 @@ test("already-proxied and plain provider URLs keep their behavior", () => {
     new URL(proxied.searchParams.get("url")).href,
     "https://flixer.su/watch/movie/api.php?a=sub&ref=abc",
   );
+});
+
+function readPublic(path) {
+  return fs.readFileSync(new URL("../public/" + path, import.meta.url), "utf8");
+}
+
+test("index.html theme list matches theme.js", () => {
+  const Aetheris = {
+    storage: { getItem: () => null, setItem: () => true, removeItem() {} },
+  };
+  vm.runInNewContext(readPublic("js/theme.js"), {
+    Aetheris,
+    window: { addEventListener() {} },
+    location: {},
+    document: {
+      body: null,
+      documentElement: { setAttribute() {} },
+      addEventListener() {},
+    },
+    MutationObserver: class {
+      observe() {}
+    },
+  });
+
+  const block = readPublic("index.html").match(
+    /Aetheris\.themeColors = (\{[^}]*\});/,
+  );
+  assert.ok(block, "index.html should define Aetheris.themeColors");
+  const shellThemes = vm.runInNewContext("(" + block[1] + ")");
+  assert.deepEqual(
+    Object.keys(shellThemes).sort(),
+    Object.keys(Aetheris.themes).sort(),
+  );
+  for (const name of Object.keys(shellThemes))
+    assert.equal(shellThemes[name], Aetheris.themes[name].bgc, name);
+});
+
+test("chat pages share dm-ui.js instead of inline copies", () => {
+  for (const page of ["chat.html", "minichat.html"]) {
+    const html = readPublic(page);
+    assert.match(html, /js\/dm-shared\.js/, page);
+    assert.match(html, /js\/dm-ui\.js/, page);
+    assert.doesNotMatch(html, /function (loadmsgs|senddm|renderinbox)\b/, page);
+  }
 });

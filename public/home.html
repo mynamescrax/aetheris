@@ -22,9 +22,9 @@
 
     <script src="register-sw.js?v=20260907.1" defer></script>
     <script defer src="./js/preload.js?v=20260907.1"></script>
-    <script src="./js/dm-shared.js?v=20260907.1"></script>
+    <script src="./js/dm-shared.js?v=20261007.1"></script>
 
-    <script src="./js/theme.js?v=20261005.2"></script>
+    <script src="./js/theme.js?v=20261007.1"></script>
     <script src="./js/navigation.js?v=20260907.1"></script>
     <link rel="stylesheet" href="./css/usability.css?v=20260928.1" />
   </head>
@@ -82,7 +82,7 @@
           <li>to the chromebook users who are saying search doesnt work, i cant find any issue and it could be because of your blocker. try to debug or find out the issue and ill fix it.</li>
         </ul>
         <div class="update-modal-footer">
-          <button id="updatemodalclose">aight</button>
+          <button id="updatemodalclose" type="button">aight</button>
         </div>
       </div>
     </div>
@@ -200,6 +200,7 @@
         opacity: 0.9;
       }
       .update-list {
+        text-align: left;
         margin-bottom: 1rem;
         padding-left: 1.1rem;
         font-size: 0.9rem;
@@ -462,18 +463,12 @@
         )
           return;
 
-        var labels = ["aight", "bet", "ok", "cool!", "great!"];
-        if (closebtn)
-          closebtn.textContent =
-            labels[Math.floor(Math.random() * labels.length)];
-
         backdrop.style.display = "flex";
         if (closebtn) closebtn.focus();
 
         function dismiss() {
-          // Aetheris.storage never throws (storage may be full/disabled).
-          // Writing directly to localStorage used to block the modal hide
-          // below and lock the page behind an undismissable overlay.
+          // Aetheris.storage never throws, so a full/disabled storage can't
+          // leave the overlay stuck open.
           Aetheris.storage.setItem("updateDismissed", UPDATE_VERSION);
           backdrop.classList.add("fade-out");
           function hide() {
@@ -691,8 +686,6 @@
     </div>
 
     <script>
-      // getdeviceid lives in ./js/dm-shared.js (loaded in <head>)
-
       var reporttype = "";
       var lastReportFocus = null;
 
@@ -805,7 +798,6 @@
           showstatus(err.message || "failed to send. try again.", "err");
           submitbtn.disabled = false;
           submitbtn.textContent = "send it";
-          console.error("report error:", err);
         }
       }
 

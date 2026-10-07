@@ -1,4 +1,6 @@
 document.addEventListener("DOMContentLoaded", function () {
+  var store = Aetheris.storage;
+
   // --- tab cloak ---
 
   var TAB_PRESETS = {
@@ -31,8 +33,8 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
 
-    localStorage.setItem("tabName", name);
-    localStorage.setItem("tabIcon", icon);
+    store.setItem("tabName", name);
+    store.setItem("tabIcon", icon);
 
     document.title = name;
     var favicon =
@@ -59,25 +61,21 @@ document.addEventListener("DOMContentLoaded", function () {
     changetab(preset.name, preset.icon);
   };
 
-  if (localStorage.getItem("tabName"))
-    document.querySelector("#tabname").value = localStorage.getItem("tabName");
-  if (localStorage.getItem("tabIcon"))
-    document.querySelector("#tabicon").value = localStorage.getItem("tabIcon");
+  if (store.getItem("tabName"))
+    document.querySelector("#tabname").value = store.getItem("tabName");
+  if (store.getItem("tabIcon"))
+    document.querySelector("#tabicon").value = store.getItem("tabIcon");
 
   // --- theme selector ---
 
   var themeselect = document.getElementById("theme-select");
   if (themeselect) {
-    var saved = localStorage.getItem("aetheris-theme");
+    var saved = store.getItem("aetheris-theme");
     if (saved) themeselect.value = saved;
 
     themeselect.addEventListener("change", function () {
       var theme = themeselect.value;
-      if (Aetheris.applyTheme) Aetheris.applyTheme(theme);
-      document.documentElement.setAttribute("theme", theme);
-      if (document.body) document.body.setAttribute("theme", theme);
-      localStorage.setItem("aetheris-theme", theme);
-
+      if (!Aetheris.applyTheme(theme)) return;
       if (window.parent && window.parent !== window) {
         window.parent.postMessage(
           { type: "theme-changed", theme: theme },
@@ -89,15 +87,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // --- panic key ---
 
-  if (localStorage.getItem("panickey"))
-    document.querySelector("#panickey").value =
-      localStorage.getItem("panickey");
-  if (localStorage.getItem("panicurl"))
-    document.querySelector("#panicurl").value =
-      localStorage.getItem("panicurl");
+  if (store.getItem("panickey"))
+    document.querySelector("#panickey").value = store.getItem("panickey");
+  if (store.getItem("panicurl"))
+    document.querySelector("#panicurl").value = store.getItem("panicurl");
 
   window.setpanickey = function () {
-    localStorage.setItem("panickey", document.querySelector("#panickey").value);
+    store.setItem("panickey", document.querySelector("#panickey").value);
   };
 
   window.setpanicurl = function () {
@@ -110,7 +106,7 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
     input.value = url;
-    localStorage.setItem("panicurl", url);
+    store.setItem("panicurl", url);
   };
 
   var waitingforkey = false;
@@ -123,18 +119,18 @@ document.addEventListener("DOMContentLoaded", function () {
     waitingforkey = true;
     window.aetherisDetectingPanic = true;
     btn.disabled = true;
-    btn.innerHTML = "Press any key...";
+    btn.textContent = "Press any key...";
 
     function onkey(e) {
       if (e.isComposing) return;
       e.preventDefault();
       e.stopImmediatePropagation();
       input.value = e.key;
-      localStorage.setItem("panickey", e.key);
+      store.setItem("panickey", e.key);
       finish();
     }
     function finish() {
-      btn.innerHTML = "Auto-detect panic key";
+      btn.textContent = "Auto detect panic key";
       btn.disabled = false;
       waitingforkey = false;
       window.aetherisDetectingPanic = false;
@@ -146,17 +142,15 @@ document.addEventListener("DOMContentLoaded", function () {
   };
 
   // --- transport selector ---
-  // Apple devices default to epoxy because libcurl's WASM build does not
-  // start there; everything else defaults to libcurl. scramjet-init.js uses
-  // the same rule and automatically falls back to the other transport when
-  // the preferred one fails, so this only picks which one is tried first.
+  // libcurl's WASM build won't start on Apple devices, so they default to
+  // epoxy. Must match the rule in scramjet-init.js.
   var ua = navigator.userAgent;
   var isapple =
     /iP(hone|ad|od)/.test(ua) ||
     /Macintosh/.test(ua) ||
     (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   var activetransport =
-    localStorage.getItem("proxyTransport") || (isapple ? "epoxy" : "libcurl");
+    store.getItem("proxyTransport") || (isapple ? "epoxy" : "libcurl");
 
   function highlighttransport(name) {
     document
@@ -170,14 +164,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
   window.selecttransport = function (name) {
     activetransport = name;
-    localStorage.setItem("proxyTransport", name);
+    store.setItem("proxyTransport", name);
     highlighttransport(name);
 
     var status = document.getElementById("transport-status");
-    // scramjet v2 constructs a fresh transport per proxy launch (see
-    // scramjet-init.js) instead of pushing it into a long-lived bare-mux
-    // worker, so there's nothing to eagerly switch here — the localStorage
-    // pref just gets picked up the next time a proxy page starts.
+    // read on the next proxy launch; nothing to switch live
     if (status) status.textContent = "saved. takes effect on next proxy use.";
   };
 
@@ -190,17 +181,17 @@ document.addEventListener("DOMContentLoaded", function () {
         if (navigator.serviceWorker && navigator.serviceWorker.controller) {
           navigator.serviceWorker.controller.postMessage({
             type: "aetheris-set-desktop-ua-spoof",
-            enabled: localStorage.getItem("spoofDesktopUA") === "true",
+            enabled: store.getItem("spoofDesktopUA") === "true",
           });
         }
       } catch (_) {}
     }
 
-    spooftoggle.checked = localStorage.getItem("spoofDesktopUA") === "true";
+    spooftoggle.checked = store.getItem("spoofDesktopUA") === "true";
     pushspoofstate();
 
     spooftoggle.addEventListener("change", function () {
-      localStorage.setItem("spoofDesktopUA", String(spooftoggle.checked));
+      store.setItem("spoofDesktopUA", String(spooftoggle.checked));
       pushspoofstate();
     });
   }
@@ -224,60 +215,41 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     }
 
-    function ensureoverlay() {
-      var el = document.getElementById("custom-bg-overlay");
-      if (el) return el;
-      el = document.createElement("div");
-      el.id = "custom-bg-overlay";
-      el.style.cssText =
-        "position:fixed;top:0;left:0;width:100%;height:100%;z-index:-1;pointer-events:none;background-size:cover;background-position:center;background-repeat:no-repeat;";
-      document.body.insertBefore(el, document.body.firstChild);
-      return el;
+    function postbg(dataurl) {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage(
+          { type: "bg-changed", dataurl: dataurl },
+          location.origin,
+        );
+      }
     }
 
-    function clearinlinebg() {
-      document.body.style.backgroundSize = "";
-      document.body.style.backgroundPosition = "";
-      document.body.style.backgroundRepeat = "";
-      document.body.style.backgroundAttachment = "";
-    }
-
-    refreshpreview(localStorage.getItem("aetheris-customBg"));
+    refreshpreview(store.getItem("aetheris-customBg"));
 
     window.uploadbg = function (event) {
       var file = event.target.files[0];
       if (!file) return;
       event.target.value = "";
+      if (!/^image\//.test(file.type)) {
+        if (bgstatus) bgstatus.textContent = "That file isn't an image.";
+        return;
+      }
       if (bgstatus) bgstatus.textContent = "Reading...";
 
       var reader = new FileReader();
       reader.onload = function (e) {
         var dataurl = e.target.result;
-        try {
-          localStorage.setItem("aetheris-customBg", dataurl);
-        } catch (_) {
+        if (!store.setItem("aetheris-customBg", dataurl)) {
+          store.removeItem("aetheris-customBg");
           if (bgstatus)
             bgstatus.textContent =
               "Image too large for localStorage. Try something smaller.";
           return;
         }
-        document.documentElement.classList.add("has-custom-bg");
-        document.body.classList.add("has-custom-bg");
-        document.body.style.setProperty(
-          "background-image",
-          "none",
-          "important",
-        );
-        clearinlinebg();
-        ensureoverlay().style.backgroundImage = "url(" + dataurl + ")";
+        Aetheris.refreshBackground();
         refreshpreview(dataurl);
         if (bgstatus) bgstatus.textContent = "Background saved.";
-        if (window.parent && window.parent !== window) {
-          window.parent.postMessage(
-            { type: "bg-changed", dataurl: dataurl },
-            location.origin,
-          );
-        }
+        postbg(dataurl);
       };
       reader.onerror = function () {
         if (bgstatus) bgstatus.textContent = "Failed to read image.";
@@ -285,59 +257,12 @@ document.addEventListener("DOMContentLoaded", function () {
       reader.readAsDataURL(file);
     };
 
-    var themebgs = {
-      dark: {
-        bg: "linear-gradient(135deg, #0f0f0f 0%, #161616 40%, #0a0a0a 100%)",
-        bgc: "#0f0f0f",
-      },
-      "charcoal-gold": {
-        bg: "linear-gradient(135deg, #0f0f0f 0%, #161616 40%, #0a0a0a 100%)",
-        bgc: "#0f0f0f",
-      },
-      "dark-blue": { bg: "linear-gradient(#020617, #000)", bgc: "#020617" },
-      halloween: {
-        bg:
-          "radial-gradient(circle at 86% 12%, rgba(255, 240, 200, 0.2) 0, rgba(255, 214, 140, 0.08) 4.5%, transparent 12%), " +
-          "radial-gradient(ellipse at 50% 115%, rgba(255, 106, 0, 0.24) 0, transparent 58%), " +
-          "radial-gradient(ellipse at 8% -5%, rgba(124, 58, 237, 0.22) 0, transparent 52%), " +
-          "linear-gradient(180deg, #140a20 0%, #0d0715 55%, #070409 100%)",
-        bgc: "#0d0715",
-      },
-    };
-
     window.removebg = function () {
-      localStorage.removeItem("aetheris-customBg");
-      document.documentElement.classList.remove("has-custom-bg");
-      document.body.classList.remove("has-custom-bg");
-      var overlay = document.getElementById("custom-bg-overlay");
-      if (overlay && overlay.parentNode)
-        overlay.parentNode.removeChild(overlay);
-
-      var t =
-        themebgs[
-          localStorage.getItem("aetheris-theme") ||
-            document.documentElement.getAttribute("theme") ||
-            "halloween"
-        ] || {};
-      document.body.style.setProperty(
-        "background-image",
-        t.bg || "",
-        "important",
-      );
-      document.body.style.setProperty(
-        "background-color",
-        t.bgc || "#0f0f0f",
-        "important",
-      );
-      clearinlinebg();
+      store.removeItem("aetheris-customBg");
+      Aetheris.refreshBackground();
       refreshpreview(null);
       if (bgstatus) bgstatus.textContent = "Background removed.";
-      if (window.parent && window.parent !== window) {
-        window.parent.postMessage(
-          { type: "bg-changed", dataurl: null },
-          location.origin,
-        );
-      }
+      postbg(null);
     };
   })();
 
@@ -345,17 +270,17 @@ document.addEventListener("DOMContentLoaded", function () {
 
   var osktoggle = document.getElementById("osk-toggle");
   if (osktoggle) {
-    osktoggle.checked = localStorage.getItem("oskEnabled") === "true";
+    osktoggle.checked = store.getItem("oskEnabled") === "true";
     osktoggle.addEventListener("change", function () {
-      localStorage.setItem("oskEnabled", String(osktoggle.checked));
+      store.setItem("oskEnabled", String(osktoggle.checked));
     });
   }
 
   var perftoggle = document.getElementById("performance-toggle");
   if (perftoggle) {
-    perftoggle.checked = localStorage.getItem("performanceMode") === "true";
+    perftoggle.checked = store.getItem("performanceMode") === "true";
     perftoggle.addEventListener("change", function () {
-      localStorage.setItem("performanceMode", String(perftoggle.checked));
+      store.setItem("performanceMode", String(perftoggle.checked));
       if (window.parent !== window)
         window.parent.postMessage(
           { type: "performance-changed", enabled: perftoggle.checked },

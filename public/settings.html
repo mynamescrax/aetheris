@@ -15,11 +15,11 @@
     <link rel="stylesheet" href="./css/themes.css?v=20261005.1" />
     <link rel="stylesheet" href="./css/nav.css?v=20260907.1" />
     <link rel="stylesheet" href="./css/settings.css?v=20260907.1" />
-    <script src="./js/theme.js?v=20261005.2"></script>
+    <script src="./js/theme.js?v=20261007.1"></script>
 
     <script src="register-sw.js?v=20260907.1" defer></script>
     <script defer src="./js/preload.js?v=20260907.1"></script>
-    <script defer src="./js/settings.js?v=20261005.3"></script>
+    <script defer src="./js/settings.js?v=20261007.1"></script>
     <script defer src="./js/data-transfer.js?v=20261005.1"></script>
     <script defer src="./js/cache-reset.js?v=20261005.1"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -28,10 +28,7 @@
     <script>
       (function () {
         window.selectthemecard = function (theme) {
-          localStorage.setItem("aetheris-theme", theme);
-          if (Aetheris.applyTheme) Aetheris.applyTheme(theme);
-          document.documentElement.setAttribute("theme", theme);
-          if (document.body) document.body.setAttribute("theme", theme);
+          if (!Aetheris.applyTheme(theme)) return;
           document
             .querySelectorAll(".theme-card[data-theme]")
             .forEach(function (c) {
@@ -49,7 +46,7 @@
 
         document.addEventListener("DOMContentLoaded", function () {
           var saved =
-            localStorage.getItem("aetheris-theme") ||
+            Aetheris.storage.getItem("aetheris-theme") ||
             document.documentElement.getAttribute("theme") ||
             "halloween";
           document
@@ -65,7 +62,7 @@
 
   <body>
     <div class="center-container">
-      <h1>Settings</h1>
+      <h1>settings</h1>
 
       <div class="settings-tabs">
         <button class="settings-tab active" onclick="showsection('appearance')">
@@ -81,8 +78,8 @@
       </div>
 
       <div class="settings-section active" id="section-appearance">
-        <h2>Theme</h2>
-        <h4>Choose how Aetheris looks</h4>
+        <h2>theme</h2>
+        <h4>pick a theme</h4>
 
         <div class="theme-cards" id="theme-cards">
           <button
@@ -145,7 +142,7 @@
           <option value="halloween">Halloween</option>
         </select>
 
-        <h2>On Screen Keyboard</h2>
+        <h2>on-screen keyboard</h2>
         <h4>show a keyboard overlay when playing games, might not work well</h4>
 
         <div class="toggle-row">
@@ -211,14 +208,24 @@
       </div>
 
       <div class="settings-section" id="section-cloaking">
-        <h2>Tab Cloaking</h2>
+        <h2>tab cloaking</h2>
         <div class="form-row">
-          <input type="text" id="tabname" placeholder="Tab name" />
+          <input
+            type="text"
+            id="tabname"
+            placeholder="Tab name"
+            aria-label="Tab name"
+          />
           <button onclick="settab()" class="secondary">Set tab name</button>
         </div>
 
         <div class="form-row">
-          <input type="text" id="tabicon" placeholder="Tab icon URL" />
+          <input
+            type="text"
+            id="tabicon"
+            placeholder="Tab icon URL"
+            aria-label="Tab icon URL"
+          />
           <button onclick="settab()" class="secondary">Set tab icon</button>
         </div>
 
@@ -262,21 +269,31 @@
           </button>
         </div>
 
-        <h2>Panic Key</h2>
+        <h2>panic key</h2>
         <h4>
-          pick a key games don't use for controls (like ` or ;) — a key like
+          pick a key games don't use for controls (like ` or ;) - a key like
           WASD or space will bail out mid-game. single keys won't trigger while
           you're typing in a text box.
         </h4>
         <div class="form-row">
-          <input type="text" id="panickey" placeholder="Panic key" />
+          <input
+            type="text"
+            id="panickey"
+            placeholder="Panic key"
+            aria-label="Panic key"
+          />
           <button onclick="setpanickey()" class="secondary">
             set panic key
           </button>
         </div>
 
         <div class="form-row">
-          <input type="text" id="panicurl" placeholder="Panic URL" />
+          <input
+            type="text"
+            id="panicurl"
+            placeholder="Panic URL"
+            aria-label="Panic URL"
+          />
           <button onclick="setpanicurl()" class="secondary">
             set panic URL
           </button>
@@ -290,8 +307,8 @@
       </div>
 
       <div class="settings-section" id="section-connection">
-        <h2>Transport</h2>
-        <h4>Choose the transport for sites and games. Simple enough.</h4>
+        <h2>transport</h2>
+        <h4>which transport sites and games use</h4>
 
         <div class="theme-cards" id="transport-cards">
           <button
@@ -344,8 +361,8 @@
           style="margin-top: 8px; font-size: 0.85em; opacity: 0.6"
         ></div>
 
-        <h2>Performance</h2>
-        <h4>Improve performance on slower devices by disabling effects.</h4>
+        <h2>performance</h2>
+        <h4>turns off effects so slower devices run better</h4>
 
         <div class="toggle-row">
           <label class="toggle-label" for="performance-toggle">
@@ -353,11 +370,11 @@
               <input type="checkbox" id="performance-toggle" />
               <span class="toggle-thumb"></span>
             </span>
-            <span class="toggle-text">Enable Performance Mode</span>
+            <span class="toggle-text">performance mode</span>
           </label>
         </div>
 
-        <h2>Desktop Mode</h2>
+        <h2>desktop mode</h2>
         <h4>makes the game/site tink ur on a pc</h4>
 
         <div class="toggle-row">
@@ -366,13 +383,13 @@
               <input type="checkbox" id="spoof-ua-toggle" />
               <span class="toggle-thumb"></span>
             </span>
-            <span class="toggle-text">Spoof Desktop User Agent</span>
+            <span class="toggle-text">spoof desktop user agent</span>
           </label>
         </div>
       </div>
 
       <div class="settings-section" id="section-data">
-        <h2>Data</h2>
+        <h2>data</h2>
         <h4>
           Back up settings and game saves. Chat sign-ins and disposable caches
           are excluded. Keep backup files private.
@@ -380,14 +397,14 @@
 
         <div class="form-row">
           <button onclick="exportdata()" class="secondary" data-transfer>
-            ⬇ Export data
+            Export data
           </button>
           <button
             onclick="document.getElementById('import-file').click()"
             class="secondary"
             data-transfer
           >
-            ⬆ Import data
+            Import data
           </button>
           <input
             type="file"
@@ -403,7 +420,7 @@
           style="margin-top: 10px; font-size: 0.92em; opacity: 0.75"
         ></div>
 
-        <h2>Cache</h2>
+        <h2>cache</h2>
         <h4>
           Clear proxy/catalog caches and the site service worker. Game-save
           databases and favorites are kept.
@@ -414,7 +431,7 @@
           </button>
         </div>
 
-        <h2>Downloaded games</h2>
+        <h2>downloaded games</h2>
         <h4>
           Delete downloaded game files to free space: per-game offline packs,
           game download caches, and large downloaded files stored alongside
@@ -426,7 +443,7 @@
           </button>
         </div>
 
-        <h2>Site data</h2>
+        <h2>site data</h2>
         <h4>
           Delete everything stored by this site: settings, favorites, game
           saves, chat sign-ins, caches, and the service worker. Export a
@@ -521,7 +538,7 @@
           )
         )
           return;
-        if (!confirm("Last chance — really wipe everything and reload?"))
+        if (!confirm("Last chance: really wipe everything and reload?"))
           return;
         btn.disabled = true;
         btn.textContent = "Clearing…";
@@ -545,14 +562,12 @@
           var tabs = ["appearance", "cloaking", "connection", "data"];
           btn.classList.toggle("active", tabs[i] === name);
         });
-        try {
-          localStorage.setItem("settingsTab", name);
-        } catch (_) {}
+        Aetheris.storage.setItem("settingsTab", name);
       }
 
       document.addEventListener("DOMContentLoaded", function () {
-        var saved = localStorage.getItem("settingsTab");
-        if (saved && document.getElementById("section-" + saved)) {
+        var saved = Aetheris.storage.getItem("settingsTab");
+        if (saved && /^[a-z]+$/.test(saved) && document.getElementById("section-" + saved)) {
           showsection(saved);
         }
       });

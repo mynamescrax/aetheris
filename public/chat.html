@@ -14,7 +14,7 @@
     <link rel="stylesheet" href="./css/themes.css?v=20261005.1" />
     <link rel="stylesheet" href="./css/nav.css?v=20260907.1" />
     <link rel="stylesheet" href="./css/chat.css?v=20260907.1" />
-    <script src="./js/theme.js?v=20261005.2"></script>
+    <script src="./js/theme.js?v=20261007.1"></script>
     <script src="register-sw.js?v=20260907.1" defer></script>
     <script defer src="./js/preload.js?v=20260907.1"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -24,7 +24,7 @@
   <body>
     <div id="auth-page">
       <div class="auth-card">
-        <div class="auth-logo">💬 Aetheris <em>DMs</em></div>
+        <div class="auth-logo">Aetheris <em>DMs</em></div>
         <div class="auth-tabs" role="tablist" aria-label="Account">
           <button
             id="tab-login"
@@ -83,8 +83,8 @@
           Log in
         </button>
         <hr class="auth-hr" />
-        <button class="abtn danger" onclick="openwipe()">
-          🗑 Delete all accounts from this device
+        <button type="button" class="abtn danger" onclick="openwipe()">
+          delete all accounts from this device
         </button>
       </div>
     </div>
@@ -104,39 +104,49 @@
                   id="al-btn"
                   onclick="toggleautologin()"
                   title="Auto-login"
+                  aria-label="Toggle auto-login"
                 >
                   🔒
                 </button>
-                <button class="ib" onclick="logout()" title="Log out">↩</button>
+                <button
+                  class="ib"
+                  onclick="logout()"
+                  title="Log out"
+                  aria-label="Log out"
+                >
+                  ↩
+                </button>
                 <button
                   class="ib red"
                   onclick="openmodal('modal-del')"
                   title="Delete account"
+                  aria-label="Delete account"
                 >
                   🗑
                 </button>
               </div>
             </div>
             <div class="tg-srch">
-              <span class="tg-srch-ico">🔍</span>
+              <span class="tg-srch-ico" aria-hidden="true">🔍</span>
               <input
                 id="srch"
                 type="text"
-                placeholder="Search…"
+                placeholder="search…"
+                aria-label="Search conversations"
                 oninput="filterinbox()"
                 autocomplete="off"
               />
             </div>
           </div>
-          <button class="tg-new" onclick="opennewdm()">✏️ New message</button>
+          <button class="tg-new" onclick="opennewdm()">New message</button>
           <div class="tg-list" id="tg-list">
-            <div class="tg-empty-l">no convos yet.<br />start one above!</div>
+            <div class="tg-empty-l">no convos yet.<br />start one above.</div>
           </div>
         </div>
 
         <div class="tg-right">
           <div class="tg-empty-r" id="tg-empty">
-            <div class="big">💬</div>
+            <div class="big" aria-hidden="true">💬</div>
             <div>select a convo or start one</div>
           </div>
           <div
@@ -192,16 +202,19 @@
       id="modal-newdm"
       class="mbg"
       style="display: none"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="newdm-title"
       onclick="bgclose(event, 'modal-newdm')"
     >
       <div class="modal">
-        <h3>New message</h3>
+        <h3 id="newdm-title">new message</h3>
         <div class="msrch">
           <input
             id="user-search"
             type="text"
             placeholder="search users..."
-            oninput="filterusers()"
+            aria-label="Search users"
             autocomplete="off"
           />
         </div>
@@ -216,10 +229,13 @@
       id="modal-del"
       class="mbg"
       style="display: none"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="del-title"
       onclick="bgclose(event, 'modal-del')"
     >
       <div class="modal">
-        <h3>⚠️ Delete account?</h3>
+        <h3 id="del-title">delete account?</h3>
         <p>
           this deletes your account and all your dms. frees your device so you
           can register again.
@@ -237,10 +253,13 @@
       id="modal-wipe"
       class="mbg"
       style="display: none"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="wipe-title"
       onclick="bgclose(event, 'modal-wipe')"
     >
       <div class="modal">
-        <h3>🗑 Delete all accounts?</h3>
+        <h3 id="wipe-title">delete all accounts?</h3>
         <p>
           deletes the account created on this device (you need to be logged in).
         </p>
@@ -256,7 +275,8 @@
       </div>
     </div>
 
-    <script src="./js/dm-shared.js?v=20260907.1"></script>
-    <script src="./js/chat.js?v=20260907.1"></script>
+    <script src="./js/dm-shared.js?v=20261007.1"></script>
+    <script src="./js/dm-ui.js?v=20261007.1"></script>
+    <script src="./js/chat.js?v=20261007.1"></script>
   </body>
 </html>

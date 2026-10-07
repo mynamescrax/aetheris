@@ -9,7 +9,7 @@
       href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&display=swap"
     />
     <link rel="stylesheet" href="./css/themes.css?v=20261005.1" />
-    <script src="./js/theme.js?v=20261005.2"></script>
+    <script src="./js/theme.js?v=20261007.1"></script>
     <title>Aetheris DMs</title>
     <style>
       *,
@@ -626,9 +626,8 @@
     <link rel="stylesheet" href="./css/usability.css?v=20260928.1" />
   </head>
   <body>
-    <!-- AUTH -->
     <div id="auth">
-      <div class="auth-title">💬 Aetheris <em>DMs</em></div>
+      <div class="auth-title">Aetheris <em>DMs</em></div>
       <div class="tabs" role="tablist" aria-label="Account">
         <button
           id="tab-login"
@@ -676,12 +675,10 @@
       </button>
     </div>
 
-    <!-- APP -->
     <div id="app">
-      <!-- INBOX VIEW -->
       <div id="view-inbox">
         <div class="mc-head">
-          <span class="mc-head-title">💬 DMs</span>
+          <span class="mc-head-title">DMs</span>
           <button class="ib" onclick="logout()" title="Log out" aria-label="Log out">
             ↩
           </button>
@@ -694,13 +691,12 @@
             ✏️
           </button>
         </div>
-        <button class="mc-new" onclick="opennewdm()">✏️ New message</button>
+        <button class="mc-new" onclick="opennewdm()">New message</button>
         <div class="mc-list" id="mc-list">
-          <div class="mc-empty">no convos yet.<br />start one above!</div>
+          <div class="mc-empty">no convos yet.<br />start one above.</div>
         </div>
       </div>
 
-      <!-- CHAT VIEW -->
       <div id="view-chat">
         <div class="mc-head">
           <button class="back-btn" onclick="showinbox()" aria-label="Back to inbox">
@@ -728,7 +724,6 @@
       </div>
     </div>
 
-    <!-- NEW DM MODAL -->
     <div
       id="modal-newdm"
       class="mbg"
@@ -739,7 +734,7 @@
       onclick="if (event.target === this) closemodal('modal-newdm');"
     >
       <div class="modal">
-        <h3 id="newdm-title">New message</h3>
+        <h3 id="newdm-title">new message</h3>
         <div class="msrch">
           <input
             id="user-search"
@@ -756,416 +751,52 @@
       </div>
     </div>
 
-    <script src="./js/dm-shared.js?v=20260907.1"></script>
+    <script src="./js/dm-shared.js?v=20261007.1"></script>
+    <script src="./js/dm-ui.js?v=20261007.1"></script>
     <script>
-      // page-specific mini-chat UI — shared auth/session/api helpers live in
-      // dm-shared.js: autologin/authtoken/myusername, savetoken, cleartoken,
-      // getdeviceid, ini, esc, timeago, switchtab, submitauth.
-      var activeconvo = null,
-        polltimer = null,
-        inboxtimer = null;
-      var activedisplay = null;
-      var inboxcache = [],
-        lastmsgtime = 0,
-        lastdatelabel = "";
-      var POLL_MS = 2500;
-      var conversationVersion = 0,
-        messagesLoadingFor = "",
-        sending = false;
-      var drafts = Object.create(null);
-
-      function showapp() {
-        document.getElementById("auth").style.display = "none";
-        document.getElementById("app").style.display = "flex";
-        loadinbox();
-        clearInterval(inboxtimer);
-        inboxtimer = setInterval(loadinbox, 6000);
+      function showview(chat) {
+        document.getElementById("view-inbox").style.display = chat
+          ? "none"
+          : "flex";
+        document.getElementById("view-chat").style.display = chat
+          ? "flex"
+          : "none";
       }
 
-      function showauth() {
-        conversationVersion++;
-        drafts = Object.create(null);
-        document.getElementById("app").style.display = "none";
-        document.getElementById("auth").style.display = "flex";
-        clearInterval(polltimer);
-        clearInterval(inboxtimer);
-        polltimer = inboxtimer = null;
-        activeconvo = null;
-        activedisplay = null;
-      }
+      startdm({
+        ids: {
+          auth: "auth",
+          app: "app",
+          list: "mc-list",
+          msgs: "mc-msgs",
+          input: "mc-inp",
+        },
+        appDisplay: "flex",
+        prefix: "mc",
+        inbox: {
+          item: "mc-item",
+          av: "av",
+          body: "mc-item-body",
+          top: "mc-item-top",
+          name: "mc-item-name",
+          time: "mc-item-time",
+          prev: "mc-item-prev",
+          badge: "mc-badge",
+        },
+        emptyInbox:
+          '<div class="mc-empty">no convos yet.<br>start one above.</div>',
+        onShowAuth: function () {
+          showview(false);
+        },
+        onOpenConvo: function () {
+          showview(true);
+        },
+        onShowInbox: function () {
+          showview(false);
+          loadinbox();
+        },
+      });
 
-      async function logout() {
-        try {
-          await fetch("/api/accounts/logout", {
-            method: "POST",
-            headers: { Authorization: "Bearer " + authtoken },
-          });
-        } catch (_) {}
-        cleartoken();
-        myusername = "";
-        Aetheris.storage.removeItem("dmUsername");
-        showauth();
-      }
-
-      (async function () {
-        if (!authtoken) return;
-        try {
-          var r = await fetch("/api/accounts/me", {
-            headers: { Authorization: "Bearer " + authtoken },
-          });
-          var d = await r.json();
-          if (d.ok) {
-            myusername = d.username;
-            localStorage.setItem("dmUsername", myusername);
-            showapp();
-          } else {
-            cleartoken();
-            localStorage.removeItem("dmUsername");
-            myusername = "";
-          }
-        } catch (_) {}
-      })();
-
-      async function loadinbox() {
-        if (!authtoken || document.hidden) return;
-        var token = authtoken;
-        try {
-          var r = await fetch("/api/dm-inbox", {
-            headers: { Authorization: "Bearer " + authtoken },
-          });
-          var d = await r.json();
-          if (token !== authtoken) return;
-          if (r.status === 401) {
-            cleartoken();
-            showauth();
-            return;
-          }
-          if (!d.ok) return;
-          // guard against a non-array payload — an unguarded assignment
-          // corrupts inboxcache for the next poll cycle (same as chat.js)
-          inboxcache = Array.isArray(d.conversations) ? d.conversations : [];
-          renderinbox(inboxcache);
-        } catch (_) {}
-      }
-
-      function renderinbox(cs) {
-        var el = document.getElementById("mc-list");
-        el.innerHTML = "";
-        if (!cs.length) {
-          el.innerHTML =
-            '<div class="mc-empty">no convos yet.<br>start one above!</div>';
-          notifybadge(0);
-          return;
-        }
-        var totalunread = 0;
-        cs.forEach(function (c) {
-          var isactive = c.with.toLowerCase() === activeconvo;
-          var unread = isactive ? 0 : c.unread || 0;
-          if (!isactive) totalunread += unread;
-          var it = document.createElement("div");
-          it.className = "mc-item";
-          var badge =
-            unread > 0
-              ? '<span class="mc-badge">' +
-                (unread > 99 ? "99+" : unread) +
-                "</span>"
-              : "";
-          it.innerHTML =
-            '<div class="av">' +
-            ini(c.with) +
-            "</div>" +
-            '<div class="mc-item-body"><div class="mc-item-top"><span class="mc-item-name">' +
-            esc(c.with) +
-            "</span>" +
-            '<span class="mc-item-time">' +
-            timeago(c.lastTime) +
-            "</span></div>" +
-            '<div class="mc-item-prev">' +
-            esc(c.lastMessage) +
-            "</div></div>" +
-            badge;
-          it.setAttribute("role", "button");
-          it.tabIndex = 0;
-          it.addEventListener("keydown", function (event) {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              it.click();
-            }
-          });
-          it.addEventListener("click", function () {
-            openconvo(c.with.toLowerCase(), c.with);
-          });
-          el.appendChild(it);
-        });
-        notifybadge(totalunread);
-      }
-
-      function notifybadge(count) {
-        try {
-          window.parent.postMessage(
-            { type: "chat-unread", count: count },
-            location.origin,
-          );
-        } catch (_) {}
-      }
-
-      // views
-      function showinbox() {
-        if (activeconvo)
-          drafts[activeconvo] = document.getElementById("mc-inp").value;
-        conversationVersion++;
-        document.getElementById("view-chat").style.display = "none";
-        document.getElementById("view-inbox").style.display = "flex";
-        clearInterval(polltimer);
-        polltimer = null;
-        activeconvo = null;
-        activedisplay = null;
-        loadinbox();
-      }
-
-      function openchatview() {
-        document.getElementById("view-inbox").style.display = "none";
-        var vc = document.getElementById("view-chat");
-        vc.style.display = "flex";
-      }
-
-      function openconvo(u, display) {
-        if (activeconvo)
-          drafts[activeconvo] = document.getElementById("mc-inp").value;
-        conversationVersion++;
-        document.getElementById("mc-inp").value = drafts[u] || "";
-        activeconvo = u;
-        activedisplay = display || u;
-        lastmsgtime = 0;
-        lastdatelabel = "";
-        document.getElementById("chat-name").textContent = activedisplay;
-        document.getElementById("chat-av").textContent = ini(activedisplay);
-        document.getElementById("mc-msgs").innerHTML = "";
-        openchatview();
-        clearInterval(polltimer);
-        loadmsgs();
-        polltimer = setInterval(loadmsgs, POLL_MS);
-        if (!matchMedia("(pointer: coarse)").matches)
-          document.getElementById("mc-inp").focus();
-      }
-
-      async function loadmsgs() {
-        if (!activeconvo || document.hidden) return;
-        var convo = activeconvo,
-          version = conversationVersion,
-          token = authtoken;
-        var requestKey = convo + ":" + version;
-        if (messagesLoadingFor === requestKey) return;
-        messagesLoadingFor = requestKey;
-        try {
-          var r = await fetch(
-            "/api/dm/" +
-              encodeURIComponent(activeconvo) +
-              "?after=" +
-              lastmsgtime,
-            { headers: { Authorization: "Bearer " + authtoken } },
-          );
-          var msgs = await r.json();
-          if (
-            convo !== activeconvo ||
-            version !== conversationVersion ||
-            token !== authtoken
-          )
-            return;
-          if (r.status === 401) {
-            cleartoken();
-            showauth();
-            return;
-          }
-          if (!Array.isArray(msgs) || !msgs.length) return;
-          msgs = msgs.filter(function (msg) {
-            return msg.time > lastmsgtime;
-          });
-          if (!msgs.length) return;
-          var box = document.getElementById("mc-msgs");
-          var atbottom =
-            box.scrollHeight - box.scrollTop <= box.clientHeight + 80;
-          msgs.forEach(function (m) {
-            var dl = new Date(m.time).toLocaleDateString([], {
-              month: "long",
-              day: "numeric",
-            });
-            if (dl !== lastdatelabel) {
-              var s = document.createElement("div");
-              s.className = "mc-datesep";
-              s.innerHTML = "<span>" + dl + "</span>";
-              box.appendChild(s);
-              lastdatelabel = dl;
-            }
-            box.appendChild(makemsgel(m));
-          });
-          lastmsgtime = msgs[msgs.length - 1].time;
-          fetch("/api/dm-inbox/read/" + encodeURIComponent(convo), {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: "Bearer " + token,
-            },
-            body: JSON.stringify({ through: lastmsgtime }),
-          }).catch(function () {});
-          if (atbottom) box.scrollTop = box.scrollHeight;
-        } catch (_) {
-        } finally {
-          if (messagesLoadingFor === requestKey) messagesLoadingFor = "";
-        }
-      }
-
-      function makemsgel(msg) {
-        var mine = msg.from.toLowerCase() === myusername.toLowerCase();
-        var w = document.createElement("div");
-        w.className = "mc-msg " + (mine ? "mine" : "theirs");
-        var ts = new Date(msg.time).toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        });
-        w.innerHTML =
-          (!mine ? '<div class="mc-who">' + esc(msg.from) + "</div>" : "") +
-          '<div class="mc-bub">' +
-          esc(msg.message) +
-          "</div>" +
-          '<div class="mc-meta"><span class="mc-ts">' +
-          ts +
-          "</span>" +
-          (mine ? '<span class="mc-tick" title="Sent">✓</span>' : "") +
-          "</div>";
-        return w;
-      }
-
-      async function senddm() {
-        if (!activeconvo || sending) return;
-        var recipient = activeconvo,
-          token = authtoken;
-        var inp = document.getElementById("mc-inp");
-        var text = inp.value.trim();
-        if (!text) return;
-        sending = true;
-        inp.disabled = true;
-        inp.value = "";
-        var controller = new AbortController(),
-          timeout = setTimeout(function () {
-            controller.abort();
-          }, 15000);
-        try {
-          var r = await fetch("/api/dm/" + encodeURIComponent(recipient), {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: "Bearer " + token,
-            },
-            body: JSON.stringify({ message: text }),
-            signal: controller.signal,
-          });
-          if (token !== authtoken) return;
-          if (!r.ok) {
-            // put the message back so it isn't silently lost
-            drafts[recipient] = text;
-            if (activeconvo === recipient) inp.value = text;
-            var d = await r.json().catch(function () {
-              return {};
-            });
-            if (token !== authtoken) return;
-            alert(d.error || "couldn't send that message.");
-            return;
-          }
-        } catch (_) {
-          if (token !== authtoken) return;
-          drafts[recipient] = text;
-          if (activeconvo === recipient) inp.value = text;
-          alert("network error — message not sent.");
-          return;
-        } finally {
-          clearTimeout(timeout);
-          sending = false;
-          inp.disabled = false;
-        }
-        delete drafts[recipient];
-        loadmsgs();
-        loadinbox();
-      }
-      document
-        .getElementById("mc-inp")
-        .addEventListener("keydown", function (e) {
-          if (e.key === "Enter" && !e.isComposing) senddm();
-        });
-
-      var searchtimer = null;
-
-      function opennewdm() {
-        document.getElementById("user-search").value = "";
-        document.getElementById("user-list").innerHTML = "";
-        document.getElementById("modal-newdm").style.display = "flex";
-        setTimeout(function () {
-          document.getElementById("user-search").focus();
-        }, 60);
-      }
-
-      function closemodal(id) {
-        document.getElementById(id).style.display = "none";
-      }
-
-      async function searchusers(q) {
-        if (q.length < 2) {
-          document.getElementById("user-list").innerHTML = "";
-          return;
-        }
-        var token = authtoken;
-        try {
-          var r = await fetch(
-            "/api/accounts/search?q=" + encodeURIComponent(q),
-            { headers: { Authorization: "Bearer " + authtoken } },
-          );
-          var d = await r.json();
-          if (
-            token !== authtoken ||
-            document.getElementById("user-search").value.trim() !== q ||
-            !d.ok
-          )
-            return;
-          var box = document.getElementById("user-list");
-          box.innerHTML = "";
-          (Array.isArray(d.users) ? d.users : []).forEach(function (u) {
-            var el = document.createElement("div");
-            el.className = "uitem";
-            el.innerHTML = '<div class="uav">' + ini(u) + "</div>" + esc(u);
-            el.setAttribute("role", "button");
-            el.tabIndex = 0;
-            el.addEventListener("keydown", function (event) {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                el.click();
-              }
-            });
-            el.addEventListener("click", function () {
-              closemodal("modal-newdm");
-              openconvo(u.toLowerCase(), u);
-              loadinbox();
-            });
-            box.appendChild(el);
-          });
-        } catch (_) {}
-      }
-
-      document
-        .getElementById("user-search")
-        .addEventListener("input", function () {
-          var self = this;
-          clearTimeout(searchtimer);
-          searchtimer = setTimeout(function () {
-            searchusers(self.value.trim());
-          }, 200);
-        });
-      document
-        .getElementById("user-search")
-        .addEventListener("keydown", function (e) {
-          if (e.key === "Escape") closemodal("modal-newdm");
-        });
-      // Escape must close the dialog wherever focus is, not only inside the
-      // search field.
       document.addEventListener("keydown", function (e) {
         if (e.key !== "Escape") return;
         var modal = document.getElementById("modal-newdm");

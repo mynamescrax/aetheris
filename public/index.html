@@ -36,14 +36,23 @@
         }
       })();
 
+      // theme name -> theme-color. The shell doesn't load theme.js, so this
+      // copies its theme list; keep both in sync (tests/client.test.js checks).
+      Aetheris.themeColors = {
+        dark: "#0f0f0f",
+        "charcoal-gold": "#0f0f0f",
+        "dark-blue": "#020617",
+        halloween: "#0d0715",
+      };
+      Aetheris.isTheme = function (theme) {
+        return Object.prototype.hasOwnProperty.call(
+          Aetheris.themeColors,
+          theme,
+        );
+      };
+
       (function () {
         var THEME_KEY = "aetheris-theme";
-        var validthemes = {
-          dark: 1,
-          "charcoal-gold": 1,
-          "dark-blue": 1,
-          halloween: 1,
-        };
 
         if (
           !Aetheris.storage.getItem(THEME_KEY) &&
@@ -64,7 +73,7 @@
           t = "charcoal-gold";
           Aetheris.storage.setItem(THEME_KEY, t);
         }
-        if (!validthemes[t]) {
+        if (!Aetheris.isTheme(t)) {
           t = "halloween";
           Aetheris.storage.setItem(THEME_KEY, t);
         }
@@ -90,8 +99,7 @@
           if (
             e.data &&
             e.data.type === "theme-changed" &&
-            e.data.theme &&
-            validthemes[e.data.theme]
+            Aetheris.isTheme(e.data.theme)
           ) {
             Aetheris.storage.setItem(THEME_KEY, e.data.theme);
             applythemeearly(e.data.theme);
@@ -115,15 +123,10 @@
     <meta name="theme-color" content="#0f0f0f" />
     <script>
       (function () {
-        var themeColors = {
-          dark: "#0f0f0f",
-          "charcoal-gold": "#0f0f0f",
-          "dark-blue": "#020617",
-          halloween: "#0d0715",
-        };
         function updatethemecolor(t) {
           var meta = document.querySelector('meta[name="theme-color"]');
-          if (meta && themeColors[t]) meta.content = themeColors[t];
+          if (meta && Aetheris.isTheme(t))
+            meta.content = Aetheris.themeColors[t];
         }
         var t =
           document.documentElement.getAttribute("theme") ||
@@ -487,13 +490,6 @@
     </div>
 
     <script>
-      var VALID_THEMES = {
-        dark: 1,
-        "charcoal-gold": 1,
-        "dark-blue": 1,
-        halloween: 1,
-      };
-
       var mainframe = document.getElementById("mainframe");
       var navcheck = document.getElementById("nav-toggle");
       var sidebar = document.getElementById("sidebar");
@@ -654,7 +650,7 @@
       function applytheme(theme) {
         var t =
           theme || Aetheris.storage.getItem("aetheris-theme") || "halloween";
-        if (!VALID_THEMES[t]) t = "halloween";
+        if (!Aetheris.isTheme(t)) t = "halloween";
         document.documentElement.setAttribute("theme", t);
         if (document.body && document.body.getAttribute("theme") !== t) {
           document.body.setAttribute("theme", t);
@@ -720,8 +716,7 @@
 
         if (
           msg.type === "theme-changed" &&
-          msg.theme &&
-          VALID_THEMES[msg.theme]
+          Aetheris.isTheme(msg.theme)
         ) {
           Aetheris.storage.setItem("aetheris-theme", msg.theme);
           applytheme(msg.theme);
@@ -745,17 +740,8 @@
       }
 
       (function () {
-        function gettoken() {
-          var autologin = Aetheris.storage.getItem("dmAutoLogin") !== "false";
-          return autologin
-            ? Aetheris.storage.getItem("dmToken") ||
-                sessionStorage.getItem("dmToken") ||
-                ""
-            : sessionStorage.getItem("dmToken") || "";
-        }
-
         async function checkunread() {
-          var token = gettoken();
+          var token = Aetheris.getToken();
           if (!token) {
             chatbadge(0);
             return;
@@ -769,8 +755,9 @@
             if (!r.ok) return;
             var d = await r.json();
             if (!d.ok) return;
-            var total = (d.conversations || []).reduce(function (s, c) {
-              return s + (c.unread || 0);
+            var convos = Array.isArray(d.conversations) ? d.conversations : [];
+            var total = convos.reduce(function (s, c) {
+              return s + (Number(c && c.unread) || 0);
             }, 0);
             chatbadge(total);
           } catch (_) {}
@@ -798,8 +785,7 @@
           if (lastcount !== null) sendcount(lastcount);
         });
 
-        // One persistent id per browser, so multiple tabs (and reconnects)
-        // count once in the online counter instead of once per SSE stream.
+        // one id per browser so extra tabs/reconnects count once online
         function clientid() {
           var key = "aetheris-client-id";
           var id = Aetheris.storage.getItem(key);
@@ -846,18 +832,14 @@
         resize();
       })();
 
-      // panic key — works while focus is on the shell itself; embedded app
-      // pages add the same listener via js/preload.js, and game/proxied
-      // pages get one injected by the service worker (see sw.js)
+      // panic key for the shell; framed pages get it from preload.js / sw.js
       document.addEventListener(
         "keydown",
         function (e) {
           try {
             var key = Aetheris.storage.getItem("panickey");
             if (!key || e.key !== key) return;
-            // a single-character panic key would fire on every keystroke
-            // while typing in a text field — only let multi-char keys
-            // (Escape, F-keys, ...) through in that case
+            // don't fire a single-character key while the user is typing
             var t = e.target;
             if (
               e.key.length === 1 &&
