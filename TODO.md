@@ -45,8 +45,9 @@ Each of these needs a product decision or live testing first.
   break working providers.
 - `lc-relay` has no per-socket message-rate limit (frames are capped at 1 MB,
   backpressure terminates at 4 MB buffered).
-- The on-demand TLS `ask` matcher accepts any `*.aetheris.win` / `*.crax.lol`
-  subdomain. Low risk (needs DNS control); an exact allowlist is stricter.
+- On-demand TLS is intentionally open (any hostname pointing here gets a cert,
+  UBG-style). Abuse risk is LE rate-limit exhaustion; tighten `interval`/`burst`
+  if that happens.
 - `sw.js` restores the desktop-UA spoof flag asynchronously, so early
   requests can miss spoofing.
 - No transport liveness probe: a dead transport behind a still-connected frame

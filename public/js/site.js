@@ -1,6 +1,36 @@
 (function () {
   "use strict";
 
+  // Google Analytics 4 – single injector for every page (site.js loads first
+  // on all main pages). Keeps the Measurement ID in one place instead of
+  // pasting the gtag snippet into 14 HTML files.
+  try {
+    var GA_ID = "G-VLF4220GP2";
+    if (
+      GA_ID &&
+      !window._aetherisGaLoaded &&
+      typeof document !== "undefined" &&
+      document.head
+    ) {
+      window._aetherisGaLoaded = true;
+      window.dataLayer = window.dataLayer || [];
+      window.gtag =
+        window.gtag ||
+        function () {
+          window.dataLayer.push(arguments);
+        };
+      window.gtag("js", new Date());
+      window.gtag("config", GA_ID);
+      var gaScript = document.createElement("script");
+      gaScript.async = true;
+      gaScript.src =
+        "https://www.googletagmanager.com/gtag/js?id=" + GA_ID;
+      document.head.appendChild(gaScript);
+    }
+  } catch (_) {
+    // Analytics must never break the site.
+  }
+
   if (window.parent !== window)
     document.documentElement.classList.add("in-iframe");
 
