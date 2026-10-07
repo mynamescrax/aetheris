@@ -22,8 +22,7 @@
   var maxAttachments = 3;
   var maxImageAttachments = 4;
   var maxFileBytes = 4 * 1024 * 1024;
-  // Bumped by clearChat so an in-flight FileReader can't repopulate
-  // attachments after the conversation has been reset.
+  // Bumped on clear so a pending FileReader can't re-add old attachments.
   var attachmentEpoch = 0;
 
   var app = $("ai-app");
@@ -201,7 +200,7 @@
     if (!filtered.length) {
       var empty = document.createElement("div");
       empty.className = "ai-model-empty";
-      empty.textContent = "No models match that search.";
+      empty.textContent = "no models match that";
       container.appendChild(empty);
       return;
     }
@@ -290,8 +289,7 @@
 
   function loadModels() {
     applyModels([{ id: defaultModel }, { id: defaultImgModel }]);
-    // Models are behind the same bearer gate as chat/images when
-    // AI_REQUIRE_LOGIN=true — send the token like the other calls do.
+    // Token is needed when AI_REQUIRE_LOGIN=true.
     fetch("/api/ai/models", { headers: apiHeaders() })
       .then(function (response) {
         if (!response.ok)
@@ -552,14 +550,10 @@
     }
   }
 
-  // Attachments are embedded as full base64 data URLs and the chat route caps
-  // its body at 20 MB, so images across several turns would fail with 413.
-  // Drop just the image parts from the OLDEST image-bearing messages (keeping
-  // their text, the newest images, and always the current turn) until the
-  // payload is back under budget.
+  // The chat route caps bodies at 20 MB. Strip images from the oldest
+  // messages (keeping their text and the current turn) until we fit.
   function shrinkConvos() {
-    // Above the largest possible single message (3 × 4 MiB images ≈ 16 MiB
-    // base64) so the current turn's images are never stripped.
+    // Bigger than one full message (3 x 4 MiB images as base64).
     var LIMIT = 17 * 1024 * 1024;
     function imageBytes() {
       var size = 0;
@@ -725,15 +719,12 @@
         throw new Error("No response returned. Your draft has been restored.");
       if (!bubble) {
         if (typing.parentNode) typing.parentNode.removeChild(typing);
-        bubble = addMsg("assistant", answer || "No response returned.");
+        bubble = addMsg("assistant", answer);
       }
       convos.push({ role: "assistant", content: answer });
     } catch (error) {
-      // Stop the stream too: a mid-stream parse/error throw used to leave the
-      // response body downloading with its abort timer cleared in finally.
-      try {
-        controller.abort();
-      } catch (_) {}
+      // Cancel the stream so it doesn't keep downloading after an error.
+      controller.abort();
       if (typing.parentNode) typing.parentNode.removeChild(typing);
       convos.pop();
       if (userBubble.parentNode) userBubble.parentNode.remove();
@@ -762,13 +753,12 @@
     renderAttachments();
     msgsEl.innerHTML =
       '<div class="ai-empty">' +
-      '<span class="ai-eyebrow">A blank page, ready</span>' +
-      "<h1>What are we<br>making today?</h1>" +
-      "<p>Think through an idea, analyze an image, or get a direct answer. Start anywhere.</p>" +
+      "<h1>ask anything</h1>" +
+      "<p>questions, homework, code, or drop in a screenshot.</p>" +
       '<div class="ai-prompt-grid">' +
-      '<button type="button" data-chat-prompt="Help me turn a rough idea into a clear plan"><span>01</span><strong>Shape an idea</strong><small>Turn a thought into a clear plan</small></button>' +
-      '<button type="button" data-chat-prompt="Help me understand what is happening in this image"><span>02</span><strong>Analyze an image</strong><small>Attach a photo or screenshot</small></button>' +
-      '<button type="button" data-chat-prompt="Explain a difficult topic in plain language"><span>03</span><strong>Learn something</strong><small>Make a hard topic feel simple</small></button>' +
+      '<button type="button" data-chat-prompt="Explain this like I\'m 12: ">explain something simply</button>' +
+      '<button type="button" data-chat-prompt="Check my answer and tell me where I went wrong: ">check my work</button>' +
+      '<button type="button" data-chat-prompt="What\'s in this image?">what\'s in this image?</button>' +
       "</div></div>";
     setErr("");
     chatInp.value = "";
@@ -855,10 +845,7 @@
     closeModelMenus();
     app.classList.toggle("mode-chat", mode === "chat");
     app.classList.toggle("mode-img", mode === "img");
-    $("ai-section-kicker").textContent =
-      mode === "chat" ? "Conversation" : "Create";
-    $("ai-section-title").textContent =
-      mode === "chat" ? "New thread" : "Image studio";
+    $("ai-section-title").textContent = mode === "chat" ? "chat" : "images";
     var tabs = document.querySelectorAll(".ai-tab");
     for (var i = 0; i < tabs.length; i++) {
       tabs[i].classList.toggle(

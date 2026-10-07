@@ -17,7 +17,7 @@
 
     <link rel="stylesheet" href="./css/main.css?v=20260907.1" />
     <link rel="stylesheet" href="./css/themes.css?v=20261005.1" />
-    <link rel="stylesheet" href="./css/ai.css?v=20260907.1" />
+    <link rel="stylesheet" href="./css/ai.css?v=20261007.1" />
     <script src="./js/theme.js?v=20261005.2"></script>
     <script defer src="./js/preload.js?v=20260907.1"></script>
     <link rel="stylesheet" href="./css/usability.css?v=20260928.1" />
@@ -43,7 +43,7 @@
           </div>
           <div>
             <div class="ai-brand-name">Aetheris</div>
-            <div class="ai-brand-sub">creative intelligence</div>
+            <div class="ai-brand-sub">ai</div>
           </div>
         </div>
 
@@ -56,12 +56,11 @@
               stroke-linecap="round"
             />
           </svg>
-          <span>New conversation</span>
+          <span>new chat</span>
           <kbd>Ctrl N</kbd>
         </button>
 
         <nav class="ai-tabs" aria-label="Creation mode">
-          <span class="ai-nav-label">Workspace</span>
           <button class="ai-tab active" data-mode="chat" type="button">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path
@@ -71,9 +70,7 @@
                 stroke-linejoin="round"
               />
             </svg>
-            <span
-              ><strong>Chat</strong><small>Ask, write and explore</small></span
-            >
+            <span>chat</span>
           </button>
           <button class="ai-tab" data-mode="img" type="button">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -94,28 +91,21 @@
                 stroke-linejoin="round"
               />
             </svg>
-            <span
-              ><strong>Images</strong
-              ><small>Turn ideas into visuals</small></span
-            >
+            <span>images</span>
           </button>
         </nav>
 
-        <div class="ai-rail-foot">
-          <span class="ai-status-dot" aria-hidden="true"></span>
-          <span>Chat &amp; images</span>
-        </div>
       </aside>
 
       <section class="ai-workspace" id="ai-content">
         <header class="ai-topbar">
           <div class="ai-page-title">
-            <span id="ai-section-kicker">Conversation</span>
-            <strong id="ai-section-title">New thread</strong>
+            <span id="ai-section-kicker">ai</span>
+            <strong id="ai-section-title">chat</strong>
           </div>
           <div class="ai-actions">
             <div class="ai-model-wrap">
-              <span>Model</span>
+              <span>model</span>
               <div class="ai-model-picker" id="ai-chat-model-picker">
                 <button
                   class="ai-model-trigger"
@@ -164,7 +154,7 @@
                     <input
                       id="ai-model-search"
                       type="search"
-                      placeholder="Search models…"
+                      placeholder="search models"
                       autocomplete="off"
                     />
                   </div>
@@ -184,8 +174,8 @@
               class="ai-new-mobile"
               id="ai-clear-mobile"
               type="button"
-              aria-label="New conversation"
-              title="New conversation"
+              aria-label="New chat"
+              title="new chat"
             >
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path
@@ -215,9 +205,9 @@
                     class="ai-inp"
                     id="ai-inp"
                     rows="1"
-                    placeholder="Message Aetheris…"
+                    placeholder="type a message"
                     autocomplete="off"
-                    aria-label="Message Aetheris"
+                    aria-label="Message"
                   ></textarea>
                   <div class="ai-compose-meta">
                     <button
@@ -235,9 +225,9 @@
                           stroke-linejoin="round"
                         />
                       </svg>
-                      <span>Add images</span>
+                      <span>add image</span>
                     </button>
-                    <span>Enter to send · Shift + Enter for a new line</span>
+                    <span>enter to send, shift+enter for a new line</span>
                   </div>
                 </div>
                 <button
@@ -268,7 +258,7 @@
                 hidden
               />
               <p class="ai-disclaimer">
-                Aetheris can make mistakes. Check anything important.
+                ai gets stuff wrong sometimes, double check anything important
               </p>
             </div>
           </section>
@@ -276,33 +266,26 @@
           <section class="ai-img" aria-label="Image generation">
             <div class="ai-img-result">
               <div class="ai-img-empty" id="ai-img-empty">
-                <span class="ai-eyebrow">Image studio</span>
-                <h1>Make the image<br />you have in mind.</h1>
-                <p>
-                  Describe the subject, mood, lighting and style. A little
-                  detail goes a long way.
-                </p>
+                <h1>make an image</h1>
+                <p>describe what you want. more detail usually means a better result.</p>
                 <div class="ai-prompt-grid ai-image-starters">
                   <button
                     type="button"
-                    data-image-prompt="A cinematic photograph of a lone observatory above a sea of clouds at blue hour"
+                    data-image-prompt="a cat in a tiny astronaut suit floating in space, digital art"
                   >
-                    <span>01</span><strong>Cinematic scene</strong
-                    ><small>Observatory above the clouds</small>
+                    cat astronaut
                   </button>
                   <button
                     type="button"
-                    data-image-prompt="A bold editorial poster for an underground electronic music festival, black and warm amber, Swiss typography"
+                    data-image-prompt="a pixel art castle on a hill at night with a full moon"
                   >
-                    <span>02</span><strong>Editorial poster</strong
-                    ><small>Underground music festival</small>
+                    pixel art castle
                   </button>
                   <button
                     type="button"
-                    data-image-prompt="A friendly hand-drawn mascot of a tiny comet carrying a satchel, cream paper texture"
+                    data-image-prompt="a cartoon frog wearing a top hat, sticker style, white background"
                   >
-                    <span>03</span><strong>Character study</strong
-                    ><small>A tiny travelling comet</small>
+                    frog sticker
                   </button>
                 </div>
               </div>
@@ -313,8 +296,8 @@
                 aria-live="polite"
               >
                 <div class="ai-image-skeleton"><span></span></div>
-                <strong>Building your image</strong>
-                <span>Composing light, texture and detail…</span>
+                <strong>generating...</strong>
+                <span>this can take a minute</span>
               </div>
             </div>
             <div class="ai-compose-shell ai-image-compose">
@@ -330,7 +313,7 @@
                     class="ai-inp"
                     id="ai-img-prompt"
                     rows="1"
-                    placeholder="Describe the image you want to create…"
+                    placeholder="describe an image"
                     autocomplete="off"
                     aria-label="Image prompt"
                   ></textarea>
@@ -351,9 +334,8 @@
                           stroke-linejoin="round"
                         />
                       </svg>
-                      <span>References</span>
+                      <span>reference</span>
                     </button>
-                    <span>Using</span>
                     <div
                       class="ai-model-picker ai-model-picker-up"
                       id="ai-image-model-picker"
@@ -434,6 +416,6 @@
       </section>
     </div>
 
-    <script src="./js/ai.js?v=20260907.1"></script>
+    <script src="./js/ai.js?v=20261007.1"></script>
   </body>
 </html>
