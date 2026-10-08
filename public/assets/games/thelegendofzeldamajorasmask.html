@@ -1,5 +1,4 @@
-<!DOCTYPE html>
-
+<html>
 
 <!-- Ultimate Game Stash file-->
 <!-- For the regularly updating doc go to https://docs.google.com/document/d/1_FmH3BlSBQI7FGgAQL59-ZPe8eCxs35wel6JUyVaG8Q/ -->
@@ -8,8 +7,8 @@
   <head>
     <script>
       window.gameconfig = {
-        name: "Legend of Zelda, The - Majora's Mask (Europe) (En,Fr,De,Es)",
-        url: "https://cdn.jsdelivr.net/gh/bubbls/ugss@e27ad66eda838f123bfb1aff7958bbda703283f5/majora/Legend%20of%20Zelda%2C%20The%20-%20Majora's%20Mask%20(Europe)%20(En%2CFr%2CDe%2CEs).z64",
+        name: "Legend of Zelda, The - Majora's Mask",
+        url: "https://cdn.jsdelivr.net/gh/bubbls/ugss@1406dbc5f74cfd6bac77c56cd83784a184b986a5/majora/Legend%20of%20Zelda%2C%20The%20-%20Majora's%20Mask%20(Europe)%20(En%2CFr%2CDe%2CEs).z64",
         core: "n64",
         min: 1,
         max: 2,
@@ -41,8 +40,7 @@
       function getParts(file, start, end) {
         let parts = [];
         for (let i = start; i <= end; i++) {
-          let padded = String(i).padStart((end+"").length, '0');
-          parts.push(file + ".part" + padded);
+          parts.push(file + ".part" + i);
         }
         return parts;
       }
@@ -74,7 +72,8 @@
         border-radius: 8px;
         display: inline-block;
       }
-    </style>
+
+</style>
   </head>
   <body>
     <div id="game-container">
@@ -108,11 +107,11 @@
           EJS_gameName = window.gameconfig.name;
           EJS_color = "#0064ff";
           EJS_startOnLoaded = true;
-          EJS_pathtodata = "https://cdn.jsdelivr.net/gh/bubblfan/emu@master/";
+          EJS_pathtodata = "https://cdn.jsdelivr.net/gh/ant9012/emu-updated@master/";
           EJS_gameUrl = gameUrl;
           const script = document.createElement("script");
           script.src =
-            "https://cdn.jsdelivr.net/gh/bubblfan/emu@master/loader.js";
+            "https://cdn.jsdelivr.net/gh/ant9012/emu-updated@master/loader.js";
           document.body.appendChild(script);
         })
         .catch((error) => {
@@ -121,5 +120,6 @@
             "Error loading game.";
         });
     </script>
-  </body>
+
+</body>
 </html>

@@ -5086,6 +5086,16 @@
     ]
   },
   {
+    "id": "undertale",
+    "title": "Undertale",
+    "html": "assets/games/undertale.html",
+    "image": "assets/images/undertale.png",
+    "source": "aetheris",
+    "tags": [
+      "Action"
+    ]
+  },
+  {
     "id": "undertaleyellow",
     "title": "Undertale Yellow",
     "html": "assets/games/undertaleyellow.html",

@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en-us" id="mainhtml">
 <head>
+<script>window.dataLayer=window.dataLayer||[];window.gtag=window.gtag||function(){};</script>
 
 	<base href = "https://cdn.jsdelivr.net/gh/Pok12d/ta@main/kour/">
 
@@ -8,71 +9,7 @@
 
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <!-- KOUR VANILLA+CG VERSION -->
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-VGVP085QMS"></script>
-    <script>
-        const isDiscord = window.location.hostname.includes('discord');
-        function getAssetUrl(path) {
-            return isDiscord ? '/.proxy/kour/' + path : 'https://kour.io/' + path;
-        }
-        if (isDiscord) {
-            const idsToRemove = ['data-link', 'framework-link', 'code-link'];
-            idsToRemove.forEach(id => {
-                const el = document.getElementById(id);
-                if (el) {
-                    el.parentNode.removeChild(el);
-                    console.log(`Removed preload tag: ${id}`);
-                }
-            });
-        }
-        var unityInstanceWrapper = {
-            sendMessage: function(objectName, methodName, message) {
-                if (typeof window.unityInstance !== 'undefined' && window.unityInstance !== null) {
-                    window.unityInstance.SendMessage(objectName, methodName, message);
-                } else {
-                    console.warn(`cannot call ${methodName}`);
-                }
-            }
-        };
-        function hasQueryParam(param) {
-            const urlParams = new URLSearchParams(window.location.search);
-            return urlParams.has(param) && urlParams.get(param) === 'true';
-        }
-        window.sdkVersion = hasQueryParam('cg') ? 'CrazyGames' : 'Vanilla';
-        function postData(url, data, async = true) {
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', url, async);
-            xhr.setRequestHeader('Content-Type', 'application/json');
-            xhr.send(JSON.stringify(data));
-        }
-        function requestNewVersion() {
-            location.reload(true);
-        }
-        window.alert = function () { };
-        window.dataLayer = window.dataLayer || [];
-        function gtag() { dataLayer.push(arguments); }
-        gtag('js', new Date());
-        gtag('config', 'G-VGVP085QMS');
-        function reportLoadingStart() {
-            //for cg - sdkGameLoadingStart is called right after the cg script initializes.
-        }
-        function reportVideoAdSource(source) {}
-        function reportLoadingFinished() {
-            var banrs = document.getElementById("fullscreen-banrs");
-            if (banrs)
-                banrs.style.display = "block";
 
-            try {
-                window.CrazyGames.SDK.game.loadingStop();
-            } catch { }
-        }
-        function reportCustom(reportEventName, sdkVersion) {
-            gtag('event', reportEventName, {
-                'event_category': 'interaction',
-                'event_label': sdkVersion
-            });
-        }
-    </script>
     <link rel="manifest" href="manifest.webmanifest">
     
     
