@@ -246,6 +246,7 @@
 
   function stopPlayer() {
     clearTimeout(playerTimer);
+    attempt = null;
     player.onload = null;
     player.src = "about:blank";
     playerStatus.classList.add("hidden");
@@ -373,24 +374,185 @@
     }
   }
 
-  function setIframe() {
+  // Auto-fallback. movie-proxy-client.js reports when a feature-length video
+  // is ready or playing; a source that hasn't done so within WATCHDOG_MS is
+  // swapped for the next untried one for this title/episode. The iframe load
+  // event can't be used for this: it fires for error pages too.
+  var WATCHDOG_MS = 30000;
+  // The user clicked into the player (e.g. a play overlay): give it longer.
+  var INTERACTION_MS = 45000;
+  // A video with a source is waiting for a tap; let the user get to it.
+  var ARMED_MS = 90000;
+  var attempt = null;
+  var triedSources = {};
+  var triedKey = "";
+
+  function playKey() {
+    return (
+      currentItem.type +
+      ":" +
+      currentItem.id +
+      (currentEpisode
+        ? ":" + currentEpisode.season + "x" + currentEpisode.episode
+        : "")
+    );
+  }
+
+  function nextUntriedSource(from) {
+    for (var step = 1; step < MOVIES_SOURCES.length; step++) {
+      var i = (from + step) % MOVIES_SOURCES.length;
+      if (!triedSources[i]) return i;
+    }
+    return -1;
+  }
+
+  function attemptBeacon(ev, current, extra) {
+    var params = {
+      ev: ev,
+      src: String(current.index),
+      kind: current.kind,
+      id: String(current.id),
+    };
+    if (extra) params.host = extra;
+    uiBeacon(params);
+  }
+
+  function armWatchdog(ms) {
+    clearTimeout(playerTimer);
+    var current = attempt;
+    playerTimer = setTimeout(function () {
+      if (attempt === current) sourceFailed(current, "timeout");
+    }, ms);
+  }
+
+  function sourceFailed(failed, reason) {
+    if (!failed || failed.ready || attempt !== failed) return;
+    var provider = MOVIES_SOURCES[failed.index] || { name: "This source" };
+    dbg("source FAILED (" + reason + "):", provider.name);
+    attemptBeacon(reason, failed);
+    var next = nextUntriedSource(failed.index);
+    if (next < 0) {
+      playerStatus.classList.add("hidden");
+      hint.textContent =
+        "No source could play this right now. Try again later, or pick a source to retry it.";
+      attemptBeacon("exhausted", failed);
+      return;
+    }
+    source.value = String(next);
+    setIframe(true);
+    hint.textContent =
+      provider.name +
+      " didn't start, trying " +
+      MOVIES_SOURCES[next].name +
+      "…";
+  }
+
+  // True when win is the player frame or one of its descendants.
+  function fromPlayer(win) {
+    var w = win;
+    for (var i = 0; i < 10 && w; i++) {
+      if (w === player.contentWindow) return true;
+      var parent = null;
+      try {
+        parent = w.parent;
+      } catch (e) {
+        return false;
+      }
+      if (!parent || parent === w) return false;
+      w = parent;
+    }
+    return false;
+  }
+
+  window.addEventListener("message", function (event) {
+    var data = event.data;
+    if (
+      !data ||
+      data.type !== "aetheris-movie-playback" ||
+      !attempt ||
+      !fromPlayer(event.source)
+    )
+      return;
+    var current = attempt;
+    if (data.state === "ready" || data.state === "playing") {
+      if (!current.ready) {
+        current.ready = true;
+        clearTimeout(playerTimer);
+        playerStatus.classList.add("hidden");
+        hint.textContent =
+          data.state === "ready"
+            ? "If it doesn't start on its own, press play."
+            : "";
+        dbg("player ready:", data.host, "duration=" + data.duration);
+        attemptBeacon("ready", current, data.host);
+      }
+      if (data.state === "playing" && !current.playing) {
+        current.playing = true;
+        hint.textContent = "";
+        attemptBeacon("playing", current, data.host);
+        // Remember the source that actually worked.
+        Aetheris.storage.setItem("movieSourceIdx", String(current.index));
+      }
+    } else if (data.state === "armed" && !current.ready && !current.armed) {
+      current.armed = true;
+      playerStatus.classList.add("hidden");
+      hint.textContent =
+        "Press play to start. Nothing happening? Try another source.";
+      dbg("player waiting for play:", data.host);
+      armWatchdog(ARMED_MS);
+    } else if (data.state === "error" && !current.ready) {
+      // Only logged: ad videos error too, and many players retry another
+      // server on their own, so this alone doesn't fail the source.
+      dbg("player media error:", data.host, data.detail);
+    }
+  });
+
+  // Focus moving into the iframe means the user clicked the player.
+  window.addEventListener("blur", function () {
+    setTimeout(function () {
+      if (
+        document.activeElement === player &&
+        attempt &&
+        !attempt.ready &&
+        !attempt.interacted
+      ) {
+        attempt.interacted = true;
+        armWatchdog(INTERACTION_MS);
+      }
+    }, 0);
+  });
+
+  function setIframe(auto) {
     if (!currentItem || (currentItem.type === "tv" && !currentEpisode)) return;
     var index = Number(source.value);
     var provider = MOVIES_SOURCES[index];
     if (!provider) return;
     var selection = currentEpisode || { season: 1, episode: 1 };
-    var kindAtPlay = currentItem.type;
     var url = provider.url(
       currentItem.type,
       currentItem.id,
       selection.season,
       selection.episode,
     );
-    clearTimeout(playerTimer);
-    playerStatus.textContent = "Loading provider…";
+    var key = playKey();
+    // A manual pick (or a new title/episode) starts a fresh fallback round.
+    if (auto !== true || key !== triedKey) {
+      triedSources = {};
+      triedKey = key;
+    }
+    triedSources[index] = true;
+    var current = (attempt = {
+      index: index,
+      kind: currentItem.type,
+      id: currentItem.id,
+      ready: false,
+      playing: false,
+      armed: false,
+      interacted: false,
+    });
+    playerStatus.textContent = "Loading " + provider.name + "…";
     playerStatus.classList.remove("hidden");
-    hint.textContent =
-      "not loading? try another source.";
+    if (auto !== true) hint.textContent = "";
     dbg(
       "play:",
       provider.name,
@@ -400,28 +562,17 @@
         ? "s=" + selection.season + "e=" + selection.episode
         : "",
       "via=" + urlHost(url),
+      auto === true ? "(auto)" : "",
     );
-    uiBeacon({
-      ev: "play",
-      src: String(index),
-      kind: currentItem.type,
-      id: String(currentItem.id),
-      host: urlHost(url),
-    });
+    attemptBeacon(auto === true ? "autoplay" : "play", current, urlHost(url));
     player.onload = function () {
-      clearTimeout(playerTimer);
+      if (attempt !== current) return;
       playerStatus.classList.add("hidden");
       dbg("player frame loaded:", urlHost(player.src));
-      uiBeacon({ ev: "loaded", src: String(index), kind: kindAtPlay });
+      attemptBeacon("loaded", current);
     };
     player.src = url;
-    playerTimer = setTimeout(function () {
-      playerStatus.classList.add("hidden");
-      hint.textContent =
-        "This provider is slow or blocked. You can try another source.";
-      dbg("player frame SLOW (20s, no load event):", provider.name);
-      uiBeacon({ ev: "timeout", src: String(index) });
-    }, 20000);
+    armWatchdog(WATCHDOG_MS);
   }
 
   function openPlayer(id, type, title, year, rating) {

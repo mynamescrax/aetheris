@@ -153,6 +153,40 @@ header change fixes it.
   throttling, maybe plus fast signature expiry. Entry removed; route kept for
   a re-test after a long cooldown.
 
+**2026-10-08**
+
+- Flixer is the default and takes ~95% of plays. PM2 log: its stream CDN
+  `serve.dragonballzfans.xyz` 400s ~15% and `shrek.dragonballzfans.xyz`
+  503s ~33%, with the same `data=` segment requested 3x in a row: burst
+  throttling of the single shared VPS IP. Flixer/Hexa's backend is built for
+  the viewer's residential IP, so this is structural.
+- Flixer polls `version.json` ~12x per play, POSTs `api/send` (405) and
+  loads YouTube trailers. The relay now answers trackers/YouTube/`api/send`
+  locally (`localAnswer`) and caches `version.json` for 60s.
+- The relay retries a `503`/`429` GET once (Retry-After, max 3s).
+- `vidsrc.su` (Hexa clone) builds its API host as `"themoviedb." +
+  location.hostname`; the relay maps `*.<our host>` back onto the referer's
+  host (`remapOwnSubdomain`). Re-test vidsrc.su after deploy.
+- The iframe `load` event fired for 562/580 Flixer plays and the old 20s
+  timeout fired once, so it said nothing about playback.
+  `movie-proxy-client.js` now posts `aetheris-movie-playback` messages
+  (`armed` / `ready` / `playing` / `error`, feature-length videos only, >=
+  300s) to every ancestor. `movies-ui.js` auto-switches to the next untried
+  source after 30s with no `ready`, 90s once a video is `armed` (waiting for
+  a tap) and 45s after the user clicks into the player. New beacons:
+  `ev=ready|playing|timeout|autoplay|exhausted`, so per-source success rates
+  can now be counted from the log.
+- Probed from the VPS: vidfast.vc loads but shows "Please Disable Sandbox"
+  through the relay; hexa.su (same backend as Flixer, lighter frontend)
+  shows a Cap "Verify you're human" check; vidbolt.pro never requests a
+  stream; vidsrc.mov wraps the blocked vsembed/cloudorchestranova chain;
+  vidsrc.cc, vidlink.pro, vidfast.pro are Cloudflare 403; vidking,
+  111movies, rivestream, autoembed, moviesapi, vidsrc.xyz/.net/.in/.icu,
+  rgshows are DNS-dead; vidjoy is parked.
+- Relayed pages are same-origin with the site, so a frame-busting script
+  can navigate the whole site (seen with a Wikimedia test page). The player
+  iframe has no `sandbox` because providers refuse sandboxed frames.
+
 ## Production access
 
 - SSH alias: `craxvps`

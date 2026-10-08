@@ -3,7 +3,7 @@
   window.__MOVIE_PROXY_INIT__ = true;
 
   var PROXY_ROUTE = "/movie-proxy";
-  var CLIENT_VERSION = "20261007.1";
+  var CLIENT_VERSION = "20261008.1";
   // Cap error beacons so a provider stuck in an error loop can't flood us.
   var MAX_ERROR_BEACONS = 25;
   var errorBeacons = 0;
@@ -28,7 +28,9 @@
     errorBeacons++;
     try {
       var img = new Image();
+      // Absolute: a provider <base> would send a relative beacon upstream.
       img.src =
+        location.origin +
         "/movie-ping?v=" +
         CLIENT_VERSION +
         "&origin=" +
@@ -36,6 +38,47 @@
         "&err=" +
         encodeURIComponent(String(msg).slice(0, 300));
     } catch (e) {}
+  }
+
+  // Tells the movies page when real video is ready, playing or broken, so
+  // it can tell a working source from one that only loaded its page. Sent to
+  // every ancestor: the movies page can sit a few frames up
+  // (index.html -> movies.html -> player -> provider frames).
+  var MIN_FEATURE_SECONDS = 300;
+  var playbackSent = {};
+  function isFeatureVideo(el) {
+    if (!el || el.tagName !== "VIDEO") return false;
+    var d = el.duration;
+    return isFinite(d) && d >= MIN_FEATURE_SECONDS;
+  }
+  function reportPlayback(state, el, detail) {
+    if (playbackSent[state]) return;
+    playbackSent[state] = true;
+    var msg = {
+      type: "aetheris-movie-playback",
+      state: state,
+      host: "",
+      duration: 0,
+      detail: detail || "",
+    };
+    try {
+      msg.host = new URL(targetOrigin).host;
+    } catch (e) {}
+    try {
+      if (el && isFinite(el.duration)) msg.duration = Math.round(el.duration);
+    } catch (e) {}
+    var w = window;
+    for (var hops = 0; hops < 8; hops++) {
+      var parent = null;
+      try {
+        parent = w.parent;
+      } catch (e) {}
+      if (!parent || parent === w) break;
+      try {
+        parent.postMessage(msg, "*");
+      } catch (e) {}
+      w = parent;
+    }
   }
 
   // SPA providers route on location.pathname, which here is /movie-proxy.
@@ -88,6 +131,7 @@
     } catch (e) {}
     var pingImg = new Image();
     pingImg.src =
+      location.origin +
       "/movie-ping?v=" +
       CLIENT_VERSION +
       "&origin=" +
@@ -431,6 +475,7 @@
                 ).host;
               } catch (e) {}
               beaconErr("video:error:" + t.tagName + ":code=" + code + ":host=" + srcHost);
+              if (t.tagName === "VIDEO") reportPlayback("error", t, String(code));
             }
           } catch (e) {}
         },
@@ -694,6 +739,54 @@
     }
   }
   ["Worker", "SharedWorker", "EventSource"].forEach(hookUrlConstructor);
+
+  // Playback reports for the movies page. Short clips (ads, intros) don't
+  // count; only a video with a known feature-length duration does.
+  try {
+    ["loadedmetadata", "durationchange", "canplay"].forEach(function (name) {
+      document.addEventListener(
+        name,
+        function (e) {
+          if (isFeatureVideo(e.target)) reportPlayback("ready", e.target);
+        },
+        true,
+      );
+    });
+    document.addEventListener(
+      "timeupdate",
+      function (e) {
+        var t = e.target;
+        if (isFeatureVideo(t) && !t.paused && t.currentTime > 2)
+          reportPlayback("playing", t);
+      },
+      true,
+    );
+    // A video that has a source but no metadata yet is usually waiting for
+    // a tap (preload="none", or autoplay blocked on iPad). Report it so the
+    // movies page waits for the user instead of switching source.
+    var armedPolls = 0;
+    var armedTimer = setInterval(function () {
+      armedPolls++;
+      if (playbackSent.armed || playbackSent.ready || armedPolls > 30) {
+        clearInterval(armedTimer);
+        return;
+      }
+      var videos = document.getElementsByTagName("video");
+      for (var i = 0; i < videos.length; i++) {
+        var v = videos[i];
+        if (
+          v.currentSrc ||
+          v.getAttribute("src") ||
+          v.querySelector("source[src]")
+        ) {
+          reportPlayback("armed", v);
+          break;
+        }
+      }
+    }, 2000);
+  } catch (e) {
+    beaconErr("hook:playback-report:" + ((e && e.message) || e));
+  }
 
   // Block popup ads.
   window.open = function () {

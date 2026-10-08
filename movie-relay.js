@@ -68,6 +68,94 @@ const BLOCKED_DOMAINS = new Set([
   "s10.histats.com",
 ]);
 
+// Trackers, analytics and trailer embeds that providers load next to the
+// player. None of them matter for playback, so the relay answers them itself
+// instead of spending the VPS's shared upstream budget on them.
+const NOISE_DOMAINS = [
+  "youtube.com",
+  "youtube-nocookie.com",
+  "googletagmanager.com",
+  "google-analytics.com",
+  "cloudflareinsights.com",
+  "whos.amung.us",
+  "histats.com",
+];
+// Flixer and Hexa are two frontends on one backend.
+const FLIXER_DOMAINS = ["flixer.su", "hexa.su"];
+// Flixer's update checker polls version.json every few seconds per viewer
+// (~12 requests per play). One cached copy per host is plenty.
+const VERSION_CACHE_MS = 60_000;
+// Media hosts throttle the shared VPS IP in bursts (503/429, often the same
+// segment three times in a row). One short delayed retry turns most of
+// those into a success before the player gives up on the server.
+const MAX_THROTTLE_RETRIES = 1;
+const EMPTY_HTML = "<!DOCTYPE html><html><body></body></html>";
+
+function hostMatches(hostname, domains) {
+  const host = String(hostname || "").toLowerCase();
+  return domains.some((d) => host === d || host.endsWith(`.${d}`));
+}
+
+// Requests the relay answers without going upstream, or null.
+function localAnswer(rawUrl, dest) {
+  let url;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    return null;
+  }
+  if (
+    hostMatches(url.hostname, NOISE_DOMAINS) ||
+    // Our own beacon resolved against a provider's <base>.
+    url.pathname === "/movie-ping"
+  ) {
+    return dest === "iframe" || dest === "document"
+      ? { status: 200, type: "text/html; charset=utf-8", body: EMPTY_HTML }
+      : { status: 204 };
+  }
+  // Flixer's analytics endpoint; it 405s for relayed POSTs anyway.
+  if (hostMatches(url.hostname, FLIXER_DOMAINS) && url.pathname === "/api/send")
+    return { status: 204 };
+  return null;
+}
+
+function isCachedVersionFile(url) {
+  return (
+    hostMatches(url.hostname, FLIXER_DOMAINS) && url.pathname === "/version.json"
+  );
+}
+
+function throttleDelayMs(retryAfter) {
+  const seconds = Number(retryAfter);
+  if (retryAfter != null && Number.isFinite(seconds) && seconds >= 0)
+    return Math.min(seconds * 1000, 3000);
+  return 800;
+}
+
+// Some players build API hosts from location.hostname, e.g.
+// "themoviedb." + location.hostname. Inside the relay that is our own host
+// (themoviedb.aetheris.win), so map it back onto the provider's domain,
+// taken from the referer the relay client sends with every request.
+function remapOwnSubdomain(rawTarget, ownHostname, referer) {
+  if (!ownHostname || !referer) return rawTarget;
+  try {
+    const target = new URL(rawTarget);
+    const host = target.hostname.toLowerCase();
+    if (!host.endsWith(`.${ownHostname}`)) return rawTarget;
+    const refHost = new URL(referer).hostname.toLowerCase();
+    if (
+      !refHost ||
+      refHost === ownHostname ||
+      refHost.endsWith(`.${ownHostname}`)
+    )
+      return rawTarget;
+    target.hostname = `${host.slice(0, -(ownHostname.length + 1))}.${refHost}`;
+    return target.href;
+  } catch {
+    return rawTarget;
+  }
+}
+
 // 2vcdn.skin's hls4 playlist is a decoy made of TikTok ad images. They
 // "play" as black video and never trigger the player's hls4 -> hls3
 // fallback, so refuse them and let the fallback fire.
@@ -305,7 +393,7 @@ function rewriteHtml(html, targetUrl, proxyOrigin) {
     }
   }
 
-  const scriptTag = `<script>window.__MOVIE_PROXY_TARGET__=${JSON.stringify(href).replace(/</g, "\\u003c")};window.__MOVIE_PROXY_ORIGIN__=${JSON.stringify(origin).replace(/</g, "\\u003c")};</script><script src="/js/movie-proxy-client.js?v=20261007.1"></script>`;
+  const scriptTag = `<script>window.__MOVIE_PROXY_TARGET__=${JSON.stringify(href).replace(/</g, "\\u003c")};window.__MOVIE_PROXY_ORIGIN__=${JSON.stringify(origin).replace(/</g, "\\u003c")};</script><script src="/js/movie-proxy-client.js?v=20261008.1"></script>`;
 
   // Some players (2vcdn.skin) call `$` without loading jQuery, which aborts
   // their boot. Inject full jQuery (they use $.ajax) when the page uses `$(`
@@ -563,6 +651,8 @@ export function registerMovieRelay(
     frameAncestors = ["'self'", ...hosts].join(" ");
   }
   const relayCsp = `${RELAY_CSP}; frame-ancestors ${frameAncestors}`;
+  // host -> { at, body } for isCachedVersionFile responses.
+  const versionCache = new Map();
 
   if (relayHost) {
     // Root-level hook, so it also covers static files and the 404 handler.
@@ -735,6 +825,20 @@ export function registerMovieRelay(
         }
       }
 
+      rawTarget = remapOwnSubdomain(
+        rawTarget,
+        requestHostname(req),
+        customReferer,
+      );
+
+      const local = localAnswer(rawTarget, req.headers["sec-fetch-dest"]);
+      if (local) {
+        reply.header("Access-Control-Allow-Origin", "*");
+        reply.code(local.status);
+        if (local.type) reply.type(local.type);
+        return reply.send(local.body);
+      }
+
       let currentUrl;
       try {
         currentUrl = await validateUrl(rawTarget);
@@ -748,7 +852,19 @@ export function registerMovieRelay(
         return;
       }
 
+      if (req.method === "GET" && isCachedVersionFile(currentUrl)) {
+        const cached = versionCache.get(currentUrl.host);
+        if (cached && Date.now() - cached.at < VERSION_CACHE_MS) {
+          return reply
+            .header("Access-Control-Allow-Origin", "*")
+            .header("Cache-Control", "no-store")
+            .type("application/json")
+            .send(cached.body);
+        }
+      }
+
       let redirectCount = 0;
+      let throttleRetries = 0;
       let upstreamRes = null;
       let method = req.method;
       let body = Buffer.isBuffer(req.body) ? req.body : null;
@@ -856,6 +972,21 @@ export function registerMovieRelay(
         }
 
         const status = upstreamRes.statusCode;
+        if (
+          (status === 503 || status === 429) &&
+          (method === "GET" || method === "HEAD") &&
+          throttleRetries < MAX_THROTTLE_RETRIES
+        ) {
+          throttleRetries++;
+          const delay = throttleDelayMs(upstreamRes.headers["retry-after"]);
+          upstreamRes.destroy();
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          if (abort.signal.aborted) {
+            reply.raw.destroy();
+            return;
+          }
+          continue;
+        }
         if (status >= 300 && status < 400 && upstreamRes.headers.location) {
           redirectCount++;
           upstreamRes.destroy();
@@ -1098,6 +1229,13 @@ export function registerMovieRelay(
         reply.send(rewritten);
       } else if (isJson || sniffJson) {
         const rewritten = rewriteJson(rawBody, currentUrl);
+        if (
+          upstreamRes.statusCode === 200 &&
+          req.method === "GET" &&
+          isCachedVersionFile(currentUrl)
+        ) {
+          versionCache.set(currentUrl.host, { at: Date.now(), body: rewritten });
+        }
         reply.type("application/json");
         reply.raw.setHeader("Content-Type", "application/json");
         reply.header("content-length", Buffer.byteLength(rewritten));
@@ -1334,4 +1472,6 @@ export {
   rewriteJsImports,
   decompressBuffer,
   unwrapProxyUrl,
+  localAnswer,
+  remapOwnSubdomain,
 };

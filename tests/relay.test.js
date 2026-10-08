@@ -11,6 +11,8 @@ import {
   registerMovieRelay,
   rewriteHtml,
   rewriteM3u8,
+  localAnswer,
+  remapOwnSubdomain,
 } from "../movie-relay.js";
 
 test("movie relay handles real HTTP bodies, ranges and redirect validation", async (t) => {
@@ -595,6 +597,127 @@ test("movie relay forwards flixer signed auth headers upstream", async (t) => {
     "x-fingerprint-lite": "lite",
     bw90agfmywth: "1",
   });
+});
+
+test("movie relay answers trackers locally and remaps own-host subdomains", () => {
+  assert.deepEqual(localAnswer("https://www.youtube.com/embed/x", "iframe"), {
+    status: 200,
+    type: "text/html; charset=utf-8",
+    body: "<!DOCTYPE html><html><body></body></html>",
+  });
+  assert.deepEqual(
+    localAnswer("https://region1.google-analytics.com/g/collect", "empty"),
+    { status: 204 },
+  );
+  assert.deepEqual(localAnswer("https://flixer.su/api/send", "empty"), {
+    status: 204,
+  });
+  assert.deepEqual(
+    localAnswer("https://stellarconductornexus.com/movie-ping?v=1", "image"),
+    { status: 204 },
+  );
+  assert.equal(localAnswer("https://flixer.su/api/time", "empty"), null);
+  assert.equal(localAnswer("https://notyoutube.com/x", "empty"), null);
+
+  assert.equal(
+    remapOwnSubdomain(
+      "https://themoviedb.aetheris.win/api/movie/1",
+      "aetheris.win",
+      "https://vidsrc.su/embed/movie/1",
+    ),
+    "https://themoviedb.vidsrc.su/api/movie/1",
+  );
+  // Unrelated hosts, our own referer and missing referers are left alone.
+  assert.equal(
+    remapOwnSubdomain("https://cdn.example/x", "aetheris.win", "https://a.b/"),
+    "https://cdn.example/x",
+  );
+  assert.equal(
+    remapOwnSubdomain(
+      "https://api.aetheris.win/x",
+      "aetheris.win",
+      "https://www.aetheris.win/movies.html",
+    ),
+    "https://api.aetheris.win/x",
+  );
+  assert.equal(
+    remapOwnSubdomain("https://api.aetheris.win/x", "aetheris.win", null),
+    "https://api.aetheris.win/x",
+  );
+});
+
+test("movie relay retries throttled media once and caches flixer version.json", async (t) => {
+  const hits = { flaky: 0, version: 0, hosts: [] };
+  const upstream = http.createServer((req, res) => {
+    hits.hosts.push(req.headers.host.split(":")[0]);
+    if (req.url === "/flaky.ts") {
+      hits.flaky++;
+      if (hits.flaky === 1) {
+        res.writeHead(503, { "retry-after": "0" });
+        return res.end("busy");
+      }
+      res.writeHead(200, { "content-type": "video/mp2t" });
+      return res.end(Buffer.alloc(32, 1));
+    }
+    if (req.url.startsWith("/version.json")) {
+      hits.version++;
+      res.writeHead(200, { "content-type": "application/json" });
+      return res.end(JSON.stringify({ version: "1" }));
+    }
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end("{}");
+  });
+  await new Promise((resolve) => upstream.listen(0, "127.0.0.1", resolve));
+  const port = upstream.address().port;
+  const app = Fastify();
+  registerMovieRelay(app, {
+    resolveTarget: async (raw) => {
+      const url = new URL(raw);
+      const allowed =
+        url.hostname === "flixer.su" ||
+        url.hostname === "relay-fixture.test" ||
+        url.hostname.endsWith(".relay-fixture.test");
+      if (!allowed || url.port !== String(port))
+        throw new Error("Fixture host rejected.");
+      return { url, addresses: [{ address: "127.0.0.1", family: 4 }] };
+    },
+  });
+  await app.ready();
+  t.after(async () => {
+    await app.close();
+    upstream.closeAllConnections();
+    await new Promise((resolve) => upstream.close(resolve));
+  });
+  const proxied = (target, extra = "") =>
+    "/movie-proxy?url=" + encodeURIComponent(target) + extra;
+
+  const flaky = await app.inject({
+    method: "GET",
+    url: proxied(`http://relay-fixture.test:${port}/flaky.ts`),
+  });
+  assert.equal(flaky.statusCode, 200);
+  assert.equal(hits.flaky, 2);
+
+  for (const n of [1, 2, 3]) {
+    const res = await app.inject({
+      method: "GET",
+      url: proxied(`http://flixer.su:${port}/version.json?${n}`),
+    });
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(JSON.parse(res.body), { version: "1" });
+  }
+  assert.equal(hits.version, 1);
+
+  const remapped = await app.inject({
+    method: "GET",
+    url: proxied(
+      `http://themoviedb.localhost:${port}/api/x`,
+      "&referer=" +
+        encodeURIComponent(`http://relay-fixture.test:${port}/embed/1`),
+    ),
+  });
+  assert.equal(remapped.statusCode, 200);
+  assert.equal(hits.hosts.at(-1), "themoviedb.relay-fixture.test");
 });
 
 test("a dedicated relay host keeps relayed pages off the main origin", async (t) => {
