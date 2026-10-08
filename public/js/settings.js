@@ -289,4 +289,13 @@ document.addEventListener("DOMContentLoaded", function () {
       location.reload();
     });
   }
+
+  var replaytut = document.getElementById("replay-tutorial");
+  if (replaytut) {
+    replaytut.addEventListener("click", function () {
+      if (window.parent !== window)
+        window.parent.postMessage({ type: "show-tutorial" }, location.origin);
+      else location.href = "/";
+    });
+  }
 });

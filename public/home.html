@@ -462,6 +462,14 @@
           Aetheris.storage.getItem("updateDismissed") === UPDATE_VERSION
         )
           return;
+        // Brand-new visitors get the tutorial instead of old update notes.
+        if (
+          !Aetheris.storage.getItem("updateDismissed") &&
+          Aetheris.storage.getItem("tutorialDone") !== "1"
+        ) {
+          Aetheris.storage.setItem("updateDismissed", UPDATE_VERSION);
+          return;
+        }
 
         backdrop.style.display = "flex";
         if (closebtn) closebtn.focus();
