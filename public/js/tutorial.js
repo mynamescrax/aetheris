@@ -2,6 +2,12 @@
 // replayed from settings (settings posts { type: "show-tutorial" }).
 (function () {
   var DONE_KEY = "tutorialDone";
+  // Bump to show the tour once more to everyone (including people who already
+  // finished an older version). It's marked done as soon as it opens, so
+  // reloading or leaving mid-tour never brings it back.
+  var TUTORIAL_VERSION = "2";
+  var LINKS_DOC =
+    "https://docs.google.com/document/d/1z5KIqm8KPfS-ghA2L14XwcoRG0IOOCfNMGj_JgO8-kU/edit?usp=sharing";
   var store = window.Aetheris && Aetheris.storage;
   if (!store) return;
 
@@ -12,6 +18,17 @@
   }
 
   var steps = [
+    {
+      icon: "🔖",
+      title: "bookmark the links doc",
+      body: "please bookmark the links doc to never lose access to the site.",
+      action: {
+        label: "open the links doc",
+        run: function () {
+          window.open(LINKS_DOC, "_blank", "noopener");
+        },
+      },
+    },
     {
       icon: "👋",
       title: "welcome to aetheris",
@@ -168,7 +185,7 @@
 
   function close() {
     stopcapture();
-    store.setItem(DONE_KEY, "1");
+    store.setItem(DONE_KEY, TUTORIAL_VERSION);
     document.removeEventListener("keydown", onkey, true);
     if (root && root.parentNode) root.parentNode.removeChild(root);
     root = null;
@@ -241,7 +258,9 @@
   });
 
   function auto() {
-    if (store.getItem(DONE_KEY) !== "1") start();
+    if (store.getItem(DONE_KEY) === TUTORIAL_VERSION) return;
+    store.setItem(DONE_KEY, TUTORIAL_VERSION);
+    start();
   }
   if (document.readyState === "loading")
     document.addEventListener("DOMContentLoaded", auto, { once: true });

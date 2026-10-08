@@ -462,10 +462,9 @@
         )
           return;
         // Brand-new visitors get the tutorial instead of old update notes.
-        if (
-          !Aetheris.storage.getItem("updateDismissed") &&
-          Aetheris.storage.getItem("tutorialDone") !== "1"
-        ) {
+        // (tutorial.js marks itself done as soon as it opens, so only the
+        // missing updateDismissed key identifies a first visit.)
+        if (!Aetheris.storage.getItem("updateDismissed")) {
           Aetheris.storage.setItem("updateDismissed", UPDATE_VERSION);
           return;
         }
