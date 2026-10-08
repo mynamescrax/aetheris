@@ -393,7 +393,7 @@ function rewriteHtml(html, targetUrl, proxyOrigin) {
     }
   }
 
-  const scriptTag = `<script>window.__MOVIE_PROXY_TARGET__=${JSON.stringify(href).replace(/</g, "\\u003c")};window.__MOVIE_PROXY_ORIGIN__=${JSON.stringify(origin).replace(/</g, "\\u003c")};</script><script src="/js/movie-proxy-client.js?v=20261008.1"></script>`;
+  const scriptTag = `<script>window.__MOVIE_PROXY_TARGET__=${JSON.stringify(href).replace(/</g, "\\u003c")};window.__MOVIE_PROXY_ORIGIN__=${JSON.stringify(origin).replace(/</g, "\\u003c")};</script><script src="/js/movie-proxy-client.js?v=20261008.2"></script>`;
 
   // Some players (2vcdn.skin) call `$` without loading jQuery, which aborts
   // their boot. Inject full jQuery (they use $.ajax) when the page uses `$(`
@@ -529,7 +529,9 @@ function rewriteJsImports(jsText, targetUrl) {
   // (React) more than once and break the app.
 
   // Vite's chunk table (m.f=["assets/x.js", ...]) holds paths relative to
-  // the upstream origin.
+  // the upstream origin. Its preload helper prepends the base ("/"), so the
+  // entries must stay root-relative without the leading slash, or the
+  // preloads go to "//movie-proxy?..." (a host named movie-proxy).
   const mapDepsPattern = /m\.f=(\(?)(\[[^;]*?\])(\)?)/g;
   let out = jsText.replace(
     mapDepsPattern,
@@ -540,7 +542,9 @@ function rewriteJsImports(jsText, targetUrl) {
           const p = (d1 || d2).replace(/^\.\.?\//, "");
           try {
             const abs = new URL(p, `${baseUrl.origin}/`).href;
-            return JSON.stringify(`${PROXY_ROUTE}?url=${encodeURIComponent(abs)}`);
+            return JSON.stringify(
+              `${PROXY_ROUTE.replace(/^\//, "")}?url=${encodeURIComponent(abs)}`,
+            );
           } catch {
             return m;
           }

@@ -3,7 +3,7 @@
   window.__MOVIE_PROXY_INIT__ = true;
 
   var PROXY_ROUTE = "/movie-proxy";
-  var CLIENT_VERSION = "20261008.1";
+  var CLIENT_VERSION = "20261008.2";
   // Cap error beacons so a provider stuck in an error loop can't flood us.
   var MAX_ERROR_BEACONS = 25;
   var errorBeacons = 0;
@@ -20,6 +20,16 @@
       return location.origin;
     }
   })();
+
+  // Flixer/Hexa cover the player with a "Share Flixer" dialog every 6 hours,
+  // so a play needs an extra tap first. Mark it as just seen; the keys are
+  // the ones their bundle reads.
+  if (/^https:\/\/([a-z0-9-]+\.)*(flixer|hexa)\.su$/.test(targetOrigin)) {
+    try {
+      localStorage.setItem("telegramNoticeResetVersion", "share-flixer");
+      localStorage.setItem("hasSeenTelegramNotice", String(Date.now()));
+    } catch (e) {}
+  }
 
   // Defined first so hook failures can be reported too (Safari rejects some
   // prototype redefinitions that work in Chromium).

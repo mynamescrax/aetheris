@@ -13,7 +13,24 @@ import {
   rewriteM3u8,
   localAnswer,
   remapOwnSubdomain,
+  rewriteJsImports,
 } from "../movie-relay.js";
+
+test("vite chunk table stays relative to the preload base", () => {
+  const js =
+    'const nC=function(t){return"/"+t};' +
+    'm.f||(m.f=["assets/js/VideoPlayer-1.js","assets/css/a.css"]);' +
+    'import("./VideoPlayer-1.js");';
+  const out = rewriteJsImports(
+    js,
+    new URL("https://flixer.su/assets/js/index-1.js"),
+  );
+  const chunk =
+    "movie-proxy?url=https%3A%2F%2Fflixer.su%2Fassets%2Fjs%2FVideoPlayer-1.js";
+  assert.ok(out.includes(`m.f=["${chunk}","movie-proxy?url=`));
+  // "/" + entry must equal the URL the rewritten import() loads.
+  assert.ok(out.includes(`import("/${chunk}")`));
+});
 
 test("movie relay handles real HTTP bodies, ranges and redirect validation", async (t) => {
   const checked = [];
