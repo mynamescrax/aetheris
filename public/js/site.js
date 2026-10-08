@@ -160,7 +160,7 @@
 
   var pages = {
     home: "home.html",
-    maths: "maths.html",
+    games: "maths.html",
     apps: "apps.html",
     cheats: "cheats.html",
     chat: "chat.html",
@@ -171,8 +171,8 @@
     about: "about.html",
     load: "load.html",
   };
-  // Old #games bookmarks keep working by aliasing to the renamed route.
-  var routeAliases = { games: "maths" };
+  // #maths links from the short-lived rename keep working.
+  var routeAliases = { maths: "games" };
   function parseRoute(value) {
     var route = String(value || "home").replace(/^#/, "");
     var split = route.indexOf("?");

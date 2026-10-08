@@ -81,9 +81,10 @@
 })();
 
 (function () {
-  var optedIn = Aetheris.storage.getItem("performanceMode") === "true";
+  // An explicit choice in settings wins; low-memory devices only default on.
+  var saved = Aetheris.storage.getItem("performanceMode");
   var lowmem = navigator.deviceMemory && navigator.deviceMemory <= 2;
-  if (optedIn || lowmem) {
+  if (saved === "true" || (saved === null && lowmem)) {
     document.documentElement.classList.add("low-power-mode", "power-saving");
   }
 })();

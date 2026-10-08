@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <script src="./js/site.js?v=20260907.1"></script>
+    <script src="./js/site.js?v=20261008.1"></script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Aetheris</title>
@@ -28,10 +28,10 @@
           link.href = icon;
         }
 
-        if (Aetheris.storage.getItem("performanceMode") === "true") {
-          document.documentElement.classList.add("power-saving");
-        }
-        if (navigator.deviceMemory && navigator.deviceMemory <= 2) {
+        // An explicit choice in settings wins; low-memory devices only default on.
+        var perfsaved = Aetheris.storage.getItem("performanceMode");
+        var lowmem = navigator.deviceMemory && navigator.deviceMemory <= 2;
+        if (perfsaved === "true" || (perfsaved === null && lowmem)) {
           document.documentElement.classList.add("power-saving");
         }
       })();
@@ -117,7 +117,7 @@
     <link rel="stylesheet" href="./css/cards.css?v=20260907.1" />
     <link rel="stylesheet" href="./css/themes.css?v=20261005.1" />
     <link rel="stylesheet" href="./css/nav.css?v=20260907.4" />
-    <link rel="stylesheet" href="./css/main.css?v=20260907.1" />
+    <link rel="stylesheet" href="./css/main.css?v=20261008.1" />
     <script src="register-sw.js?v=20260907.1" defer></script>
 
     <meta name="theme-color" content="#0f0f0f" />
@@ -380,10 +380,10 @@
           >
         </div>
         <div class="navitem">
-          <a href="#" data-page="maths"
+          <a href="#" data-page="games"
             ><img src="./assets/images/games.png" alt="" /><span
               class="nav-label"
-              >Maths</span
+              >Games</span
             ></a
           >
         </div>
@@ -551,8 +551,8 @@
       }
 
       function updateActiveNav(name) {
-        if (name === "load") name = "maths";
-        if (name === "games") name = "maths";
+        if (name === "load") name = "games";
+        if (name === "maths") name = "games";
         document.querySelectorAll(".navitem a").forEach(function (link) {
           var active = link.getAttribute("data-page") === name;
           link.classList.toggle("is-active", active);

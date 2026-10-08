@@ -16,7 +16,7 @@
         window.parent !== window &&
         typeof window.parent.navigateApp === "function"
       ) {
-        window.parent.navigateApp(appid ? "apps" : "maths");
+        window.parent.navigateApp(appid ? "apps" : "games");
         return;
       }
     } catch (_) {}
@@ -45,7 +45,7 @@
     actions.className = "player-loading-actions";
     var cancel = document.createElement("button");
     cancel.type = "button";
-    cancel.textContent = appid ? "Back to apps" : "Back to maths";
+    cancel.textContent = appid ? "Back to apps" : "Back to games";
     cancel.addEventListener("click", goback);
     actions.appendChild(cancel);
     panel.append(spinner, paragraph, actions);
@@ -84,7 +84,7 @@
       });
       var back = document.createElement("button");
       back.type = "button";
-      back.textContent = appid ? "Back to apps" : "Back to maths";
+      back.textContent = appid ? "Back to apps" : "Back to games";
       back.addEventListener("click", goback);
       panel.append(retry, back);
     }

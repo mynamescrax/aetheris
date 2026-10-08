@@ -584,12 +584,6 @@ html.power-saving body::before {
   background-image: none !important;
 }
 
-.low-power-mode canvas,
-.power-saving canvas,
-html.power-saving canvas {
-  display: none !important;
-}
-
 html.power-saving .glass-card,
 html.power-saving .wide-glass-card,
 html.power-saving .sidebar,
