@@ -42,9 +42,11 @@ import {
 import {
   createGeoResolver,
   formattopcountries,
+  isprivateip,
   normalizeip,
   topcountries,
 } from "./lib/geo.js";
+import { createpoll } from "./lib/poll.js";
 import { websocketOriginAllowed } from "./lib/ws-origin.js";
 
 // Load local development configuration before any feature reads process.env.
@@ -693,6 +695,8 @@ function ratelimitfor(method, path) {
   if (path === "/api/accounts/login") return { group: path, limit: 60 };
   if (path === "/api/report")
     return { group: path, limit: 10, windowMs: 120_000 };
+  // anti-script cap only; a whole class behind one NAT IP votes at once
+  if (path === "/api/poll/vote") return { group: path, limit: 120 };
   // schools share one IP, so sends are metered per account; the IP ceiling
   // only stops one client farming many accounts
   if (path.startsWith("/api/dm/"))
@@ -1088,6 +1092,59 @@ async function poststats() {
 
 poststats();
 setInterval(poststats, STATS_INTERVAL);
+
+// --- next-feature poll (lib/poll.js): 24h, results -> REPORT_WEBHOOK_URL ---
+
+const pollfile = join(process.cwd(), "poll.json");
+let pollsavetimer = null;
+function savepoll() {
+  clearTimeout(pollsavetimer);
+  pollsavetimer = null;
+  try {
+    const tmp = `${pollfile}.${process.pid}.tmp`;
+    writeFileSync(tmp, JSON.stringify(poll.serialize()));
+    renameSync(tmp, pollfile);
+  } catch (err) {
+    console.error("failed to save poll:", err);
+  }
+}
+const poll = createpoll({
+  webhookUrl: REPORT_WEBHOOK_URL,
+  resolvecountries: (ips) => georesolver.resolve(ips),
+  // votes come in bursts; one write per second at most
+  onchange: () => {
+    if (!pollsavetimer) pollsavetimer = setTimeout(savepoll, 1000);
+  },
+});
+try {
+  poll.restore(JSON.parse(readFileSync(pollfile, "utf8")));
+} catch {
+  /* first run */
+}
+poll.start();
+
+fastify.get("/api/poll", (req, reply) => {
+  const deviceid = req.query?.deviceId;
+  reply.send(poll.status(isvaliddeviceid(deviceid) ? deviceid : ""));
+});
+
+// One vote per device id, never per IP: a school shares one address.
+fastify.post("/api/poll/vote", (req, reply) => {
+  const { deviceId: deviceid, option } = req.body || {};
+  if (!isvaliddeviceid(deviceid))
+    return reply.code(400).send({ ok: false, error: "Missing device id." });
+  const ip = normalizeip(getclientip(req));
+  const result = poll.vote(
+    deviceid,
+    typeof option === "string" ? option : "",
+    isprivateip(ip) ? "" : ip,
+  );
+  if (!result.ok)
+    return reply
+      .code(result.code)
+      .send({ ok: false, error: result.error, choice: result.choice });
+  reply.send({ ok: true, choice: result.choice });
+});
 
 // returns the user object or null (after sending an error response)
 function requireauth(req, reply) {
@@ -2589,6 +2646,7 @@ async function shutdown() {
   console.log("shutting down");
   flushplays();
   savemoviereport();
+  savepoll();
   // open WebSockets can keep close() pending
   setTimeout(() => process.exit(0), 3000).unref();
   await wispengine.stop();
