@@ -15,12 +15,12 @@
     />
     <title>Aetheris</title>
 
-    <link rel="stylesheet" href="./css/main.css?v=20261008.1" />
+    <link rel="stylesheet" href="./css/main.css?v=20261011.2" />
     <link rel="stylesheet" href="./css/cards.css?v=20260907.1" />
-    <link rel="stylesheet" href="./css/themes.css?v=20261005.1" />
+    <link rel="stylesheet" href="./css/themes.css?v=20261011.5" />
     <link rel="stylesheet" href="./css/nav.css?v=20260907.1" />
-    <link rel="stylesheet" href="./css/load.css?v=20260907.1" />
-    <script src="./js/theme.js?v=20261007.1"></script>
+    <link rel="stylesheet" href="./css/load.css?v=20261011.2" />
+    <script src="./js/theme.js?v=20261011.2"></script>
 
     <script defer src="./js/preload.js?v=20261008.1"></script>
     <!-- scramjet bundles are loaded on demand by scramjet-init.js when the
@@ -320,7 +320,7 @@
             ↗
           </button>
           <button
-            title="Favourite"
+            title="Favorite"
             aria-label="Add to favorites"
             aria-pressed="false"
             id="fav-btn"
@@ -812,7 +812,7 @@
           padding: 28px 26px 22px;
           width: min(460px, 92vw);
           box-shadow: 0 32px 80px rgba(0, 0, 0, 0.6);
-          font-family: &quot;JetBrains Mono&quot;, monospace;
+          font-family: var(--font-sans);
           color: #e5e5e5;
           position: relative;
         "
@@ -837,7 +837,7 @@
                   letter-spacing: 0.02em;
                 "
               >
-                report something
+                Report a problem
               </div>
               <div
                 id="report-game-name"
@@ -879,7 +879,7 @@
               display: block;
               margin-bottom: 8px;
             "
-            >whats wrong?</span
+            >What's wrong?</span
           >
           <div
             role="group"
@@ -939,11 +939,11 @@
               display: block;
               margin-bottom: 8px;
             "
-            >how did it happen</label
+            >How did it happen?</label
           >
           <textarea
             id="report-steps"
-            placeholder="e.g. Open the game, click Play, then it goes black..."
+            placeholder="e.g. Open the game, click Play, then it goes black"
             onfocus="this.style.borderColor = 'rgba(255,255,255,0.25)'"
             onblur="this.style.borderColor = 'rgba(255,255,255,0.1)'"
             style="
@@ -954,7 +954,7 @@
               border: 1px solid rgba(255, 255, 255, 0.1);
               border-radius: 10px;
               color: #e5e5e5;
-              font-family: &quot;JetBrains Mono&quot;, monospace;
+              font-family: var(--font-sans);
               font-size: 12px;
               padding: 10px 12px;
               box-sizing: border-box;
@@ -976,11 +976,11 @@
               margin-bottom: 8px;
             "
           >
-            anything else? <span style="opacity: 0.4">(optional)</span>
+            Anything else? <span style="opacity: 0.4">(optional)</span>
           </label>
           <textarea
             id="report-notes"
-            placeholder="Anything else we should know..."
+            placeholder="Anything else we should know?"
             onfocus="this.style.borderColor = 'rgba(255,255,255,0.25)'"
             onblur="this.style.borderColor = 'rgba(255,255,255,0.1)'"
             style="
@@ -991,7 +991,7 @@
               border: 1px solid rgba(255, 255, 255, 0.1);
               border-radius: 10px;
               color: #e5e5e5;
-              font-family: &quot;JetBrains Mono&quot;, monospace;
+              font-family: var(--font-sans);
               font-size: 12px;
               padding: 10px 12px;
               box-sizing: border-box;
@@ -1015,7 +1015,7 @@
               border: 1px solid rgba(255, 255, 255, 0.15);
               border-radius: 11px;
               color: #fff;
-              font-family: &quot;JetBrains Mono&quot;, monospace;
+              font-family: var(--font-sans);
               font-size: 13px;
               font-weight: 700;
               padding: 11px;
@@ -1026,7 +1026,7 @@
               letter-spacing: 0.02em;
             "
           >
-            send it
+            Send report
           </button>
           <button
             onclick="closereport()"
@@ -1037,14 +1037,14 @@
               border: 1px solid rgba(255, 255, 255, 0.09);
               border-radius: 11px;
               color: rgba(229, 229, 229, 0.6);
-              font-family: &quot;JetBrains Mono&quot;, monospace;
+              font-family: var(--font-sans);
               font-size: 13px;
               padding: 11px 18px;
               cursor: pointer;
               transition: background 0.15s;
             "
           >
-            nah
+            Cancel
           </button>
         </div>
 

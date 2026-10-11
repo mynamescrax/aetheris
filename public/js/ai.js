@@ -200,7 +200,7 @@
     if (!filtered.length) {
       var empty = document.createElement("div");
       empty.className = "ai-model-empty";
-      empty.textContent = "no models match that";
+      empty.textContent = "No models match that";
       container.appendChild(empty);
       return;
     }

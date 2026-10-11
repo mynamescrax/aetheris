@@ -20,10 +20,10 @@
   var steps = [
     {
       icon: "🔖",
-      title: "bookmark the links doc",
-      body: "please bookmark the links doc to never lose access to the site.",
+      title: "Bookmark the links doc",
+      body: "It always has the latest working links, so you never lose access to the site.",
       action: {
-        label: "open the links doc",
+        label: "Open the links doc",
         run: function () {
           window.open(LINKS_DOC, "_blank", "noopener");
         },
@@ -31,15 +31,15 @@
     },
     {
       icon: "👋",
-      title: "welcome to aetheris",
-      body: "quick tour of how everything works. takes like 30 seconds - you can skip anytime.",
+      title: "Welcome to Aetheris",
+      body: "A quick tour of how everything works. It takes about 30 seconds, and you can skip it anytime.",
     },
     {
       icon: "☰",
-      title: "the menu",
-      body: "tap the handle on the left edge to open the menu. that's where games, apps, cheats, search, chat, ai, movies and settings live.",
+      title: "The menu",
+      body: "Tap the button in the top-left corner to open the menu. Games, apps, cheats, search, chat, AI, movies and settings all live there.",
       action: {
-        label: "open the menu",
+        label: "Open the menu",
         run: function () {
           var h = document.querySelector(".nav-handle");
           if (h) h.click();
@@ -48,55 +48,56 @@
     },
     {
       icon: "🎮",
-      title: "playing games",
-      body: "pick a game from games, search for one, or hit random. above the game you get fullscreen, favorites and a report button. if a game won't load, try another source from the dropdown or report it.",
-      action: { label: "open games", run: go("games") },
+      title: "Playing games",
+      body: "Pick a game, search for one, or hit Random. Above each game you'll find fullscreen, favorites and a report button. If a game won't load, try another source from the dropdown or report it.",
+      action: { label: "Open games", run: go("games") },
     },
     {
       icon: "🌐",
-      title: "apps & search",
-      body: "apps has sites like youtube ready to go. search lets you open any site from inside aetheris.",
-      action: { label: "open apps", run: go("apps") },
+      title: "Apps and search",
+      body: "Apps has sites like YouTube ready to go. Search lets you open any site from inside Aetheris.",
+      action: { label: "Open apps", run: go("apps") },
     },
     {
       icon: "🥷",
-      title: "panic key",
-      body: "set a panic key and pressing it instantly jumps to google classroom (or any url you pick in settings). use a key games don't need, like ` or ;",
+      title: "Panic key",
+      body: "Set a panic key and pressing it instantly jumps to Google Classroom, or any URL you pick in settings. Use a key games don't need, like ` or ;",
       panic: true,
     },
     {
       icon: "🎭",
-      title: "tab cloaking",
-      body: "in settings you can change the tab name and icon so it looks like a normal site.",
-      action: { label: "open settings", run: go("settings") },
+      title: "Tab cloaking",
+      body: "In settings you can change the tab name and icon so it looks like a normal site.",
+      action: { label: "Open settings", run: go("settings") },
     },
     {
       icon: "⚡",
-      title: "slow device?",
-      body: "turn on performance mode in settings to cut effects. if a game thinks you're on a phone, turn on desktop mode. you can also change the theme or set your own background.",
-      action: { label: "open settings", run: go("settings") },
+      title: "Slow device?",
+      body: "Turn on performance mode in settings to cut effects. If a game thinks you're on a phone, turn on desktop mode. You can also change the theme or set your own background.",
+      action: { label: "Open settings", run: go("settings") },
     },
     {
       icon: "💾",
-      title: "don't lose your saves",
-      body: "settings → data lets you back up your settings and game saves to a file, and load them on another device.",
+      title: "Don't lose your saves",
+      body: "Settings → Data lets you back up your settings and game saves to a file, and load them on another device.",
     },
     {
       icon: "✅",
-      title: "you're all set",
-      body: "have fun. you can replay this tour anytime from settings.",
+      title: "You're all set",
+      body: "Have fun. You can replay this tour anytime from settings.",
     },
   ];
 
   var css =
-    "#tut-backdrop{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(4,5,14,.72);font-family:'JetBrains Mono',monospace}" +
-    "#tut-card{width:min(440px,100%);background:#111827;color:#e5e7eb;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:22px 22px 16px;text-align:left;box-shadow:0 20px 60px rgba(0,0,0,.5)}" +
-    "#tut-icon{font-size:30px;line-height:1;margin-bottom:10px}" +
-    "#tut-title{margin:0 0 8px;font-size:1.15rem;color:#fff}" +
-    "#tut-body{margin:0 0 14px;font-size:.9rem;line-height:1.55;opacity:.9}" +
-    "#tut-extra{margin:0 0 14px}" +
-    "#tut-extra button,#tut-nav button{font:inherit;font-size:.85rem;border-radius:10px;padding:8px 12px;cursor:pointer;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.08);color:#fff}" +
+    "#tut-backdrop{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(4,5,14,.72);font-family:var(--font-sans,system-ui,sans-serif)}" +
+    "#tut-card{width:min(420px,100%);background:#141418;color:#e5e7eb;border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:24px 24px 16px;text-align:left;box-shadow:0 16px 40px rgba(0,0,0,.45)}" +
+    "#tut-icon{font-size:24px;line-height:1;margin-bottom:12px}" +
+    "#tut-title{margin:0 0 6px;font-size:1.125rem;font-weight:650;letter-spacing:-.01em;color:#fff}" +
+    "#tut-body{margin:0 0 16px;font-size:.9375rem;line-height:1.55;color:rgba(229,231,235,.75)}" +
+    "#tut-extra{margin:0 0 16px}" +
+    "#tut-extra button,#tut-nav button{font:inherit;font-size:.875rem;font-weight:500;border-radius:8px;padding:8px 14px;cursor:pointer;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#fff;outline-offset:2px}" +
     "#tut-extra button:hover,#tut-nav button:hover{background:rgba(255,255,255,.14)}" +
+    "#tut-extra button:focus-visible,#tut-nav button:focus-visible{outline:2px solid rgba(255,255,255,.45)!important;outline-offset:2px;box-shadow:none}" +
     "#tut-extra .tut-note{display:block;margin-top:8px;font-size:.8rem;opacity:.75}" +
     "#tut-dots{display:flex;gap:6px;justify-content:center;margin:4px 0 14px}" +
     "#tut-dots span{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.22)}" +
@@ -127,23 +128,23 @@
 
   function panicextra(box) {
     var current = store.getItem("panickey");
-    var btn = el("button", { type: "button" }, "set panic key now");
+    var btn = el("button", { type: "button" }, "Set panic key");
     var note = el(
       "span",
       { class: "tut-note" },
-      current ? "current panic key: " + current : "no panic key set yet",
+      current ? "Current panic key: " + current : "No panic key set yet",
     );
     btn.addEventListener("click", function () {
       stopcapture();
-      btn.textContent = "press a key...";
+      btn.textContent = "Press a key…";
       capturing = function (e) {
         if (e.key === "Escape" || e.key === "Tab") return;
         e.preventDefault();
         e.stopPropagation();
         stopcapture();
         store.setItem("panickey", e.key);
-        btn.textContent = "change panic key";
-        note.textContent = "panic key set to: " + e.key;
+        btn.textContent = "Change panic key";
+        note.textContent = "Panic key set to " + e.key;
       };
       document.addEventListener("keydown", capturing, true);
     });
@@ -179,7 +180,7 @@
 
     root.querySelector(".tut-back").hidden = index === 0;
     root.querySelector(".tut-skip").hidden = last;
-    root.querySelector(".tut-next").textContent = last ? "let's go" : "next";
+    root.querySelector(".tut-next").textContent = last ? "Let's go" : "Next";
     root.querySelector(".tut-next").focus();
   }
 
@@ -243,9 +244,9 @@
     card.appendChild(el("div", { id: "tut-extra" }));
     card.appendChild(el("div", { id: "tut-dots", "aria-hidden": "true" }));
     var nav = el("div", { id: "tut-nav" });
-    var skip = el("button", { type: "button", class: "tut-skip" }, "skip");
-    var back = el("button", { type: "button", class: "tut-back" }, "back");
-    var fwd = el("button", { type: "button", class: "tut-next" }, "next");
+    var skip = el("button", { type: "button", class: "tut-skip" }, "Skip");
+    var back = el("button", { type: "button", class: "tut-back" }, "Back");
+    var fwd = el("button", { type: "button", class: "tut-next" }, "Next");
     skip.addEventListener("click", close);
     back.addEventListener("click", function () {
       if (index > 0) index--;

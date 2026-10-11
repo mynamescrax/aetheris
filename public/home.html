@@ -12,9 +12,9 @@
     />
     <title>Aetheris</title>
 
-    <link rel="stylesheet" href="./css/main.css?v=20261008.1" />
+    <link rel="stylesheet" href="./css/main.css?v=20261011.2" />
     <link rel="stylesheet" href="./css/cards.css?v=20260907.1" />
-    <link rel="stylesheet" href="./css/themes.css?v=20261005.1" />
+    <link rel="stylesheet" href="./css/themes.css?v=20261011.5" />
     <link rel="stylesheet" href="./css/nav.css?v=20260907.1" />
 
     <meta name="theme-color" content="#0f0f0f" />
@@ -24,7 +24,7 @@
     <script defer src="./js/preload.js?v=20261008.1"></script>
     <script src="./js/dm-shared.js?v=20261007.1"></script>
 
-    <script src="./js/theme.js?v=20261007.1"></script>
+    <script src="./js/theme.js?v=20261011.2"></script>
     <script src="./js/navigation.js?v=20260907.1"></script>
     <link rel="stylesheet" href="./css/usability.css?v=20260928.1" />
   </head>
@@ -39,7 +39,7 @@
           type="text"
           id="darksearch"
           class="dark-search"
-          placeholder="search anything..."
+          placeholder="Search or enter a URL"
           autocomplete="off"
           aria-label="Search anything"
         />
@@ -62,7 +62,7 @@
     </div>
 
     <div class="online-status" aria-live="polite">
-      <span class="online-dot"></span> online users:
+      <span class="online-dot"></span> Online now
       <span id="online-count">—</span>
     </div>
 
@@ -74,18 +74,18 @@
       aria-labelledby="updatemodaltitle"
     >
       <div class="update-modal">
-        <h2 id="updatemodaltitle">whats new</h2>
+        <h2 id="updatemodaltitle">What's new</h2>
         <ul class="update-list">
-          <li>chat: you can now see who's online (green dot next to their name)</li>
-          <li>chat: group chats! make a group, add your friends, leave anytime</li>
-          <li>movies: new sources (vidrock, vidsrc.su, vidapi) and the dead ones are gone</li>
-          <li>movies: waits longer before switching sources so slow ones get a chance to load</li>
-          <li>proxy: new faster and more stable backend</li>
-          <li>proxy: built-in ad blocker, on by default (turn it off in settings if a site or game breaks)</li>
-          <li>proxy: more sites should load now (cnn, youtube and others)</li>
+          <li>Chat: see who's online (green dot next to their name)</li>
+          <li>Chat: group chats. Make a group, add friends, leave anytime</li>
+          <li>Movies: new sources (VidRock, VidSrc.su, VidAPI), dead ones removed</li>
+          <li>Movies: waits longer before switching sources, so slow ones get a chance to load</li>
+          <li>Proxy: a faster, more stable backend</li>
+          <li>Proxy: built-in ad blocker, on by default (turn it off in settings if a site or game breaks)</li>
+          <li>Proxy: more sites load now, including CNN and YouTube</li>
         </ul>
         <div class="update-modal-footer">
-          <button id="updatemodalclose" type="button">aight</button>
+          <button id="updatemodalclose" type="button">Got it</button>
         </div>
       </div>
     </div>
@@ -105,7 +105,7 @@
         border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 8px;
         color: rgba(229, 229, 229, 0.75);
-        font-family: "JetBrains Mono", monospace;
+        font-family: var(--font-sans);
         font-size: 11px;
         padding: 6px 11px;
         cursor: pointer;
@@ -145,7 +145,7 @@
         padding: 6px 14px;
         border-radius: 999px;
         backdrop-filter: blur(8px);
-        font-family: monospace;
+        font-family: var(--font-sans);
       }
       #online-count {
         color: #4ade80;
@@ -283,7 +283,7 @@
         padding: 28px 26px 22px;
         width: min(460px, 92vw);
         box-shadow: 0 32px 80px rgba(0, 0, 0, 0.6);
-        font-family: "JetBrains Mono", monospace;
+        font-family: var(--font-sans);
         color: #e5e5e5;
         position: relative;
       }
@@ -357,7 +357,7 @@
         border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 10px;
         color: #e5e5e5;
-        font-family: "JetBrains Mono", monospace;
+        font-family: var(--font-sans);
         font-size: 12px;
         padding: 10px 12px;
         box-sizing: border-box;
@@ -381,7 +381,7 @@
         border: 1px solid rgba(255, 255, 255, 0.15);
         border-radius: 11px;
         color: #fff;
-        font-family: "JetBrains Mono", monospace;
+        font-family: var(--font-sans);
         font-size: 13px;
         font-weight: 700;
         padding: 11px;
@@ -402,7 +402,7 @@
         border: 1px solid rgba(255, 255, 255, 0.09);
         border-radius: 11px;
         color: rgba(229, 229, 229, 0.6);
-        font-family: "JetBrains Mono", monospace;
+        font-family: var(--font-sans);
         font-size: 13px;
         padding: 11px 18px;
         cursor: pointer;

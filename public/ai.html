@@ -15,10 +15,10 @@
     />
     <title>Aetheris AI</title>
 
-    <link rel="stylesheet" href="./css/main.css?v=20261008.1" />
-    <link rel="stylesheet" href="./css/themes.css?v=20261005.1" />
+    <link rel="stylesheet" href="./css/main.css?v=20261011.2" />
+    <link rel="stylesheet" href="./css/themes.css?v=20261011.5" />
     <link rel="stylesheet" href="./css/ai.css?v=20261007.1" />
-    <script src="./js/theme.js?v=20261005.2"></script>
+    <script src="./js/theme.js?v=20261011.2"></script>
     <script defer src="./js/preload.js?v=20261008.1"></script>
     <link rel="stylesheet" href="./css/usability.css?v=20260928.1" />
   </head>
@@ -56,7 +56,7 @@
               stroke-linecap="round"
             />
           </svg>
-          <span>new chat</span>
+          <span>New chat</span>
           <kbd>Ctrl N</kbd>
         </button>
 
@@ -70,7 +70,7 @@
                 stroke-linejoin="round"
               />
             </svg>
-            <span>chat</span>
+            <span>Chat</span>
           </button>
           <button class="ai-tab" data-mode="img" type="button">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -91,7 +91,7 @@
                 stroke-linejoin="round"
               />
             </svg>
-            <span>images</span>
+            <span>Images</span>
           </button>
         </nav>
 
@@ -101,11 +101,11 @@
         <header class="ai-topbar">
           <div class="ai-page-title">
             <span id="ai-section-kicker">ai</span>
-            <strong id="ai-section-title">chat</strong>
+            <strong id="ai-section-title">Chat</strong>
           </div>
           <div class="ai-actions">
             <div class="ai-model-wrap">
-              <span>model</span>
+              <span>Model</span>
               <div class="ai-model-picker" id="ai-chat-model-picker">
                 <button
                   class="ai-model-trigger"
@@ -154,7 +154,7 @@
                     <input
                       id="ai-model-search"
                       type="search"
-                      placeholder="search models"
+                      placeholder="Search models"
                       autocomplete="off"
                     />
                   </div>
@@ -175,7 +175,7 @@
               id="ai-clear-mobile"
               type="button"
               aria-label="New chat"
-              title="new chat"
+              title="New chat"
             >
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path
@@ -205,7 +205,7 @@
                     class="ai-inp"
                     id="ai-inp"
                     rows="1"
-                    placeholder="type a message"
+                    placeholder="Type a message"
                     autocomplete="off"
                     aria-label="Message"
                   ></textarea>
@@ -225,9 +225,9 @@
                           stroke-linejoin="round"
                         />
                       </svg>
-                      <span>add image</span>
+                      <span>Add image</span>
                     </button>
-                    <span>enter to send, shift+enter for a new line</span>
+                    <span>Enter to send, Shift+Enter for a new line</span>
                   </div>
                 </div>
                 <button
@@ -258,7 +258,7 @@
                 hidden
               />
               <p class="ai-disclaimer">
-                ai gets stuff wrong sometimes, double check anything important
+                AI can make mistakes. Double-check anything important.
               </p>
             </div>
           </section>
@@ -266,8 +266,8 @@
           <section class="ai-img" aria-label="Image generation">
             <div class="ai-img-result">
               <div class="ai-img-empty" id="ai-img-empty">
-                <h1>make an image</h1>
-                <p>describe what you want. more detail usually means a better result.</p>
+                <h1>Make an image</h1>
+                <p>Describe what you want. More detail usually means a better result.</p>
                 <div class="ai-prompt-grid ai-image-starters">
                   <button
                     type="button"
@@ -296,8 +296,8 @@
                 aria-live="polite"
               >
                 <div class="ai-image-skeleton"><span></span></div>
-                <strong>generating...</strong>
-                <span>this can take a minute</span>
+                <strong>Generating…</strong>
+                <span>This can take a minute</span>
               </div>
             </div>
             <div class="ai-compose-shell ai-image-compose">
@@ -313,7 +313,7 @@
                     class="ai-inp"
                     id="ai-img-prompt"
                     rows="1"
-                    placeholder="describe an image"
+                    placeholder="Describe an image"
                     autocomplete="off"
                     aria-label="Image prompt"
                   ></textarea>
@@ -334,7 +334,7 @@
                           stroke-linejoin="round"
                         />
                       </svg>
-                      <span>reference</span>
+                      <span>Reference</span>
                     </button>
                     <div
                       class="ai-model-picker ai-model-picker-up"
@@ -416,6 +416,6 @@
       </section>
     </div>
 
-    <script src="./js/ai.js?v=20261007.1"></script>
+    <script src="./js/ai.js?v=20261011.3"></script>
   </body>
 </html>

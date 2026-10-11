@@ -51,11 +51,11 @@ body[theme="halloween"] #source-filter optgroup {
 
 :root[theme="halloween"],
 body[theme="halloween"] {
-  --games-panel: rgba(28, 12, 40, 0.55);
-  --games-panel-strong: rgba(34, 14, 48, 0.78);
+  --games-panel: rgba(255, 255, 255, 0.04);
+  --games-panel-strong: rgba(24, 18, 28, 0.82);
   --games-border: rgba(255, 122, 24, 0.16);
   --games-shadow: rgba(8, 2, 14, 0.5);
-  --games-chip: rgba(168, 85, 247, 0.08);
+  --games-chip: rgba(255, 255, 255, 0.06);
   --games-chip-hover: rgba(255, 122, 24, 0.14);
   --games-text-soft: rgba(246, 236, 223, 0.74);
   --games-accent: rgba(255, 122, 24, 0.08);
@@ -64,8 +64,8 @@ body[theme="halloween"] {
   --games-search-end: rgba(255, 122, 24, 0.03);
   --games-search-stroke: rgba(255, 122, 24, 0.18);
   --games-focus-ring: rgba(255, 122, 24, 0.14);
-  --tag-bg: rgba(168, 85, 247, 0.08);
-  --tag-border: rgba(168, 85, 247, 0.18);
+  --tag-bg: rgba(255, 255, 255, 0.06);
+  --tag-border: rgba(255, 255, 255, 0.1);
   --tag-active: #ffb347;
   --tag-active-bg: rgba(255, 122, 24, 0.2);
 }
@@ -176,18 +176,17 @@ html.in-iframe .tag-bar {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 14px 34px var(--games-shadow), inset 0 1px 0 rgba(255,255,255,0.05);
-  transition: transform 0.18s ease;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+  transition: background 0.18s ease, border-color 0.18s ease;
 }
 
 .icon-btn:hover,
 .icon-btn[aria-expanded="true"] {
-  transform: translateY(-1px);
   background:
     linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03)),
     color-mix(in srgb, var(--games-panel) 90%, transparent);
   border-color: color-mix(in srgb, var(--games-accent-strong) 36%, rgba(255,255,255,0.18));
-  box-shadow: 0 16px 38px var(--games-shadow), 0 0 0 4px color-mix(in srgb, var(--games-accent) 18%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
 }
 
 .icon-btn svg {
@@ -241,12 +240,11 @@ html.in-iframe .tag-bar {
 .filters-popover label {
   display: block;
   text-align: left;
-  font-size: 11px;
   margin-bottom: 10px;
   padding-left: 2px;
+  font-size: 12px;
+  font-weight: 500;
   color: var(--games-text-soft);
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
 }
 
 .select-wrap {
@@ -345,7 +343,6 @@ body[theme="dark-blue"] #source-filter optgroup {
 }
 
 .chip:hover {
-  transform: translateY(-1px);
   background: var(--games-chip-hover);
   color: var(--text-color);
 }
@@ -369,10 +366,10 @@ body[theme="dark-blue"] #source-filter optgroup {
   text-align: left;
   padding: 0 24px;
   margin: 4px 0 8px;
-  font-size: 13px;
-  color: var(--games-text-soft);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-color);
+  letter-spacing: -0.01em;
 }
 
 .tag-bar {
@@ -382,9 +379,34 @@ body[theme="dark-blue"] #source-filter optgroup {
 
 .tag-group {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+  flex-wrap: nowrap;
+  gap: 8px;
   align-items: center;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent);
+}
+
+.tag-group::-webkit-scrollbar {
+  display: none;
+}
+
+/* Popular is one scrollable row, so it never leaves a half-empty second row */
+#populargames {
+  grid-auto-flow: column;
+  grid-template-columns: none;
+  grid-auto-columns: clamp(128px, 12vw, 154px);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+
+#populargames > * {
+  scroll-snap-align: start;
 }
 
 .tag-chip {
@@ -395,13 +417,14 @@ body[theme="dark-blue"] #source-filter optgroup {
   font-size: 13px;
   font-weight: 500;
   color: var(--games-text-soft);
+  white-space: nowrap;
+  flex-shrink: 0;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
 .tag-chip:hover {
   background: var(--games-chip-hover);
-  transform: translateY(-1px);
   color: white;
 }
 
@@ -457,7 +480,6 @@ body[theme="dark-blue"] #source-filter optgroup {
 }
 
 .sort-plays-btn:hover {
-  transform: translateY(-1px);
   color: var(--text-color);
   background:
     linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03)),
@@ -509,7 +531,6 @@ body[theme="dark-blue"] #source-filter optgroup {
 }
 
 .random-game-btn:hover {
-  transform: translateY(-1px);
   background:
     linear-gradient(180deg, rgba(34,197,94,0.26), rgba(22,163,74,0.16)),
     color-mix(in srgb, var(--games-panel) 90%, transparent);
@@ -547,7 +568,7 @@ body[theme="dark-blue"] #source-filter optgroup {
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.15);
   display: none;
   z-index: 9999;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+  font-family: var(--font-sans);
 }
 
 #game-popup.show {
@@ -583,10 +604,10 @@ body[theme="dark-blue"] #source-filter optgroup {
 
 #game-popup-header .close-btn:hover {
   opacity: 1;
-  transform: scale(1.1);
 }
 
 #game-popup-content {
+  text-align: left;
   font-size: 14px;
   margin-top: 10px;
   line-height: 1.6;

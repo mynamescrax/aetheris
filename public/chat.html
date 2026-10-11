@@ -9,13 +9,13 @@
       type="image/png"
     />
     <title>Aetheris DMs</title>
-    <link rel="stylesheet" href="./css/main.css?v=20261008.1" />
+    <link rel="stylesheet" href="./css/main.css?v=20261011.2" />
     <link rel="stylesheet" href="./css/cards.css?v=20260907.1" />
-    <link rel="stylesheet" href="./css/themes.css?v=20261005.1" />
+    <link rel="stylesheet" href="./css/themes.css?v=20261011.5" />
     <link rel="stylesheet" href="./css/nav.css?v=20260907.1" />
     <link rel="stylesheet" href="./css/chat.css?v=20260907.1" />
     <link rel="stylesheet" href="./css/chat-extras.css?v=20261011.1" />
-    <script src="./js/theme.js?v=20261007.1"></script>
+    <script src="./js/theme.js?v=20261011.2"></script>
     <script src="register-sw.js?v=20260907.1" defer></script>
     <script defer src="./js/preload.js?v=20261008.1"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -85,7 +85,7 @@
         </button>
         <hr class="auth-hr" />
         <button type="button" class="abtn danger" onclick="openwipe()">
-          delete all accounts from this device
+          Delete all accounts from this device
         </button>
       </div>
     </div>
@@ -132,7 +132,7 @@
               <input
                 id="srch"
                 type="text"
-                placeholder="search…"
+                placeholder="Search"
                 aria-label="Search conversations"
                 oninput="filterinbox()"
                 autocomplete="off"
@@ -144,14 +144,14 @@
             <button class="tg-new" onclick="opennewgroup()">New group</button>
           </div>
           <div class="tg-list" id="tg-list">
-            <div class="tg-empty-l">no convos yet.<br />start one above.</div>
+            <div class="tg-empty-l">No conversations yet.<br />Start one above.</div>
           </div>
         </div>
 
         <div class="tg-right">
           <div class="tg-empty-r" id="tg-empty">
             <div class="big" aria-hidden="true">💬</div>
-            <div>select a convo or start one</div>
+            <div>Select a conversation or start one</div>
           </div>
           <div
             id="tg-active"
@@ -195,7 +195,7 @@
                   id="tg-inp"
                   type="text"
                   aria-label="Message"
-                  placeholder="write something..."
+                  placeholder="Write a message"
                   maxlength="3000"
                   autocomplete="off"
                 />
@@ -223,19 +223,19 @@
       onclick="bgclose(event, 'modal-newdm')"
     >
       <div class="modal">
-        <h3 id="newdm-title">new message</h3>
+        <h3 id="newdm-title">New message</h3>
         <div class="msrch">
           <input
             id="user-search"
             type="text"
-            placeholder="search users..."
+            placeholder="Search users"
             aria-label="Search users"
             autocomplete="off"
           />
         </div>
         <div class="ulist" id="user-list"></div>
         <button class="mbtn ghost" onclick="closemodal('modal-newdm')">
-          cancel
+          Cancel
         </button>
       </div>
     </div>
@@ -250,15 +250,14 @@
       onclick="bgclose(event, 'modal-del')"
     >
       <div class="modal">
-        <h3 id="del-title">delete account?</h3>
+        <h3 id="del-title">Delete account?</h3>
         <p>
-          this deletes your account and all your dms. frees your device so you
-          can register again.
+          This deletes your account and all your DMs, and frees up this device so you can register again.
         </p>
         <div class="mrow">
-          <button class="mbtn danger" onclick="confirmdelete()">delete</button>
+          <button class="mbtn danger" onclick="confirmdelete()">Delete</button>
           <button class="mbtn ghost" onclick="closemodal('modal-del')">
-            cancel
+            Cancel
           </button>
         </div>
       </div>
@@ -274,24 +273,24 @@
       onclick="bgclose(event, 'modal-wipe')"
     >
       <div class="modal">
-        <h3 id="wipe-title">delete all accounts?</h3>
+        <h3 id="wipe-title">Delete all accounts?</h3>
         <p>
-          deletes the account created on this device (you need to be logged in).
+          Deletes the account created on this device. You need to be logged in.
         </p>
         <div id="wipe-ok" class="ok-msg" style="display: none"></div>
         <div class="mrow">
           <button class="mbtn warn" onclick="confirmwipe()">
-            yeah, delete all
+            Yes, delete all
           </button>
           <button class="mbtn ghost" onclick="closemodal('modal-wipe')">
-            cancel
+            Cancel
           </button>
         </div>
       </div>
     </div>
 
     <script src="./js/dm-shared.js?v=20261007.1"></script>
-    <script src="./js/dm-ui.js?v=20261011.1"></script>
+    <script src="./js/dm-ui.js?v=20261011.3"></script>
     <script src="./js/chat.js?v=20261007.1"></script>
   </body>
 </html>

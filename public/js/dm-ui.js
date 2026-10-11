@@ -459,7 +459,7 @@ async function senddm() {
     if (token !== authtoken) return;
     drafts[recipient] = text;
     if (activeconvo === recipient) inp.value = text;
-    alert("network error \u2014 message not sent.");
+    alert("Network error \u2014 message not sent.");
     return;
   } finally {
     clearTimeout(timeout);
@@ -636,11 +636,11 @@ function opennewgroup() {
     "modal-newgroup",
     "new group",
     '<div class="msrch"><input id="group-name" type="text" maxlength="40"' +
-      ' placeholder="group name (optional)" aria-label="Group name"' +
+      ' placeholder="Group name (optional)" aria-label="Group name"' +
       ' autocomplete="off" /></div>' +
       '<div class="dm-picks" id="group-picks"></div>' +
       '<div class="msrch"><input id="group-search" type="text"' +
-      ' placeholder="add people..." aria-label="Search users to add"' +
+      ' placeholder="Add people" aria-label="Search users to add"' +
       ' autocomplete="off" /></div>' +
       '<div class="ulist" id="group-user-list"></div>' +
       '<div class="dm-row"><button class="mbtn" id="group-create"' +
@@ -735,7 +735,7 @@ function openmembers() {
     "group members",
     '<div class="ulist" id="group-members"></div>' +
       '<div class="msrch"><input id="member-search" type="text"' +
-      ' placeholder="add someone..." aria-label="Search users to add"' +
+      ' placeholder="Add someone" aria-label="Search users to add"' +
       ' autocomplete="off" /></div>' +
       '<div class="ulist" id="member-user-list"></div>' +
       '<div class="dm-row"><button class="mbtn danger"' +
@@ -824,7 +824,7 @@ async function addmember(username) {
 
 async function leavegroup() {
   var key = activeconvo;
-  if (!isgroupkey(key) || !confirm("leave this group?")) return;
+  if (!isgroupkey(key) || !confirm("Leave this group?")) return;
   try {
     var r = await fetch(convopath(key) + "/leave", {
       method: "POST",

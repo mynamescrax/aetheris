@@ -1,3 +1,52 @@
+/* Outfit (SIL OFL 1.1, see /assets/fonts/outfit-LICENSE.txt). Self-hosted so
+   pages inside the shell iframe don't fall back to Courier when Google Fonts
+   is blocked or not loaded. */
+@font-face {
+  font-family: "Outfit";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/assets/fonts/outfit-latin-wght.woff2") format("woff2");
+}
+
+/* Shared design tokens. Themes only change colour; type, radius and spacing
+   stay the same everywhere. */
+:root {
+  --font-sans: "Outfit", system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas,
+    monospace;
+
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-md: 16px;
+  --text-lg: 20px;
+  --text-xl: 28px;
+  --text-2xl: 40px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+
+  --surface-1: rgba(255, 255, 255, 0.04);
+  --surface-2: rgba(255, 255, 255, 0.07);
+  --surface-3: rgba(255, 255, 255, 0.11);
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --text-muted: rgba(229, 231, 235, 0.64);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.28);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.4);
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
 :root[theme="dark"], body[theme="dark"] {
   --text-color: #e5e5e5;
   --background: linear-gradient(135deg, #0f0f0f 0%, #161616 40%, #0a0a0a 100%);
@@ -79,10 +128,8 @@
 :root[theme="halloween"], body[theme="halloween"] {
   --text-color: #f6ecdf;
   --background:
-    radial-gradient(circle at 86% 12%, rgba(255, 240, 200, 0.2) 0, rgba(255, 214, 140, 0.08) 4.5%, transparent 12%),
-    radial-gradient(ellipse at 50% 115%, rgba(255, 106, 0, 0.24) 0, transparent 58%),
-    radial-gradient(ellipse at 8% -5%, rgba(124, 58, 237, 0.22) 0, transparent 52%),
-    linear-gradient(180deg, #140a20 0%, #0d0715 55%, #070409 100%);
+    radial-gradient(ellipse at 50% 120%, rgba(255, 106, 0, 0.12) 0, transparent 55%),
+    linear-gradient(180deg, #120a1b 0%, #0c0712 60%, #070409 100%);
   --bg-color: #0d0715;
   --navbar: #0a0510;
   --accent: #ff7a18;
@@ -105,12 +152,6 @@
   --logo-glow: rgba(255, 122, 24, 0.14);
 }
 
-/* purple-tinted grid instead of the default white one */
-body[theme="halloween"]::before {
-  --grid-line: rgba(168, 85, 247, 0.07);
-  --grid-glow: rgba(255, 122, 24, 0.05);
-}
-
 /* drifting bats layer - decorative only */
 body[theme="halloween"]::after {
   content: "";
@@ -123,7 +164,7 @@ body[theme="halloween"]::after {
   background-repeat: no-repeat;
   background-size: 54px auto, 34px auto, 26px auto, 42px auto, 22px auto;
   background-position: 78% 20%, 70% 9%, 91% 27%, 14% 64%, 24% 58%;
-  opacity: 0.38;
+  opacity: 0.2;
   animation: aetheris-bats 16s ease-in-out infinite alternate;
 }
 
@@ -133,21 +174,9 @@ body[theme="halloween"]::after {
   100% { transform: translate3d(10px, 6px, 0); }
 }
 
-body[theme="halloween"] .dark-title {
-  background: linear-gradient(135deg, #ff6a00 0%, #ffb347 55%, #ffe3b0 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  filter: drop-shadow(0 0 18px rgba(255, 106, 0, 0.35));
-}
-
-body[theme="halloween"] .dark-search {
-  border-color: rgba(255, 122, 24, 0.18);
-  background: rgba(16, 6, 24, 0.55);
-}
-
 body[theme="halloween"] .dark-search:focus {
   border-color: rgba(255, 122, 24, 0.5);
-  box-shadow: 0 0 0 4px rgba(255, 122, 24, 0.12), 0 0 30px rgba(168, 85, 247, 0.15);
+  box-shadow: 0 0 0 3px rgba(255, 122, 24, 0.16);
 }
 
 body[theme="halloween"] ::selection {
@@ -180,20 +209,25 @@ body {
 }
 
 .dark-title {
-  font-size: 72px;
-  font-weight: 900;
-  letter-spacing: -2px;
-  margin-bottom: 6px;
-  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 65%, white));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  font-family: var(--font-sans);
+  font-size: 64px;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1;
+  margin-bottom: var(--space-3);
+  color: var(--text-color);
+}
+
+@media (max-width: 520px) {
+  .dark-title {
+    font-size: 44px;
+  }
 }
 
 .dark-subtitle {
-  font-size: 15px;
-  opacity: 0.75;
-  margin-bottom: 26px;
+  font-size: var(--text-md);
+  color: var(--text-muted);
+  margin-bottom: var(--space-5);
 }
 
 .dark-search-wrap {
@@ -204,22 +238,23 @@ body {
 .dark-search {
   width: 100%;
   max-width: 720px;
-  height: 60px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(0, 0, 0, 0.45);
-  color: #e5e5e5;
-  font-size: 18px;
-  padding: 0 24px;
+  height: 56px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-color);
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  padding: 0 var(--space-5);
   outline: none;
   margin: 0 auto;
-  backdrop-filter: blur(8px);
-  transition: border-color 0.25s ease, background 0.25s ease;
+  transition: border-color 0.15s var(--ease), background 0.15s var(--ease);
 }
 
 .dark-search:focus {
-  border-color: rgba(255, 255, 255, 0.18);
-  background: rgba(0, 0, 0, 0.65);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: var(--surface-2);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .dark-search::placeholder {

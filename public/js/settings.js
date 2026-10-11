@@ -169,7 +169,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     var status = document.getElementById("transport-status");
     // read on the next proxy launch; nothing to switch live
-    if (status) status.textContent = "saved. takes effect on next proxy use.";
+    if (status) status.textContent = "Saved. Takes effect the next time you use the proxy.";
   };
 
   // --- desktop UA spoof toggle ---

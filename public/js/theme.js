@@ -39,10 +39,8 @@
     },
     halloween: {
       bg:
-        "radial-gradient(circle at 86% 12%, rgba(255, 240, 200, 0.2) 0, rgba(255, 214, 140, 0.08) 4.5%, transparent 12%), " +
-        "radial-gradient(ellipse at 50% 115%, rgba(255, 106, 0, 0.24) 0, transparent 58%), " +
-        "radial-gradient(ellipse at 8% -5%, rgba(124, 58, 237, 0.22) 0, transparent 52%), " +
-        "linear-gradient(180deg, #140a20 0%, #0d0715 55%, #070409 100%)",
+        "radial-gradient(ellipse at 50% 120%, rgba(255, 106, 0, 0.12) 0, transparent 55%), " +
+        "linear-gradient(180deg, #120b18 0%, #0d0812 55%, #080509 100%)",
       bgc: "#0d0715",
       color: "#f6ecdf",
     },

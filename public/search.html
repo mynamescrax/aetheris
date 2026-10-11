@@ -12,12 +12,12 @@
       href="./assets/images/icon.png"
       type="image/png"
     />
-    <link rel="stylesheet" href="./css/main.css?v=20261008.1" />
+    <link rel="stylesheet" href="./css/main.css?v=20261011.2" />
     <link rel="stylesheet" href="./css/cards.css?v=20260907.1" />
-    <link rel="stylesheet" href="./css/themes.css?v=20261005.1" />
+    <link rel="stylesheet" href="./css/themes.css?v=20261011.5" />
     <link rel="stylesheet" href="./css/nav.css?v=20260907.1" />
 
-    <script src="./js/theme.js?v=20261007.1"></script>
+    <script src="./js/theme.js?v=20261011.2"></script>
 
     <script src="/scramjet/scramjet.js" defer></script>
     <script src="/controller/controller.api.js" defer></script>
@@ -39,7 +39,7 @@
       }
 
       .centered h1 {
-        font-family: "Montserrat", system-ui, sans-serif;
+        font-family: var(--font-sans);
         font-size: clamp(2.5rem, 8vw, 4rem);
         font-weight: 900;
         color: var(--text-color);
@@ -121,7 +121,7 @@
         justify-content: center;
         background: var(--navbar);
         color: var(--text-color);
-        font-family: system-ui, sans-serif;
+        font-family: var(--font-sans, system-ui, sans-serif);
         font-size: 0.95rem;
         z-index: 2;
       }
@@ -202,7 +202,7 @@
           class="pxyinput"
           type="text"
           aria-label="Search or enter a URL"
-          placeholder="Search or enter a URL..."
+          placeholder="Search or enter a URL"
           autocomplete="off"
           autocapitalize="none"
           spellcheck="false"

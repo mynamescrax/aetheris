@@ -22,12 +22,12 @@
       }
     </script>
 
-    <link rel="stylesheet" href="./css/main.css?v=20261008.1" />
-    <link rel="stylesheet" href="./css/themes.css?v=20261005.1" />
+    <link rel="stylesheet" href="./css/main.css?v=20261011.2" />
+    <link rel="stylesheet" href="./css/themes.css?v=20261011.5" />
     <link rel="stylesheet" href="./css/nav.css?v=20260907.1" />
-    <link rel="stylesheet" href="./css/games.css?v=20261005.1" />
+    <link rel="stylesheet" href="./css/games.css?v=20261011.3" />
     <link rel="stylesheet" href="./css/cards.css?v=20260907.1" />
-    <script src="./js/theme.js?v=20261007.1"></script>
+    <script src="./js/theme.js?v=20261011.2"></script>
     <script defer src="./js/preload.js?v=20261008.1"></script>
     <script
       defer
@@ -44,31 +44,31 @@
   <body>
     <div id="game-popup">
       <div id="game-popup-header">
-        <span>game not working?</span>
+        <span>Game not working?</span>
         <button
           type="button"
           class="close-btn"
           aria-label="Dismiss game tips"
           onclick="closegamepopup()"
         >
-          ✕
+          &times;
         </button>
       </div>
 
       <div id="game-popup-content">
-        hit the <strong>fullscreen icon</strong> on the right to open it on the
-        whole screen. if it's lagging, refresh the page or turn on performance
-        mode.
+        Use the <strong>fullscreen button</strong> on the right to fill the
+        screen. If it's lagging, refresh the page or turn on performance mode
+        in settings.
       </div>
       <div id="game-popup-footer">
         <label id="dont-show-label">
-          <input type="checkbox" id="dont-show-again" /> don't show again
+          <input type="checkbox" id="dont-show-again" /> Don't show again
         </label>
       </div>
     </div>
     <div class="games-shell">
       <div class="page-wrapper">
-        <h1>games</h1>
+        <h1>Games</h1>
 
         <div class="games-topbar">
           <div class="games-search-wrap">
@@ -76,7 +76,7 @@
               type="search"
               id="search-box"
               aria-label="Search games"
-              placeholder="Search games..."
+              placeholder="Search games"
               autocomplete="off"
             />
             <span class="search-focus-ring" aria-hidden="true"></span>
@@ -129,7 +129,7 @@
                   d="M12 2C9.5 5.5 7 8.5 7 12a5 5 0 0 0 10 0c0-2.2-1.2-4.3-2.8-5.8-.3 1.2-.8 2.3-1.7 3.3C12.2 8 12 5 12 2z"
                 />
               </svg>
-              Most Played
+              Most played
             </button>
             <div style="position: relative">
               <button
@@ -167,7 +167,7 @@
         <div class="tag-bar">
           <div class="tag-group" id="tag-container">
             <span style="color: rgba(255, 255, 255, 0.5); font-size: 13px"
-              >Loading tags...</span
+              >Loading tags…</span
             >
           </div>
           <div style="display: flex; justify-content: flex-end">
@@ -176,17 +176,17 @@
               id="clear-all-tags-btn"
               style="display: none"
             >
-              clear tags
+              Clear tags
             </button>
           </div>
         </div>
 
         <div class="section-label" id="popular-label" style="display: none">
-          popular
+          Popular
         </div>
         <div class="card-container" id="populargames"></div>
         <div class="section-label" id="favorites-label" style="display: none">
-          favorites
+          Favorites
         </div>
         <div class="card-container" id="favoritedgames"></div>
         <div class="card-container" id="gamecards"></div>

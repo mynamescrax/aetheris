@@ -32,7 +32,7 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   color: rgba(240, 232, 255, 0.75);
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   padding: 6px 11px;
   cursor: pointer;
@@ -65,7 +65,7 @@
   background: rgba(0, 0, 0, 0.45);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.85);
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 0.85rem;
   font-weight: 500;
   letter-spacing: 0.02em;
@@ -251,7 +251,7 @@ body.left-handed .report-pill {
   background: rgba(0, 0, 0, 0.45);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.85);
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 0.85rem;
   font-weight: 500;
   letter-spacing: 0.02em;
@@ -352,7 +352,7 @@ body.left-handed .chat-panel {
   background: rgba(0, 0, 0, 0.45);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.85);
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 0.85rem;
   font-weight: 500;
   letter-spacing: 0.02em;
@@ -416,7 +416,7 @@ body.left-handed .osk-pill {
 }
 
 .osk-title {
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 10px;
   opacity: 0.4;
   letter-spacing: 0.1em;
@@ -469,7 +469,7 @@ body.left-handed .osk-pill {
   border: 1px solid rgba(255, 255, 255, 0.11);
   border-bottom: 2px solid rgba(0, 0, 0, 0.3);
   color: rgba(229, 229, 229, 0.82);
-  font-family: "JetBrains Mono", monospace;
+  font-family: var(--font-sans);
   font-size: 11px;
   line-height: 1;
   min-width: 32px;

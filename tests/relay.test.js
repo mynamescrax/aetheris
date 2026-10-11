@@ -552,6 +552,77 @@ test("rewriteHtml keeps self-hosted JWPlayer locatable", async (t) => {
   });
 });
 
+test("rewriteHtml relays srcset, posters, unquoted and POST form URLs", () => {
+  const target = new URL("https://player.example/embed/42");
+  const proxied = (url) =>
+    `http://localhost/movie-proxy?url=${encodeURIComponent(url)}`;
+  const rewrite = (body) =>
+    rewriteHtml(
+      `<!doctype html><html><head></head><body>${body}</body></html>`,
+      target,
+      "http://localhost",
+    );
+
+  const srcset = rewrite(
+    '<img srcset="/a.png 1x, https://cdn.example/b.png?w=2&amp;h=3 2x,data:image/png;base64,AA== 3x">' +
+      "<source data-srcset='c.webp 480w'>" +
+      '<link rel="preload" as="image" imagesrcset="/d.png 1x">',
+  );
+  assert.ok(
+    srcset.includes(
+      `srcset="${proxied("https://player.example/a.png")} 1x, ${proxied("https://cdn.example/b.png?w=2&h=3")} 2x, data:image/png;base64,AA== 3x"`,
+    ),
+  );
+  assert.ok(
+    srcset.includes(
+      `data-srcset='${proxied("https://player.example/embed/c.webp")} 480w'`,
+    ),
+  );
+  assert.ok(
+    srcset.includes(
+      `imagesrcset="${proxied("https://player.example/d.png")} 1x"`,
+    ),
+  );
+
+  const media = rewrite(
+    '<video poster="/p.jpg" src=/v.mp4></video><img src = "/spaced.png"><a href=#top>t</a>',
+  );
+  assert.ok(media.includes(`poster="${proxied("https://player.example/p.jpg")}"`));
+  assert.ok(media.includes(`src="${proxied("https://player.example/v.mp4")}"`));
+  assert.ok(
+    media.includes(`src = "${proxied("https://player.example/spaced.png")}"`),
+  );
+  assert.ok(media.includes("href=#top"), "fragments stay local");
+
+  const forms = rewrite(
+    '<form method="post" action="/login"><button formaction="/x">x</button></form>' +
+      '<form action="/search"><input name=q></form>' +
+      '<button formmethod="POST" formaction=/y>y</button>',
+  );
+  assert.ok(forms.includes(`action="${proxied("https://player.example/login")}"`));
+  assert.ok(
+    forms.includes('action="/search"'),
+    "GET forms would drop ?url= from the action",
+  );
+  assert.ok(forms.includes('formaction="/x"'));
+  assert.ok(forms.includes(`formaction="${proxied("https://player.example/y")}"`));
+
+  const code = "var img={src:1};img.src=next;el.poster=p;";
+  const raw = rewrite(
+    `<script src=/boot.js>${code}</script><!-- <img src=/c.png> --><textarea><img src=/t.png></textarea>`,
+  );
+  assert.ok(raw.includes(`src="${proxied("https://player.example/boot.js")}">${code}`));
+  assert.ok(raw.includes("<!-- <img src=/c.png> -->"));
+  assert.ok(raw.includes("<textarea><img src=/t.png></textarea>"));
+
+  const quoted = rewrite('<img src="/q.png" alt="1 > 0" srcset="/q2.png 2x">');
+  assert.equal(
+    quoted.match(/movie-proxy\?url=/g).length,
+    2,
+    "quoted src isn't relayed twice and quoted > doesn't end the tag",
+  );
+});
+
 test("movie relay forwards flixer signed auth headers upstream", async (t) => {
   // Flixer's sources endpoint 403s unless its signed headers reach upstream.
   const seen = {};

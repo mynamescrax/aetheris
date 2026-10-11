@@ -10,16 +10,16 @@
     />
     <title>Aetheris</title>
 
-    <link rel="stylesheet" href="./css/main.css?v=20261008.1" />
+    <link rel="stylesheet" href="./css/main.css?v=20261011.2" />
     <link rel="stylesheet" href="./css/cards.css?v=20260907.1" />
-    <link rel="stylesheet" href="./css/themes.css?v=20261005.1" />
+    <link rel="stylesheet" href="./css/themes.css?v=20261011.5" />
     <link rel="stylesheet" href="./css/nav.css?v=20260907.1" />
-    <link rel="stylesheet" href="./css/settings.css?v=20260907.1" />
-    <script src="./js/theme.js?v=20261007.1"></script>
+    <link rel="stylesheet" href="./css/settings.css?v=20261011.3" />
+    <script src="./js/theme.js?v=20261011.2"></script>
 
     <script src="register-sw.js?v=20260907.1" defer></script>
     <script defer src="./js/preload.js?v=20261008.1"></script>
-    <script defer src="./js/settings.js?v=20261011.1"></script>
+    <script defer src="./js/settings.js?v=20261011.3"></script>
     <script defer src="./js/data-transfer.js?v=20261005.1"></script>
     <script defer src="./js/cache-reset.js?v=20261005.1"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -62,7 +62,7 @@
 
   <body>
     <div class="center-container">
-      <h1>settings</h1>
+      <h1>Settings</h1>
 
       <div class="settings-tabs">
         <button class="settings-tab active" onclick="showsection('appearance')">
@@ -78,8 +78,8 @@
       </div>
 
       <div class="settings-section active" id="section-appearance">
-        <h2>theme</h2>
-        <h4>pick a theme</h4>
+        <h2>Theme</h2>
+        <h4>Pick a theme</h4>
 
         <div class="theme-cards" id="theme-cards">
           <button
@@ -142,8 +142,8 @@
           <option value="halloween">Halloween</option>
         </select>
 
-        <h2>on-screen keyboard</h2>
-        <h4>show a keyboard overlay when playing games, might not work well</h4>
+        <h2>On-screen keyboard</h2>
+        <h4>Shows a keyboard overlay while you play. Might not work in every game.</h4>
 
         <div class="toggle-row">
           <label class="toggle-label" for="osk-toggle">
@@ -151,12 +151,12 @@
               <input type="checkbox" id="osk-toggle" />
               <span class="toggle-thumb"></span>
             </span>
-            <span class="toggle-text">enable ze on screen keyboard</span>
+            <span class="toggle-text">Enable on-screen keyboard</span>
           </label>
         </div>
 
-        <h2>background image</h2>
-        <h4>upload an image to have a custom background</h4>
+        <h2>Background image</h2>
+        <h4>Upload an image to use as your background.</h4>
         <div
           id="bg-preview-wrap"
           style="
@@ -208,7 +208,7 @@
       </div>
 
       <div class="settings-section" id="section-cloaking">
-        <h2>tab cloaking</h2>
+        <h2>Tab cloaking</h2>
         <div class="form-row">
           <input
             type="text"
@@ -269,11 +269,9 @@
           </button>
         </div>
 
-        <h2>panic key</h2>
+        <h2>Panic key</h2>
         <h4>
-          pick a key games don't use for controls (like ` or ;) - a key like
-          WASD or space will bail out mid-game. single keys won't trigger while
-          you're typing in a text box.
+          Pick a key games don't use for controls, like ` or ;. Keys like WASD or space will kick you out mid-game. Single keys won't trigger while you're typing in a text box.
         </h4>
         <div class="form-row">
           <input
@@ -283,7 +281,7 @@
             aria-label="Panic key"
           />
           <button onclick="setpanickey()" class="secondary">
-            set panic key
+            Set panic key
           </button>
         </div>
 
@@ -295,7 +293,7 @@
             aria-label="Panic URL"
           />
           <button onclick="setpanicurl()" class="secondary">
-            set panic URL
+            Set panic URL
           </button>
         </div>
 
@@ -307,8 +305,8 @@
       </div>
 
       <div class="settings-section" id="section-connection">
-        <h2>transport</h2>
-        <h4>which transport sites and games use</h4>
+        <h2>Transport</h2>
+        <h4>Which transport sites and games use.</h4>
 
         <div class="theme-cards" id="transport-cards">
           <button
@@ -361,8 +359,8 @@
           style="margin-top: 8px; font-size: 0.85em; opacity: 0.6"
         ></div>
 
-        <h2>performance</h2>
-        <h4>turns off effects so slower devices run better</h4>
+        <h2>Performance</h2>
+        <h4>Turns off effects so slower devices run better.</h4>
 
         <div class="toggle-row">
           <label class="toggle-label" for="performance-toggle">
@@ -370,12 +368,12 @@
               <input type="checkbox" id="performance-toggle" />
               <span class="toggle-thumb"></span>
             </span>
-            <span class="toggle-text">performance mode</span>
+            <span class="toggle-text">Performance mode</span>
           </label>
         </div>
 
-        <h2>desktop mode</h2>
-        <h4>makes the game/site tink ur on a pc</h4>
+        <h2>Desktop mode</h2>
+        <h4>Makes games and sites think you're on a PC.</h4>
 
         <div class="toggle-row">
           <label class="toggle-label" for="spoof-ua-toggle">
@@ -383,12 +381,12 @@
               <input type="checkbox" id="spoof-ua-toggle" />
               <span class="toggle-thumb"></span>
             </span>
-            <span class="toggle-text">spoof desktop user agent</span>
+            <span class="toggle-text">Spoof desktop user agent</span>
           </label>
         </div>
 
-        <h2>ad blocker</h2>
-        <h4>blocks ads + trackers in the proxy so sites load faster. turn it off if a site or game breaks</h4>
+        <h2>Ad blocker</h2>
+        <h4>Blocks ads and trackers in the proxy so sites load faster. Turn it off if a site or game breaks.</h4>
 
         <div class="toggle-row">
           <label class="toggle-label" for="adblock-toggle">
@@ -396,22 +394,22 @@
               <input type="checkbox" id="adblock-toggle" />
               <span class="toggle-thumb"></span>
             </span>
-            <span class="toggle-text">block ads in the proxy</span>
+            <span class="toggle-text">Block ads in the proxy</span>
           </label>
         </div>
       </div>
 
       <div class="settings-section" id="section-tutorial">
-        <h2>tutorial</h2>
-        <h4>replay the quick tour from the first time you opened the site</h4>
+        <h2>Tutorial</h2>
+        <h4>Replay the quick tour from your first visit.</h4>
 
         <div class="form-row">
-          <button id="replay-tutorial" class="secondary">replay tutorial</button>
+          <button id="replay-tutorial" class="secondary">Replay tutorial</button>
         </div>
       </div>
 
       <div class="settings-section" id="section-data">
-        <h2>data</h2>
+        <h2>Data</h2>
         <h4>
           Back up settings and game saves. Chat sign-ins and disposable caches
           are excluded. Keep backup files private.
@@ -442,7 +440,7 @@
           style="margin-top: 10px; font-size: 0.92em; opacity: 0.75"
         ></div>
 
-        <h2>cache</h2>
+        <h2>Cache</h2>
         <h4>
           Clear proxy/catalog caches and the site service worker. Game-save
           databases and favorites are kept.
@@ -453,7 +451,7 @@
           </button>
         </div>
 
-        <h2>downloaded games</h2>
+        <h2>Downloaded games</h2>
         <h4>
           Delete downloaded game files to free space: per-game offline packs,
           game download caches, and large downloaded files stored alongside
@@ -465,7 +463,7 @@
           </button>
         </div>
 
-        <h2>site data</h2>
+        <h2>Site data</h2>
         <h4>
           Delete everything stored by this site: settings, favorites, game
           saves, chat sign-ins, caches, and the service worker. Export a

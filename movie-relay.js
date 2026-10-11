@@ -279,6 +279,108 @@ function isRealHtml(text) {
   );
 }
 
+// Attributes whose whole value is one URL.
+const SINGLE_URL_ATTRS = new Set([
+  "src",
+  "href",
+  "data-src",
+  "data-api",
+  "poster",
+]);
+// Quoted with a bare `=`, these are already handled by rewriteHtml's first
+// pass.
+const FIRST_PASS_ATTRS = new Set(["src", "href", "data-src", "data-api"]);
+// Comma-separated `url descriptor` candidates. Lazy loaders copy
+// data-srcset into srcset with setAttribute, which the client doesn't hook.
+const SRCSET_ATTRS = new Set(["srcset", "imagesrcset", "data-srcset"]);
+const TAG_PATTERN =
+  /<([a-zA-Z][\w:-]*)((?:\s+[^\s"'<>/=]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'=<>`]+))?)*)(\s*\/?)>/g;
+const ATTR_PATTERN =
+  /(\s+)([^\s"'<>/=]+)(?:(\s*=\s*)(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
+// Comments and raw-text elements: `src=x` in there is code or text, not an
+// attribute. Group 1 is the opening tag, which still gets rewritten.
+const RAW_TEXT_PATTERN =
+  /<!--[\s\S]*?-->|(<(script|style|textarea|title)\b[^>]*>)[\s\S]*?<\/\2\s*>/gi;
+
+function rewriteSrcset(value, rewriteUrl) {
+  const candidates = [];
+  let i = 0;
+  while (i < value.length) {
+    while (i < value.length && /[\s,]/.test(value[i])) i++;
+    if (i >= value.length) break;
+    let j = i;
+    while (j < value.length && !/\s/.test(value[j])) j++;
+    let url = value.slice(i, j);
+    let descriptor = "";
+    if (/,$/.test(url)) {
+      // `a.png,b.png 2x`: a trailing comma ends a descriptor-less candidate.
+      url = url.replace(/,+$/, "");
+      i = j;
+    } else {
+      let k = j;
+      while (k < value.length && value[k] !== ",") k++;
+      descriptor = value.slice(j, k).trim();
+      i = k + 1;
+    }
+    const proxied = rewriteUrl(url);
+    candidates.push((proxied ?? url) + (descriptor ? ` ${descriptor}` : ""));
+  }
+  return candidates.join(", ");
+}
+
+function rewriteTagAttributes(tag, tagName, attrs, close, rewriteUrl) {
+  if (!attrs) return tag;
+  const name = tagName.toLowerCase();
+  // GET forms replace the action's query string (and with it ?url=) with
+  // the form data, so only POST targets can be relayed.
+  const isPost = /\s(?:form)?method\s*=\s*["']?post\b/i.test(attrs);
+  let changed = false;
+  const next = attrs.replace(
+    ATTR_PATTERN,
+    (match, space, attrName, eq, doubleQuoted, singleQuoted, bare) => {
+      const value = doubleQuoted ?? singleQuoted ?? bare;
+      if (value === undefined) return match;
+      const attr = attrName.toLowerCase();
+      let out = null;
+      if (SINGLE_URL_ATTRS.has(attr)) {
+        if (bare === undefined && eq === "=" && FIRST_PASS_ATTRS.has(attr)) {
+          return match;
+        }
+        out = rewriteUrl(value);
+      } else if (SRCSET_ATTRS.has(attr)) {
+        out = rewriteSrcset(value, rewriteUrl);
+      } else if (
+        isPost &&
+        ((attr === "action" && name === "form") || attr === "formaction")
+      ) {
+        out = rewriteUrl(value);
+      }
+      if (out === null || out === value) return match;
+      changed = true;
+      const quote = singleQuoted !== undefined ? "'" : '"';
+      return `${space}${attrName}${eq}${quote}${out}${quote}`;
+    },
+  );
+  return changed ? `<${tagName}${next}${close}>` : tag;
+}
+
+function rewriteMarkupAttributes(html, rewriteUrl) {
+  const rewriteTags = (segment) =>
+    segment.replace(TAG_PATTERN, (tag, tagName, attrs, close) =>
+      rewriteTagAttributes(tag, tagName, attrs, close, rewriteUrl),
+    );
+  let out = "";
+  let last = 0;
+  for (const match of html.matchAll(RAW_TEXT_PATTERN)) {
+    out += rewriteTags(html.slice(last, match.index));
+    out += match[1]
+      ? rewriteTags(match[1]) + match[0].slice(match[1].length)
+      : match[0];
+    last = match.index + match[0].length;
+  }
+  return out + rewriteTags(html.slice(last));
+}
+
 function rewriteHtml(html, targetUrl, proxyOrigin) {
   const baseUrl = new URL(unwrapProxyUrl(targetUrl.href));
   const origin = baseUrl.origin;
@@ -323,8 +425,9 @@ function rewriteHtml(html, targetUrl, proxyOrigin) {
     cleaned = cleaned.replace(/<base\b[^>]*>/gi, "");
   }
 
-  const rewriteAttr = (match, attr, quote, val) => {
-    if (!val) return match;
+  // The relayed form of one URL attribute value, or null to leave it as is.
+  const proxyAttrUrl = (val) => {
+    if (!val) return null;
     const decoded = unwrapProxyUrl(val);
     if (
       decoded.startsWith("data:") ||
@@ -335,11 +438,11 @@ function rewriteHtml(html, targetUrl, proxyOrigin) {
       decoded.startsWith("#") ||
       decoded.startsWith("/js/movie-proxy-client.js")
     ) {
-      return match;
+      return null;
     }
     // mailto:, tel: etc. can't be relayed.
     const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(decoded);
-    if (scheme && !/^https?$/i.test(scheme[1])) return match;
+    if (scheme && !/^https?$/i.test(scheme[1])) return null;
 
     try {
       const abs = new URL(decoded, href).href;
@@ -347,7 +450,7 @@ function rewriteHtml(html, targetUrl, proxyOrigin) {
       // proxy URL (see rewriteJsImports).
       // The subtitle picker appends a country code to this prefix at
       // runtime, so flagcdn stays direct (allowed in RELAY_CSP).
-      if (abs.startsWith("https://flagcdn.com/w40/")) return match;
+      if (abs.startsWith("https://flagcdn.com/w40/")) return null;
       // Absolute, because some players prepend their CDN base to iframe
       // src values and a root-relative path would escape the relay.
       let proxied;
@@ -364,16 +467,25 @@ function rewriteHtml(html, targetUrl, proxyOrigin) {
       } else {
         proxied = `${proxyOrigin}${PROXY_ROUTE}?url=${encodeURIComponent(abs)}`;
       }
-      return `${attr}=${quote}${proxied}${quote}`;
+      return proxied;
     } catch {
-      return match;
+      return null;
     }
+  };
+
+  const rewriteAttr = (match, attr, quote, val) => {
+    const proxied = proxyAttrUrl(val);
+    return proxied === null ? match : `${attr}=${quote}${proxied}${quote}`;
   };
 
   cleaned = cleaned.replace(
     /\b(src|href|data-src|data-api)=(["'])([^"']+)\2/gi,
     rewriteAttr,
   );
+
+  // That pass only sees quoted src/href/data-src/data-api. Walk real tags
+  // for unquoted values, srcset lists, posters and POST form targets.
+  cleaned = rewriteMarkupAttributes(cleaned, proxyAttrUrl);
 
   // Posters and backdrops often live in inline CSS.
   cleaned = cleaned.replace(
