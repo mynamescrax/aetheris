@@ -25,6 +25,7 @@ import { createwispengine } from "./lib/wisp-engine.js";
 import { scramjetPath } from "@mercuryworkshop/scramjet/path";
 import { lcRelayUpgrade } from "./lc-relay.js";
 import { registerMovieRelay } from "./movie-relay.js";
+import { createmoviereport } from "./lib/movie-report.js";
 import { createRateLimiter } from "./lib/rate-limit.js";
 import { downloadPublicImage, resolvePublicUrl } from "./lib/public-network.js";
 import { registerImageProxy } from "./lib/image-proxy.js";
@@ -631,8 +632,29 @@ const fastify = Fastify({
       .on("upgrade", handleupgrade),
 });
 
+// Movie source failures -> Discord (MOVIE_WEBHOOK_URL); see lib/movie-report.js.
+const moviereportfile = join(process.cwd(), "movie-report.json");
+const moviereport = createmoviereport();
+try {
+  moviereport.restore(JSON.parse(readFileSync(moviereportfile, "utf8")));
+} catch {
+  /* first run */
+}
+moviereport.start();
+function savemoviereport() {
+  if (!moviereport.enabled) return;
+  try {
+    const tmp = `${moviereportfile}.${process.pid}.tmp`;
+    writeFileSync(tmp, JSON.stringify(moviereport.serialize()));
+    renameSync(tmp, moviereportfile);
+  } catch (err) {
+    console.error("failed to save movie report:", err);
+  }
+}
+
 // MOVIE_RELAY_HOST moves the relay to its own origin; see movie-relay.js.
 registerMovieRelay(fastify, {
+  onUiEvent: (e) => moviereport.record(e),
   relayHost: process.env.MOVIE_RELAY_HOST || "",
   embedders: (process.env.MOVIE_RELAY_EMBEDDERS || "")
     .split(",")
@@ -777,6 +799,20 @@ fastify.get("/online", (req, reply) => {
 fastify.get("/online-count", (_req, reply) => {
   reply.header("Access-Control-Allow-Origin", "*");
   reply.send({ count: onlinecount() });
+});
+
+// Proxy engine state for deploy.sh's health check. Loopback only: anything
+// that came through Caddy carries X-Forwarded-For.
+const LOOPBACK = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
+fastify.get("/wisp-status", (req, reply) => {
+  if (
+    req.headers["x-forwarded-for"] ||
+    !LOOPBACK.has(req.socket.remoteAddress)
+  ) {
+    reply.code(404).send({ error: "Not found" });
+    return;
+  }
+  reply.header("Cache-Control", "no-store").send(wispengine.status());
 });
 
 // top/counts responses are recalculated at most every 10s
@@ -2552,6 +2588,7 @@ fastify.server.on("listening", () => {
 async function shutdown() {
   console.log("shutting down");
   flushplays();
+  savemoviereport();
   // open WebSockets can keep close() pending
   setTimeout(() => process.exit(0), 3000).unref();
   await wispengine.stop();

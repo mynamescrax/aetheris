@@ -24,6 +24,22 @@ git pull --ff-only
 echo "-> Installing dependencies..."
 pnpm install --frozen-lockfile
 
+# wispurr's npm Linux binary is linked against musl. Without the musl loader
+# it can't start and the proxy silently falls back to the slower wisp-js.
+musl_loader="/lib/ld-musl-$(uname -m).so.1"
+if [ "$(uname -s)" = "Linux" ] && [ ! -e "$musl_loader" ]; then
+    sudo_cmd=""
+    [ "$(id -u)" -eq 0 ] || sudo_cmd="sudo -n"
+    if command -v apt-get > /dev/null 2>&1; then
+        echo "-> musl missing ($musl_loader); installing it for wispurr..."
+        if ! DEBIAN_FRONTEND=noninteractive $sudo_cmd apt-get install -y musl > /dev/null; then
+            echo "!! Could not install musl; the proxy will run on the wisp-js fallback" >&2
+        fi
+    else
+        echo "!! musl loader missing ($musl_loader); the proxy will run on the wisp-js fallback" >&2
+    fi
+fi
+
 if [ "${SKIP_CHECKS:-0}" != "1" ]; then
     echo "-> Running lint + tests..."
     pnpm lint
@@ -98,6 +114,14 @@ if command -v curl > /dev/null 2>&1; then
     done
     if [ "$healthy" = true ]; then
         echo "-> Health check OK"
+        # A real Wisp stream through the app: 1 = proxy broken (fail the
+        # deploy), 2 = works but on the wisp-js fallback (warn only).
+        proxy_rc=0
+        node scripts/wisp-check.js "$PORT" || proxy_rc=$?
+        if [ "$proxy_rc" -eq 1 ]; then
+            echo "!! Check: pm2 logs $APP_NAME --err" >&2
+            exit 1
+        fi
     else
         echo "!! Health check FAILED: app is not answering on 127.0.0.1:$PORT" >&2
         echo "!! Check: pm2 logs $APP_NAME --err" >&2

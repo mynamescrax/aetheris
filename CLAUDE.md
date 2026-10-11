@@ -214,9 +214,19 @@ header change fixes it.
   respawned with backoff, with in-process wisp-js answering whenever no
   worker is up. `WISP_ENGINE=wisp-js` forces the old server. The npm linux
   binary is musl-linked: Ubuntu needs `apt install musl` or it logs "can't
-  run here" and stays on wisp-js. wispurr's hostname blacklist is
+  run here" and stays on wisp-js (`deploy.sh` installs musl when missing).
+  Falling back logs `[wisp] WARNING no wispurr worker is up` (once a
+  minute). `/wisp-status` (loopback only) reports the live engine, and
+  `deploy.sh` runs `scripts/wisp-check.js` after the restart: a real Wisp
+  stream to example.com; exit 1 fails the deploy, exit 2 warns that it's on
+  the wisp-js fallback. wispurr's hostname blacklist is
   exact-match only; subdomains of blocked adult sites rely on the 1.1.1.3
   family DNS.
+- Movie source health: `/movie-ping` UI beacons feed `lib/movie-report.js`,
+  which posts to `MOVIE_WEBHOOK_URL` (Discord) every `MOVIE_REPORT_HOURS`
+  (default 24) plus an instant alert when a source fails for 3+ visitors
+  (8+ failures) in an hour with no plays. Tallies persist across restarts
+  in `movie-report.json` (gitignored).
 - Scramjet runs with `allowFailedIntercepts` + `allowInvalidJs` (scripts the
   rewriter can't parse pass through instead of failing).
 - `sw.js` blocks proxied subresources on the HaGeZi LIGHT list

@@ -634,6 +634,9 @@ export function registerMovieRelay(
     // (MOVIE_RELAY_EMBEDDERS). Defaults to the relay's parent domain and its
     // subdomains (m.example.com -> example.com, *.example.com).
     embedders = [],
+    // Called with { ev, name, src, kind, id, ip } for movies UI beacons
+    // (lib/movie-report.js turns them into Discord reports).
+    onUiEvent = null,
   } = {},
 ) {
   relayHost = String(relayHost || "")
@@ -1462,8 +1465,22 @@ export function registerMovieRelay(
       let line = `[movie-ping] v=${clean(q.v)} origin=${clean(q.origin)} sample=${clean(q.sample)}`;
       if (q.err) line += ` ERR=${clean(q.err, 300)}`;
       if (q.ui)
-        line += ` UI ev=${clean(q.ev)} src=${clean(q.src)} kind=${clean(q.kind)} id=${clean(q.id)}${q.host ? ` host=${clean(q.host)}` : ""}`;
+        line += ` UI ev=${clean(q.ev)} src=${clean(q.src)}${q.name ? ` name=${clean(q.name, 60)}` : ""} kind=${clean(q.kind)} id=${clean(q.id)}${q.host ? ` host=${clean(q.host)}` : ""}`;
       console.log(line);
+      if (q.ui && onUiEvent) {
+        try {
+          onUiEvent({
+            ev: clean(q.ev, 40),
+            name: q.name ? clean(q.name, 60) : "",
+            src: clean(q.src, 8),
+            kind: clean(q.kind, 10),
+            id: clean(q.id, 20),
+            ip: req.ip,
+          });
+        } catch (err) {
+          console.error("[movie-ping] report hook failed:", err);
+        }
+      }
       reply.code(204).send();
     });
   });

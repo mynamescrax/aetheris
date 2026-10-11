@@ -413,6 +413,9 @@
       kind: current.kind,
       id: String(current.id),
     };
+    // name keeps the server-side report right even if the source order changes
+    var provider = MOVIES_SOURCES[current.index];
+    if (provider && provider.name) params.name = provider.name;
     if (extra) params.host = extra;
     uiBeacon(params);
   }

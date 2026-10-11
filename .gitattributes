@@ -1,2 +1,7 @@
-# Shell scripts run on the Linux server; keep them LF even on Windows checkouts.
+# Store and check out every text file with LF, Windows checkouts included,
+# so diffs never flip line endings. Binary files are auto-detected.
+* text=auto eol=lf
+# Shell scripts run on the Linux server.
 *.sh text eol=lf
+# Vendored game builds are kept byte-for-byte as committed (some use CRLF).
+public/assets/games/** -text

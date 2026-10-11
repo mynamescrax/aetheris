@@ -10,3 +10,5 @@ server-debug.err
 server-debug.log
 server.log
 server.err.log
+
+movie-report.json
