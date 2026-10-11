@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <script src="./js/site.js?v=20261008.1"></script>
+    <script src="./js/site.js?v=20261011.1"></script>
     <meta charset="utf-8" />
     <link
       rel="shortcut icon"
@@ -19,7 +19,7 @@
 
     <script src="register-sw.js?v=20260907.1" defer></script>
     <script defer src="./js/preload.js?v=20261008.1"></script>
-    <script defer src="./js/settings.js?v=20261008.1"></script>
+    <script defer src="./js/settings.js?v=20261011.1"></script>
     <script defer src="./js/data-transfer.js?v=20261005.1"></script>
     <script defer src="./js/cache-reset.js?v=20261005.1"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -384,6 +384,19 @@
               <span class="toggle-thumb"></span>
             </span>
             <span class="toggle-text">spoof desktop user agent</span>
+          </label>
+        </div>
+
+        <h2>ad blocker</h2>
+        <h4>blocks ads + trackers in the proxy so sites load faster. turn it off if a site or game breaks</h4>
+
+        <div class="toggle-row">
+          <label class="toggle-label" for="adblock-toggle">
+            <span class="toggle-track">
+              <input type="checkbox" id="adblock-toggle" />
+              <span class="toggle-thumb"></span>
+            </span>
+            <span class="toggle-text">block ads in the proxy</span>
           </label>
         </div>
       </div>

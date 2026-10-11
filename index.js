@@ -21,7 +21,7 @@ import { pipeline } from "node:stream/promises";
 import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
 import { WebSocket, WebSocketServer } from "ws";
-import { server as wisp, logging } from "@mercuryworkshop/wisp-js/server";
+import { createwispengine } from "./lib/wisp-engine.js";
 import { scramjetPath } from "@mercuryworkshop/scramjet/path";
 import { lcRelayUpgrade } from "./lc-relay.js";
 import { registerMovieRelay } from "./movie-relay.js";
@@ -29,6 +29,15 @@ import { createRateLimiter } from "./lib/rate-limit.js";
 import { downloadPublicImage, resolvePublicUrl } from "./lib/public-network.js";
 import { registerImageProxy } from "./lib/image-proxy.js";
 import { uniqueOnlineCount } from "./lib/online.js";
+import { createPresence } from "./lib/presence.js";
+import {
+  createGroupStore,
+  cleanGroupName,
+  GROUP_ID,
+  GROUP_MAX_MEMBERS,
+  GROUP_MAX_PER_USER,
+  GROUP_MSG_MAX,
+} from "./lib/groups.js";
 import {
   createGeoResolver,
   formattopcountries,
@@ -418,47 +427,42 @@ if (!existsSync(playsfile)) {
 
 // --- wisp / proxy ---
 
-logging.set_level(logging.NONE);
-Object.assign(wisp.options, {
-  allow_udp_streams: false,
-  hostname_blacklist: [
-    /(^|\.)pornhub\.com$/i,
-    /(^|\.)xvideos\.com$/i,
-    /(^|\.)xhamster\.com$/i,
-    /(^|\.)xnxx\.com$/i,
-    /(^|\.)redtube\.com$/i,
-    /(^|\.)youporn\.com$/i,
-    /(^|\.)tube8\.com$/i,
-    /(^|\.)spankbang\.com$/i,
-    /(^|\.)beeg\.com$/i,
-    /(^|\.)eporner\.com$/i,
-    /(^|\.)porntube\.com$/i,
-    /(^|\.)drtuber\.com$/i,
-    /(^|\.)txxx\.com$/i,
-    /(^|\.)sunporno\.com$/i,
-    /(^|\.)bravotube\.com$/i,
-    /(^|\.)porntrex\.com$/i,
-    /(^|\.)ixxx\.com$/i,
-    /(^|\.)nuvid\.com$/i,
-    /(^|\.)thumbzilla\.com$/i,
-    /(^|\.)wankoz\.com$/i,
-    /(^|\.)anysex\.com$/i,
-    /(^|\.)pornoxo\.com$/i,
-    /(^|\.)mrdeepfakes\.com$/i,
-    /(^|\.)fapello\.com$/i,
-    /(^|\.)thothub\.tv$/i,
-    /(^|\.)coomer\.su$/i,
-    /(^|\.)nekohouse\.su$/i,
-    /(^|\.)simpcity\.su$/i,
+// wispurr workers by default, in-process wisp-js as fallback (see
+// lib/wisp-engine.js). The family-filter DNS also blocks adult subdomains.
+const wispengine = createwispengine({
+  blockedDomains: [
+    "pornhub.com",
+    "xvideos.com",
+    "xhamster.com",
+    "xnxx.com",
+    "redtube.com",
+    "youporn.com",
+    "tube8.com",
+    "spankbang.com",
+    "beeg.com",
+    "eporner.com",
+    "porntube.com",
+    "drtuber.com",
+    "txxx.com",
+    "sunporno.com",
+    "bravotube.com",
+    "porntrex.com",
+    "ixxx.com",
+    "nuvid.com",
+    "thumbzilla.com",
+    "wankoz.com",
+    "anysex.com",
+    "pornoxo.com",
+    "mrdeepfakes.com",
+    "fapello.com",
+    "thothub.tv",
+    "coomer.su",
+    "nekohouse.su",
+    "simpcity.su",
   ],
-  port_blacklist: [8080],
-  // Per-connection cap; the default (-1) lets one client open unlimited
-  // upstream streams through the VPS.
-  // stream_limit_per_host must stay -1 on wisp-js 0.4.1: its check iterates
-  // a plain object and throws, so no stream ever opens.
-  stream_limit_total: 128,
-  stream_limit_per_host: -1,
-  dns_servers: ["1.1.1.3", "1.0.0.3"],
+  // SMTP (spam relay) and the local app port
+  blockedPorts: [25, 465, 587, 8080],
+  dnsServers: ["1.1.1.3", "1.0.0.3"],
 });
 
 // --- online counter (SSE) ---
@@ -529,7 +533,7 @@ function handleupgrade(req, socket, head) {
       socket.end("HTTP/1.1 403 Forbidden\r\n\r\n");
       return;
     }
-    wisp.routeRequest(req, socket, head);
+    wispengine.route(req, socket, head);
     return;
   }
 
@@ -673,6 +677,16 @@ function ratelimitfor(method, path) {
     return { group: "dm-send", limit: 60, perAccount: true, ipLimit: 600 };
   if (path.startsWith("/api/dm-inbox/read/"))
     return { group: "dm-read", limit: 300, perAccount: true };
+  if (path === "/api/groups")
+    return { group: "group-create", limit: 10, perAccount: true };
+  if (path.startsWith("/api/groups/")) {
+    if (path.endsWith("/read"))
+      return { group: "dm-read", limit: 300, perAccount: true };
+    // group sends, adds and leaves share the DM send budget
+    return { group: "dm-send", limit: 60, perAccount: true, ipLimit: 600 };
+  }
+  if (path === "/api/presence")
+    return { group: "presence", limit: 20, perAccount: true };
   // per IP, so rotating deviceIds can't inflate play counts
   if (path.startsWith("/api/plays/")) return { group: "plays", limit: 60 };
   if (path === "/api/ai/chat") return { group: path, limit: 30 };
@@ -683,7 +697,10 @@ function ratelimitfor(method, path) {
 const consumeRate = createRateLimiter();
 fastify.addHook("onRequest", async (req, reply) => {
   const path = req.url.split("?")[0];
-  if (path.startsWith("/api/")) reply.header("Cache-Control", "no-store");
+  if (path.startsWith("/api/")) {
+    reply.header("Cache-Control", "no-store");
+    markpresence(req);
+  }
   const rule = ratelimitfor(req.method, path);
   if (!rule) return;
 
@@ -1074,6 +1091,9 @@ async function deleteaccount(lc) {
         }
       });
     }
+    for (const id of groups.groupsOf(lc))
+      await leavegroup(id, lc, "deleted their account");
+    presence.forget(lc);
 
     await withuserlock(lc, () => {
       const fresh = readuser(lc);
@@ -1311,6 +1331,7 @@ fastify.post("/api/accounts/logout", async (req, reply) => {
     });
   }
   forgettoken(token);
+  if (lc) presence.forget(lc);
   reply.send({ ok: true });
 });
 
@@ -1379,6 +1400,21 @@ fastify.get("/api/accounts/search", (req, reply) => {
 });
 
 const DM_MAX = 500;
+
+// --- chat presence + group chat storage ---
+const presence = createPresence();
+const groups = createGroupStore(join(dbdir, "groups"));
+
+// any authenticated API request (chat polling, site.js heartbeat) counts
+function markpresence(req) {
+  const token = gettoken(req);
+  const account = token ? tokenlookup(token) : null;
+  if (account && !deletingUsers.has(account)) presence.seen(account);
+}
+
+function displayname(lc) {
+  return usernames.get(lc) ?? lc;
+}
 
 fastify.get("/api/dm/:recipient", (req, reply) => {
   const me = requireauth(req, reply);
@@ -1470,6 +1506,7 @@ fastify.get("/api/dm-inbox", (req, reply) => {
   const me = requireauth(req, reply);
   if (!me) return;
 
+  const mylc = me.username.toLowerCase();
   const lastread = me.lastRead || {};
   const conversations = [];
 
@@ -1485,6 +1522,29 @@ fastify.get("/api/dm-inbox", (req, reply) => {
       lastMessage: last.message,
       lastTime: last.time,
       unread,
+      online: presence.isOnline(otherlower),
+    });
+  }
+
+  for (const id of groups.groupsOf(mylc)) {
+    const group = groupformember(id, mylc);
+    if (!group) continue;
+    const last = group.messages.at(-1);
+    const readts = group.lastRead?.[mylc] || 0;
+    conversations.push({
+      group: group.id,
+      with: group.name,
+      members: group.members.length,
+      onlineCount: group.members.filter(
+        (lc) => lc !== mylc && presence.isOnline(lc),
+      ).length,
+      lastMessage: last
+        ? displayname(last.from) + (last.system ? " " : ": ") + last.message
+        : "",
+      lastTime: last?.time || group.createdAt || 0,
+      unread: group.messages.filter(
+        (m) => !m.system && m.from !== mylc && m.time > readts,
+      ).length,
     });
   }
 
@@ -1517,6 +1577,261 @@ fastify.post("/api/dm-inbox/read/:other", async (req, reply) => {
     fresh.lastRead[other] = next;
     writeuser(fresh);
   });
+  reply.send({ ok: true });
+});
+
+// --- presence: "is the person I'm chatting with online?" ---
+
+// GET /api/presence?users=a,b -> { users: { a: { online, lastSeen } } }
+fastify.get("/api/presence", (req, reply) => {
+  if (!requireauth(req, reply)) return;
+  const users = {};
+  for (const name of String(req.query.users || "")
+    .split(",")
+    .slice(0, 50)) {
+    const lc = name.trim().toLowerCase();
+    if (isvalidusername(lc) && usernames.has(lc))
+      users[lc] = presence.status(lc);
+  }
+  reply.send({ ok: true, users });
+});
+
+// heartbeat from site.js; the onRequest hook records it
+fastify.post("/api/presence", (req, reply) => {
+  if (!requireauth(req, reply)) return;
+  reply.send({ ok: true });
+});
+
+// --- group chats (database/groups/<id>.json) ---
+
+function withgrouplock(id, fn) {
+  // usernames can't contain ":", so these never collide with user locks
+  return withuserlock(`group:${id}`, fn);
+}
+
+function groupformember(id, lc) {
+  const group = groups.read(id);
+  return group && group.members.includes(lc) ? group : null;
+}
+
+function groupnotfound(reply) {
+  return reply.code(404).send({ ok: false, error: "Group not found." });
+}
+
+// Strictly increasing per group, like DMs, so ?after= never skips a message.
+function pushgroupmessage(group, msg) {
+  msg.time = Math.max(Date.now(), (group.messages.at(-1)?.time || 0) + 1);
+  group.messages.push(msg);
+  if (group.messages.length > GROUP_MSG_MAX)
+    group.messages = group.messages.slice(-GROUP_MSG_MAX);
+  return msg.time;
+}
+
+function defaultgroupname(members) {
+  const names = members.slice(0, 3).map(displayname).join(", ");
+  return cleanGroupName(
+    members.length > 3 ? `${names} +${members.length - 3}` : names,
+  );
+}
+
+async function leavegroup(id, lc, note = "left the group") {
+  return withgrouplock(id, () => {
+    groups.unindex(id, lc);
+    const group = groups.read(id);
+    if (!group || !group.members.includes(lc)) return false;
+    group.members = group.members.filter((m) => m !== lc);
+    if (group.lastRead) delete group.lastRead[lc];
+    if (!group.members.length) {
+      groups.remove(id);
+      return true;
+    }
+    if (group.owner === lc) group.owner = group.members[0];
+    pushgroupmessage(group, { from: lc, message: note, system: true });
+    groups.write(group);
+    return true;
+  });
+}
+
+fastify.post("/api/groups", async (req, reply) => {
+  const me = requireauth(req, reply);
+  if (!me) return;
+  const mylc = me.username.toLowerCase();
+  const { name, members } = req.body || {};
+  if (!Array.isArray(members) || members.length > GROUP_MAX_MEMBERS * 2)
+    return reply
+      .code(400)
+      .send({ ok: false, error: "Pick who to add to the group." });
+  const others = [
+    ...new Set(
+      members.map((m) => (typeof m === "string" ? m.trim().toLowerCase() : "")),
+    ),
+  ].filter((lc) => lc !== mylc);
+  if (!others.length)
+    return reply
+      .code(400)
+      .send({ ok: false, error: "Add at least one other person." });
+  if (others.some((lc) => !isvalidusername(lc) || !usernames.has(lc)))
+    return reply
+      .code(404)
+      .send({ ok: false, error: "One of those users doesn't exist." });
+  if (others.length + 1 > GROUP_MAX_MEMBERS)
+    return reply.code(400).send({
+      ok: false,
+      error: `Groups can have up to ${GROUP_MAX_MEMBERS} people.`,
+    });
+  if (groups.groupsOf(mylc).length >= GROUP_MAX_PER_USER)
+    return reply.code(400).send({
+      ok: false,
+      error: "You're in too many groups. Leave one first.",
+    });
+
+  const all = [mylc, ...others];
+  const group = {
+    id: groups.newId(),
+    name: cleanGroupName(name) || defaultgroupname(all),
+    owner: mylc,
+    members: all,
+    createdAt: Date.now(),
+    lastRead: {},
+    messages: [],
+  };
+  group.lastRead[mylc] = pushgroupmessage(group, {
+    from: mylc,
+    message: "created the group",
+    system: true,
+  });
+  await withgrouplock(group.id, () => groups.write(group));
+  for (const lc of all) groups.index(group.id, lc);
+  reply.send({ ok: true, id: group.id, name: group.name });
+});
+
+fastify.get("/api/groups/:id", (req, reply) => {
+  const me = requireauth(req, reply);
+  if (!me) return;
+  const group = groupformember(req.params.id, me.username.toLowerCase());
+  if (!group) return groupnotfound(reply);
+  const after = parseInt(req.query.after || "0", 10);
+  reply.send(
+    after ? group.messages.filter((m) => m.time > after) : group.messages,
+  );
+});
+
+fastify.get("/api/groups/:id/info", (req, reply) => {
+  const me = requireauth(req, reply);
+  if (!me) return;
+  const group = groupformember(req.params.id, me.username.toLowerCase());
+  if (!group) return groupnotfound(reply);
+  reply.send({
+    ok: true,
+    id: group.id,
+    name: group.name,
+    owner: displayname(group.owner),
+    members: group.members.map((lc) => ({
+      username: displayname(lc),
+      ...presence.status(lc),
+    })),
+  });
+});
+
+fastify.post("/api/groups/:id", async (req, reply) => {
+  const me = requireauth(req, reply);
+  if (!me) return;
+  const { id } = req.params;
+  const { message } = req.body || {};
+  if (typeof message !== "string" || !message.trim())
+    return reply
+      .code(400)
+      .send({ ok: false, error: "Empty or invalid message." });
+  if (message.length > 3000)
+    return reply
+      .code(400)
+      .send({ ok: false, error: "Message too long (max 3000 characters)." });
+  if (!GROUP_ID.test(id)) return groupnotfound(reply);
+
+  const mylc = me.username.toLowerCase();
+  const sent = await withgrouplock(id, () => {
+    const group = groupformember(id, mylc);
+    if (!group || deletingUsers.has(mylc) || !finduser(gettoken(req)))
+      return false;
+    const time = pushgroupmessage(group, {
+      from: mylc,
+      message: message.trim(),
+    });
+    group.lastRead ??= {};
+    group.lastRead[mylc] = time;
+    groups.write(group);
+    return true;
+  });
+  if (!sent) return groupnotfound(reply);
+  reply.send({ ok: true });
+});
+
+fastify.post("/api/groups/:id/read", async (req, reply) => {
+  const me = requireauth(req, reply);
+  if (!me) return;
+  const { id } = req.params;
+  if (!GROUP_ID.test(id)) return groupnotfound(reply);
+  const mylc = me.username.toLowerCase();
+  await withgrouplock(id, () => {
+    const group = groupformember(id, mylc);
+    if (!group) return;
+    const latest = group.messages.at(-1)?.time || 0;
+    const requested = Number(req.body?.through);
+    const through =
+      Number.isFinite(requested) && requested >= 0
+        ? Math.min(requested, latest)
+        : latest;
+    group.lastRead ??= {};
+    if (through <= (group.lastRead[mylc] || 0)) return;
+    group.lastRead[mylc] = through;
+    groups.write(group);
+  });
+  reply.send({ ok: true });
+});
+
+fastify.post("/api/groups/:id/members", async (req, reply) => {
+  const me = requireauth(req, reply);
+  if (!me) return;
+  const { id } = req.params;
+  if (!GROUP_ID.test(id)) return groupnotfound(reply);
+  const lc = String(req.body?.username || "")
+    .trim()
+    .toLowerCase();
+  if (!isvalidusername(lc) || !usernames.has(lc))
+    return reply.code(404).send({ ok: false, error: "User not found." });
+
+  const mylc = me.username.toLowerCase();
+  const error = await withgrouplock(id, () => {
+    const group = groupformember(id, mylc);
+    if (!group) return "missing";
+    if (group.members.includes(lc))
+      return "That person is already in the group.";
+    if (group.members.length >= GROUP_MAX_MEMBERS)
+      return `Groups can have up to ${GROUP_MAX_MEMBERS} people.`;
+    if (groups.groupsOf(lc).length >= GROUP_MAX_PER_USER)
+      return "That person is in too many groups.";
+    group.members.push(lc);
+    pushgroupmessage(group, {
+      from: mylc,
+      message: `added ${displayname(lc)}`,
+      system: true,
+    });
+    groups.write(group);
+    groups.index(id, lc);
+    return null;
+  });
+  if (error === "missing") return groupnotfound(reply);
+  if (error) return reply.code(400).send({ ok: false, error });
+  reply.send({ ok: true });
+});
+
+fastify.post("/api/groups/:id/leave", async (req, reply) => {
+  const me = requireauth(req, reply);
+  if (!me) return;
+  const { id } = req.params;
+  if (!GROUP_ID.test(id)) return groupnotfound(reply);
+  if (!(await leavegroup(id, me.username.toLowerCase())))
+    return groupnotfound(reply);
   reply.send({ ok: true });
 });
 
@@ -2239,11 +2554,14 @@ async function shutdown() {
   flushplays();
   // open WebSockets can keep close() pending
   setTimeout(() => process.exit(0), 3000).unref();
+  await wispengine.stop();
   await fastify.close();
   process.exit(0);
 }
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
+// workers must never outlive the app (crash, process.exit, PM2 kill)
+process.on("exit", () => wispengine.killnow());
 
 // --- port ownership detection + duplicate-instance recovery ---
 // On EADDRINUSE, report which process holds the port. With
@@ -2397,4 +2715,6 @@ async function start() {
   }
 }
 
+// not awaited: upgrades use wisp-js until a worker reports healthy
+wispengine.start().catch((err) => console.error("[wisp] engine start failed:", err));
 await start();

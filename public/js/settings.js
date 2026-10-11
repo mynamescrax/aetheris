@@ -196,6 +196,30 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
+  // --- proxy ad blocker toggle (on unless turned off) ---
+
+  var adblocktoggle = document.getElementById("adblock-toggle");
+  if (adblocktoggle) {
+    function pushadblockstate() {
+      try {
+        if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({
+            type: "aetheris-set-adblock",
+            enabled: store.getItem("proxyAdblock") !== "false",
+          });
+        }
+      } catch (_) {}
+    }
+
+    adblocktoggle.checked = store.getItem("proxyAdblock") !== "false";
+    pushadblockstate();
+
+    adblocktoggle.addEventListener("change", function () {
+      store.setItem("proxyAdblock", String(adblocktoggle.checked));
+      pushadblockstate();
+    });
+  }
+
   // --- custom background ---
 
   (function () {

@@ -282,7 +282,11 @@
         var controller = new $scramjetController.Controller({
           serviceworker: sw,
           transport: transport,
-          scramjetConfig: { flags: { allowFailedIntercepts: true } },
+          // allowInvalidJs: scripts the rewriter can't parse are passed
+          // through instead of failing, so more sites keep working.
+          scramjetConfig: {
+            flags: { allowFailedIntercepts: true, allowInvalidJs: true },
+          },
         });
         await controller.wait();
         installtransportfailover(controller, transport, wispurl, picked.name);

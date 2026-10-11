@@ -18,6 +18,11 @@ checking it on production:
 
 ## Proxy: still to verify on real devices
 
+- [ ] Before deploying wispurr: `sudo apt install musl` on the VPS (the npm
+      linux binary is musl-linked). After deploy the log should show
+      `[wisp] wispurr worker 0 up` / `worker 1 up`, not "can't run here".
+- [ ] With the ad blocker on, play a few proxied games that show ads
+      (CrazyGames/Poki/GameDistribution-style) and confirm they still start.
 - [ ] iPad Safari: launch a proxied game, background the tab a few minutes,
       come back and hit "Try again" - should recover without a reload.
 - [ ] iPadOS 14.x / 15.0-15.3: controller boots and a proxied page loads
@@ -30,6 +35,15 @@ checking it on production:
       the panic-key/audio shims still in `<head>`.
 - [ ] Real iPad pass over the UI: navigation/back/forward, favorites, backup
       export/import via Files, cache reset keeps saves, chat, AI, reports.
+
+## User suggestions
+
+From Game Report site feedback (home page, `/home.html`), 2026-10-11.
+
+- [x] Chat: show whether the person you're chatting with is online.
+- [x] Chat: support group chats.
+- [ ] Verify both live on a real iPad (chat.html and the load.html minichat):
+      online dot/"last seen", new group, add member, leave group.
 
 ## Ideas / known gaps
 

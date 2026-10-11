@@ -378,9 +378,9 @@
   // is ready or playing; a source that hasn't done so within WATCHDOG_MS is
   // swapped for the next untried one for this title/episode. The iframe load
   // event can't be used for this: it fires for error pages too.
-  var WATCHDOG_MS = 30000;
+  var WATCHDOG_MS = 45000;
   // The user clicked into the player (e.g. a play overlay): give it longer.
-  var INTERACTION_MS = 45000;
+  var INTERACTION_MS = 60000;
   // A video with a source is waiting for a tap; let the user get to it.
   var ARMED_MS = 90000;
   var attempt = null;
@@ -606,7 +606,7 @@
       return /flixer/i.test(provider.name);
     });
     if (defaultIndex < 0) defaultIndex = 0;
-    var sourceDefaultVersion = "flixer-default-20260929";
+    var sourceDefaultVersion = "flixer-default-20261011";
     var savedVersion = Aetheris.storage.getItem("movieSourceVersion");
     var saved = Number(Aetheris.storage.getItem("movieSourceIdx"));
     source.value =

@@ -102,6 +102,11 @@
           type: "aetheris-set-desktop-ua-spoof",
           enabled: wantsdesktopua(),
         });
+        // the SW persists this too; resent in case its cache was cleared
+        navigator.serviceWorker.controller.postMessage({
+          type: "aetheris-set-adblock",
+          enabled: Aetheris.storage.getItem("proxyAdblock") !== "false",
+        });
       }
     } catch (e) {}
   }

@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <script src="./js/site.js?v=20261008.1"></script>
+    <script src="./js/site.js?v=20261011.1"></script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link
@@ -10,6 +10,7 @@
     />
     <link rel="stylesheet" href="./css/themes.css?v=20261005.1" />
     <script src="./js/theme.js?v=20261007.1"></script>
+    <link rel="stylesheet" href="./css/chat-extras.css?v=20261011.1" />
     <title>Aetheris DMs</title>
     <style>
       *,
@@ -691,7 +692,10 @@
             ✏️
           </button>
         </div>
-        <button class="mc-new" onclick="opennewdm()">New message</button>
+        <div class="dm-newrow">
+          <button class="mc-new" onclick="opennewdm()">New message</button>
+          <button class="mc-new" onclick="opennewgroup()">New group</button>
+        </div>
         <div class="mc-list" id="mc-list">
           <div class="mc-empty">no convos yet.<br />start one above.</div>
         </div>
@@ -703,7 +707,20 @@
             ‹
           </button>
           <div class="av" id="chat-av">?</div>
-          <div class="mc-head-title" id="chat-name">—</div>
+          <div class="dm-head-info">
+            <div class="mc-head-title" id="chat-name">—</div>
+            <div class="mc-head-sub" id="chat-sub"></div>
+          </div>
+          <button
+            class="ib"
+            id="chat-members-btn"
+            style="display: none"
+            onclick="openmembers()"
+            title="Group members"
+            aria-label="Group members"
+          >
+            &#x1F465;
+          </button>
         </div>
         <div id="mc-msgs"></div>
         <div class="mc-bar">
@@ -752,7 +769,7 @@
     </div>
 
     <script src="./js/dm-shared.js?v=20261007.1"></script>
-    <script src="./js/dm-ui.js?v=20261007.1"></script>
+    <script src="./js/dm-ui.js?v=20261011.1"></script>
     <script>
       function showview(chat) {
         document.getElementById("view-inbox").style.display = chat

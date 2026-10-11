@@ -14,6 +14,10 @@ const indexjs = readFileSync(
   fileURLToPath(new URL("../index.js", import.meta.url)),
   "utf8",
 );
+const wispenginejs = readFileSync(
+  fileURLToPath(new URL("../lib/wisp-engine.js", import.meta.url)),
+  "utf8",
+);
 
 test("the site block sends baseline security headers", () => {
   assert.match(
@@ -31,8 +35,8 @@ test("wisp stream limits keep the per-host option disabled", () => {
   // iterable" and breaking every proxied request. The total limit is safe
   // because it uses Object.keys(). Do not re-enable the per-host option
   // until the dependency fixes its check.
-  assert.match(indexjs, /stream_limit_total:\s*\d+/);
-  assert.match(indexjs, /stream_limit_per_host:\s*-1\b/);
+  assert.match(wispenginejs, /stream_limit_total:\s*\d+/);
+  assert.match(wispenginejs, /stream_limit_per_host:\s*-1\b/);
 });
 
 test("the TMDB key comes only from the environment", () => {

@@ -302,6 +302,27 @@
   if (window.visualViewport)
     window.visualViewport.addEventListener("resize", updateViewport);
 
+  // Chat presence heartbeat: while a signed-in tab is visible, friends see
+  // this account as online. Top window only, so page iframes (games, the
+  // minichat) don't multiply it.
+  function presencePing() {
+    var token = getToken();
+    if (!token || document.hidden || typeof fetch !== "function") return;
+    fetch("/api/presence", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token },
+    }).catch(function () {});
+  }
+  try {
+    if (window.top === window && typeof setInterval === "function") {
+      presencePing();
+      setInterval(presencePing, 30000);
+      document.addEventListener("visibilitychange", function () {
+        if (!document.hidden) presencePing();
+      });
+    }
+  } catch (_) {}
+
   window.Aetheris = {
     storage: storage,
     readList: readList,

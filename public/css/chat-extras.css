@@ -1,0 +1,106 @@
+/* Presence dots and group chat bits shared by chat.html and minichat.html
+   (classes added by dm-ui.js). */
+
+.dm-online {
+  position: relative;
+}
+.dm-online::after {
+  content: "";
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 30%;
+  height: 30%;
+  min-width: 8px;
+  min-height: 8px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: #22c55e;
+  border: 2px solid var(--navbar, #10041e);
+}
+.dm-online-text {
+  color: #4ade80 !important;
+}
+
+/* group avatars are rounded squares so they read differently from people */
+.av.dm-group {
+  border-radius: 32%;
+}
+
+.dm-system span {
+  font-style: italic;
+  text-transform: none;
+}
+
+.dm-head-info {
+  flex: 1;
+  min-width: 0;
+}
+.dm-head-info .mc-head-sub:empty {
+  display: none;
+}
+
+.dm-newrow {
+  display: flex;
+  flex-shrink: 0;
+}
+.dm-newrow > button {
+  flex: 1;
+  min-width: 0;
+}
+.dm-newrow > button + button {
+  margin-left: 0;
+}
+
+.dm-note {
+  margin-left: auto;
+  padding-left: 8px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+  white-space: nowrap;
+}
+.dm-member {
+  cursor: default;
+}
+.dm-member[role="button"] {
+  cursor: pointer;
+}
+
+.dm-picks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 2px 0 8px;
+}
+.dm-picks:empty {
+  display: none;
+}
+.dm-chip {
+  border: 1px solid color-mix(in srgb, var(--accent, #a855f7) 40%, transparent);
+  background: color-mix(in srgb, var(--accent, #a855f7) 16%, transparent);
+  color: #fff;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.dm-chip:hover {
+  background: color-mix(in srgb, var(--accent, #a855f7) 28%, transparent);
+}
+
+.dm-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.dm-row > .mbtn {
+  flex: 1;
+  margin-top: 0;
+}
+
+.modal .action-error {
+  color: #f87171;
+  font-size: 12px;
+  margin: 8px 0 0;
+}

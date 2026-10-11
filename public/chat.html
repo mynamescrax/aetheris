@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <script src="./js/site.js?v=20261008.1"></script>
+    <script src="./js/site.js?v=20261011.1"></script>
     <link
       rel="shortcut icon"
       href="./assets/images/icon.png"
@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="./css/themes.css?v=20261005.1" />
     <link rel="stylesheet" href="./css/nav.css?v=20260907.1" />
     <link rel="stylesheet" href="./css/chat.css?v=20260907.1" />
+    <link rel="stylesheet" href="./css/chat-extras.css?v=20261011.1" />
     <script src="./js/theme.js?v=20261007.1"></script>
     <script src="register-sw.js?v=20260907.1" defer></script>
     <script defer src="./js/preload.js?v=20261008.1"></script>
@@ -138,7 +139,10 @@
               />
             </div>
           </div>
-          <button class="tg-new" onclick="opennewdm()">New message</button>
+          <div class="dm-newrow">
+            <button class="tg-new" onclick="opennewdm()">New message</button>
+            <button class="tg-new" onclick="opennewgroup()">New group</button>
+          </div>
           <div class="tg-list" id="tg-list">
             <div class="tg-empty-l">no convos yet.<br />start one above.</div>
           </div>
@@ -170,8 +174,19 @@
               <div class="av md" id="chat-av">?</div>
               <div class="tg-chat-info">
                 <div class="tg-chat-name" id="chat-name">—</div>
-                <div class="tg-chat-sub">private conversation</div>
+                <div class="tg-chat-sub" id="chat-sub"></div>
               </div>
+              <button
+                type="button"
+                class="ib"
+                id="chat-members-btn"
+                style="display: none"
+                onclick="openmembers()"
+                title="Group members"
+                aria-label="Group members"
+              >
+                &#x1F465;
+              </button>
             </div>
             <div id="tg-msgs"></div>
             <div class="tg-bar">
@@ -276,7 +291,7 @@
     </div>
 
     <script src="./js/dm-shared.js?v=20261007.1"></script>
-    <script src="./js/dm-ui.js?v=20261007.1"></script>
+    <script src="./js/dm-ui.js?v=20261011.1"></script>
     <script src="./js/chat.js?v=20261007.1"></script>
   </body>
 </html>

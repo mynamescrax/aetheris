@@ -68,6 +68,151 @@ var SITE_HOST = self.location.hostname;
     .catch(function () {});
 })();
 
+// --- proxy ad/tracker blocking ---
+// Requests from proxied pages to domains on the HaGeZi LIGHT list (see
+// scripts/update-adblock.js) fail like a blocked network request. Top-level
+// navigations are never blocked. Users can turn this off in settings.
+// Bump ADBLOCK_LIST_VERSION whenever the list file changes.
+var ADBLOCK_LIST_VERSION = "20261011.1";
+var ADBLOCK_LIST_URL =
+  "/assets/data/adblock-domains.txt?v=" + ADBLOCK_LIST_VERSION;
+var ADBLOCK_CACHE = "aetheris-adblock";
+var adblockenabled = true;
+var adhosts = null;
+var adloading = null;
+
+function loadadblocklist() {
+  if (adhosts) return Promise.resolve();
+  if (adloading) return adloading;
+  adloading = caches
+    .open(ADBLOCK_CACHE)
+    .then(function (cache) {
+      return cache.match(ADBLOCK_LIST_URL).then(function (hit) {
+        if (hit) return hit.text();
+        return fetch(ADBLOCK_LIST_URL).then(function (r) {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          var copy = r.clone();
+          return cache
+            .keys()
+            .then(function (keys) {
+              return Promise.all(
+                keys.map(function (k) {
+                  return cache.delete(k);
+                }),
+              );
+            })
+            .then(function () {
+              return cache.put(ADBLOCK_LIST_URL, copy);
+            })
+            .then(function () {
+              return r.text();
+            });
+        });
+      });
+    })
+    .then(function (text) {
+      var set = new Set();
+      var lines = text.split("\n");
+      for (var i = 0; i < lines.length; i++) {
+        var d = lines[i].trim();
+        if (d && d.charCodeAt(0) !== 35) set.add(d);
+      }
+      adhosts = set;
+    })
+    .catch(function (e) {
+      console.warn("[SW] adblock list unavailable:", (e && e.message) || e);
+      adloading = null;
+    });
+  return adloading;
+}
+
+// entries cover their subdomains, so walk up the labels
+function isadhost(host) {
+  if (!adhosts || !host || host === SITE_HOST) return false;
+  var h = host;
+  while (h.indexOf(".") !== -1) {
+    if (adhosts.has(h)) return true;
+    h = h.slice(h.indexOf(".") + 1);
+  }
+  return false;
+}
+
+// /~/sj/<tab id>/<frame id>/<encodeURIComponent(remote url)>; skip id
+// segments until one starts with a scheme
+var PROXIED_TARGET_RE = /^[a-z][a-z0-9+.-]*:\/\/(?:[^@/?#]*@)?([^/?#:]+)/i;
+function proxiedtargethost(url) {
+  var i = url.indexOf("/~/sj/");
+  if (i === -1) return null;
+  var rest = url.slice(i + 6);
+  for (var hop = 0; hop < 4; hop++) {
+    var slash = rest.indexOf("/");
+    if (slash === -1) return null;
+    rest = rest.slice(slash + 1);
+    var decoded = rest;
+    try {
+      decoded = decodeURIComponent(rest);
+    } catch (e) {}
+    var m = PROXIED_TARGET_RE.exec(decoded);
+    if (m) return m[1].toLowerCase();
+  }
+  return null;
+}
+
+// Some ad players retry a blocked request in a tight loop (CNN's video ad
+// fallback hit ~2000/s), so past 20 blocks/s per host the failure is delayed,
+// growing while the loop keeps going and decaying once it stops.
+var AD_BURST_PER_SEC = 20;
+var adhostrate = new Map();
+function blockedresponse(host) {
+  var now = Date.now();
+  var e = adhostrate.get(host);
+  if (!e || now - e.start >= 1000) {
+    var strikes = 0;
+    if (e) {
+      strikes =
+        e.n > AD_BURST_PER_SEC ? e.strikes + 1 : Math.max(0, e.strikes - 1);
+    }
+    if (adhostrate.size > 500) adhostrate.clear();
+    e = { start: now, n: 0, strikes: strikes };
+    adhostrate.set(host, e);
+  }
+  e.n++;
+  if (e.strikes === 0 && e.n <= AD_BURST_PER_SEC) return Response.error();
+  var delay = Math.min(5000, 1000 * Math.max(1, e.strikes));
+  return new Promise(function (resolve) {
+    setTimeout(function () {
+      resolve(Response.error());
+    }, delay);
+  });
+}
+
+(function restoreadblockstate() {
+  caches
+    .open("__sw_meta__")
+    .then(function (c) {
+      return c.match("/proxy-adblock");
+    })
+    .then(function (r) {
+      return r ? r.text() : null;
+    })
+    .then(function (v) {
+      if (v !== null) adblockenabled = v === "1";
+      if (adblockenabled) loadadblocklist();
+    })
+    .catch(function () {
+      loadadblocklist();
+    });
+})();
+
+function persistadblockstate(enabled) {
+  caches
+    .open("__sw_meta__")
+    .then(function (c) {
+      return c.put("/proxy-adblock", new Response(enabled ? "1" : "0"));
+    })
+    .catch(function () {});
+}
+
 function persistspoofstate(enabled) {
   caches
     .open("__sw_meta__")
@@ -804,6 +949,15 @@ self.addEventListener("fetch", function (event) {
 
   if (!shouldroute) return;
 
+  if (adblockenabled && event.request.mode !== "navigate") {
+    if (!adhosts) loadadblocklist();
+    var adtarget = proxiedtargethost(url);
+    if (isadhost(adtarget)) {
+      event.respondWith(blockedresponse(adtarget));
+      return;
+    }
+  }
+
   event.respondWith(
     buildrouteevent(event)
       .then(function (re) {
@@ -831,9 +985,19 @@ self.addEventListener("fetch", function (event) {
 
 self.addEventListener("install", function (event) {
   event.waitUntil(
-    migrateifneeded().then(function () {
-      return self.skipWaiting();
-    }),
+    migrateifneeded()
+      .then(function () {
+        // warm the blocklist cache; never let it block the install
+        return Promise.race([
+          loadadblocklist(),
+          new Promise(function (r) {
+            setTimeout(r, 5000);
+          }),
+        ]);
+      })
+      .then(function () {
+        return self.skipWaiting();
+      }),
   );
 });
 
@@ -846,5 +1010,10 @@ self.addEventListener("message", function (event) {
   if (event.data && event.data.type === "aetheris-set-desktop-ua-spoof") {
     spoofdesktopua = event.data.enabled === true;
     persistspoofstate(spoofdesktopua);
+  }
+  if (event.data && event.data.type === "aetheris-set-adblock") {
+    adblockenabled = event.data.enabled !== false;
+    persistadblockstate(adblockenabled);
+    if (adblockenabled) loadadblocklist();
   }
 });

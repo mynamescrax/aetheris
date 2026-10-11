@@ -187,6 +187,46 @@ header change fixes it.
   can navigate the whole site (seen with a Wikimedia test page). The player
   iframe has no `sandbox` because providers refuse sandboxed frames.
 
+**2026-10-11**
+
+- Provider sweep (Playwright, player iframe on aetheris.win -> live
+  `/movie-proxy`, so upstream egress is the VPS). Titles: Fight Club 550,
+  Inside Out 2 1022789, The Godfather 238, GoT 1399 S1E1, The Last of Us
+  100088 S1E1. Played: Flixer 4/5, VidSrc.su 4/5 (both dragonballzfans; both
+  fail TLOU), 2Embed 4/5 and VidAPI 4/5 (both videm; both fail Inside Out
+  2; start in 21-33s), VidRock 3/5 (boomchick; `*.lol` hosts 403 the VPS).
+  Flixer + 2Embed covered all five.
+- Played nothing: vidsrcme.ru, vidsrc.pm, vidsrc.to, vidsrc.wtf, vidzee,
+  videasy.to, autoembed.co, hexa.su, spencerdevs, cinemaos, primesrc,
+  nontongo. Removed the first three from the list.
+- Source order is now Flixer, 2Embed, VidRock, VidSrc.su, VidAPI (CDNs
+  alternate). `WATCHDOG_MS` 30s -> 45s and `INTERACTION_MS` 45s -> 60s,
+  because 2Embed/VidAPI were being cut off before they started.
+  `sourceDefaultVersion` bumped since indexes changed.
+- PM2 log over 2 days: one client re-requested a single expired shrek
+  `proxy?data=` URL 24,778 times (400); 400s from dragonballzfans are
+  permanent, not transient.
+
+## Proxy (Scramjet) notes
+
+- Wisp runs through `lib/wisp-engine.js`: wispurr (Go) worker processes by
+  default (`WISP_WORKERS`, default 2, loopback ports from `WISP_PORT` 4432),
+  respawned with backoff, with in-process wisp-js answering whenever no
+  worker is up. `WISP_ENGINE=wisp-js` forces the old server. The npm linux
+  binary is musl-linked: Ubuntu needs `apt install musl` or it logs "can't
+  run here" and stays on wisp-js. wispurr's hostname blacklist is
+  exact-match only; subdomains of blocked adult sites rely on the 1.1.1.3
+  family DNS.
+- Scramjet runs with `allowFailedIntercepts` + `allowInvalidJs` (scripts the
+  rewriter can't parse pass through instead of failing).
+- `sw.js` blocks proxied subresources on the HaGeZi LIGHT list
+  (`public/assets/data/adblock-domains.txt`, refresh with
+  `node scripts/update-adblock.js`, then bump `ADBLOCK_LIST_VERSION`).
+  Navigations are never blocked; a per-host brake delays repeats past 20/s
+  (CNN's video-ad fallback looped ~2000/s on instant failures). Proxied
+  URLs are `/~/sj/<tab>/<frame>/<encoded url>`. Users can turn it off in
+  settings (`proxyAdblock`).
+
 ## Production access
 
 - SSH alias: `craxvps`

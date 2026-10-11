@@ -106,6 +106,9 @@ before(async () => {
       PORT: "0",
       HOST: "127.0.0.1",
       MAX_SSE_PER_IP: "3",
+      // SIGTERM is a hard kill on Windows, which would orphan wispurr
+      // workers; wispurr has its own tests in wisp-engine.test.js.
+      WISP_ENGINE: "wisp-js",
       REPORT_WEBHOOK_URL: "",
       STATS_WEBHOOK_URL: "",
       CRAX_GPT_KEY: "local-test-only",
@@ -808,4 +811,141 @@ test("new passwords need 6 characters but old short ones can still log in", asyn
   // a 4-character password is a valid login format (wrong, not malformed)
   const old = await login("TestAlice", "abcd", "198.51.100.22");
   assert.equal(old.status, 401);
+});
+
+test("presence reports online accounts and clears on logout", async () => {
+  const a = await register("PresenceA");
+  const b = await register("PresenceB");
+  const beat = await api("/api/presence", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + a.data.token },
+  });
+  assert.equal(beat.status, 200);
+
+  const ask = () =>
+    api("/api/presence?users=PresenceA,NoSuchPerson", {
+      headers: headers(b.data.token),
+    });
+  let res = await ask();
+  assert.equal(res.status, 200);
+  assert.equal(res.data.users.presencea.online, true);
+  assert.equal(typeof res.data.users.presencea.lastSeen, "number");
+  assert.equal(Object.hasOwn(res.data.users, "nosuchperson"), false);
+
+  const inbox = await api("/api/dm/PresenceA", {
+    method: "POST",
+    headers: headers(b.data.token),
+    body: JSON.stringify({ message: "you there?" }),
+  });
+  assert.equal(inbox.status, 200);
+  const convos = await api("/api/dm-inbox", { headers: headers(b.data.token) });
+  assert.equal(convos.data.conversations[0].online, true);
+
+  await api("/api/accounts/logout", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + a.data.token },
+  });
+  res = await ask();
+  assert.equal(res.data.users.presencea.online, false);
+
+  const anon = await api("/api/presence?users=PresenceA");
+  assert.equal(anon.status, 401);
+});
+
+test("group chats: create, message, unread, add, leave and account deletion", async () => {
+  const a = await register("GroupA");
+  const b = await register("GroupB");
+  const c = await register("GroupC");
+  const d = await register("GroupD");
+  const post = (who, path, body) =>
+    api(path, {
+      method: "POST",
+      headers: headers(who.data.token),
+      body: JSON.stringify(body || {}),
+    });
+
+  assert.equal((await post(a, "/api/groups", { members: [] })).status, 400);
+  assert.equal(
+    (await post(a, "/api/groups", { members: ["GroupB", "NoSuchUser"] }))
+      .status,
+    404,
+  );
+
+  const created = await post(a, "/api/groups", {
+    name: "  squad   chat ",
+    members: ["GroupB", "groupc", "GroupA"],
+  });
+  assert.equal(created.status, 200);
+  assert.equal(created.data.name, "squad chat");
+  const path = "/api/groups/" + created.data.id;
+
+  const info = await api(path + "/info", { headers: headers(b.data.token) });
+  assert.deepEqual(
+    info.data.members.map((m) => m.username),
+    ["GroupA", "GroupB", "GroupC"],
+  );
+
+  assert.equal((await post(a, path, { message: "hi all" })).status, 200);
+  assert.equal((await post(a, path, { message: "  " })).status, 400);
+
+  let inbox = await api("/api/dm-inbox", { headers: headers(b.data.token) });
+  let entry = inbox.data.conversations.find((x) => x.group === created.data.id);
+  assert.equal(entry.with, "squad chat");
+  assert.equal(entry.members, 3);
+  assert.equal(entry.unread, 1);
+  assert.equal(entry.lastMessage, "GroupA: hi all");
+
+  const msgs = await api(path, { headers: headers(b.data.token) });
+  assert.equal(msgs.data.at(-1).message, "hi all");
+  assert.equal(msgs.data[0].system, true);
+  await post(b, path + "/read", { through: msgs.data.at(-1).time });
+  inbox = await api("/api/dm-inbox", { headers: headers(b.data.token) });
+  entry = inbox.data.conversations.find((x) => x.group === created.data.id);
+  assert.equal(entry.unread, 0);
+
+  // outsiders can't read, post or add themselves
+  assert.equal((await api(path, { headers: headers(d.data.token) })).status, 404);
+  assert.equal((await post(d, path, { message: "let me in" })).status, 404);
+  assert.equal(
+    (await post(d, path + "/members", { username: "GroupD" })).status,
+    404,
+  );
+
+  assert.equal(
+    (await post(b, path + "/members", { username: "GroupD" })).status,
+    200,
+  );
+  assert.equal(
+    (await post(b, path + "/members", { username: "GroupD" })).status,
+    400,
+  );
+  assert.equal((await api(path, { headers: headers(d.data.token) })).status, 200);
+
+  assert.equal((await post(d, path + "/leave")).status, 200);
+  assert.equal((await api(path, { headers: headers(d.data.token) })).status, 404);
+  assert.equal((await post(d, path + "/leave")).status, 404);
+
+  // deleting an account removes it from its groups and hands over ownership
+  const deleted = await api("/api/accounts/delete", {
+    method: "DELETE",
+    headers: headers(a.data.token),
+    body: "{}",
+  });
+  assert.equal(deleted.status, 200);
+  const after = await api(path + "/info", { headers: headers(c.data.token) });
+  assert.deepEqual(
+    after.data.members.map((m) => m.username),
+    ["GroupB", "GroupC"],
+  );
+  assert.equal(after.data.owner, "GroupB");
+  const log = await api(path, { headers: headers(c.data.token) });
+  assert.equal(log.data.at(-1).message, "deleted their account");
+
+  // the last member leaving removes the group file
+  await post(b, path + "/leave");
+  await post(c, path + "/leave");
+  assert.equal(
+    existsSync(join(runtime, "database", "groups", created.data.id + ".json")),
+    false,
+  );
 });
