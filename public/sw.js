@@ -161,7 +161,13 @@ function proxiedtargethost(url) {
 // Some ad players retry a blocked request in a tight loop (CNN's video ad
 // fallback hit ~2000/s), so past 20 blocks/s per host the failure is delayed,
 // growing while the loop keeps going and decaying once it stops.
+// Blocked requests get an empty 204 instead of Response.error(): Firefox logs
+// every Response.error() passed to respondWith(), which flooded the console
+// on sites with chatty trackers (DuckDuckGo's improving.duckduckgo.com).
 var AD_BURST_PER_SEC = 20;
+function emptyblocked() {
+  return new Response(null, { status: 204, statusText: "Blocked" });
+}
 var adhostrate = new Map();
 function blockedresponse(host) {
   var now = Date.now();
@@ -177,11 +183,11 @@ function blockedresponse(host) {
     adhostrate.set(host, e);
   }
   e.n++;
-  if (e.strikes === 0 && e.n <= AD_BURST_PER_SEC) return Response.error();
+  if (e.strikes === 0 && e.n <= AD_BURST_PER_SEC) return emptyblocked();
   var delay = Math.min(5000, 1000 * Math.max(1, e.strikes));
   return new Promise(function (resolve) {
     setTimeout(function () {
-      resolve(Response.error());
+      resolve(emptyblocked());
     }, delay);
   });
 }
