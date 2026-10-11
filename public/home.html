@@ -457,6 +457,19 @@
         });
       }
 
+      // The tutorial lives in the parent shell (index.html) and sits on top of
+      // this iframe, so the notice waits until it's closed (tutorial.js posts
+      // tutorial-open / tutorial-closed to child frames). It shows for
+      // everyone, first-time visitors included, once the tutorial is gone.
+      function tutorialbusy() {
+        try {
+          var t = window.parent !== window && window.parent.AetherisTutorial;
+          return !!(t && t.active && t.active());
+        } catch (_) {
+          return false;
+        }
+      }
+
       function showupdatemodal() {
         var backdrop = document.getElementById("updatemodal");
         var closebtn = document.getElementById("updatemodalclose");
@@ -465,18 +478,16 @@
           Aetheris.storage.getItem("updateDismissed") === UPDATE_VERSION
         )
           return;
-        // Brand-new visitors get the tutorial instead of old update notes.
-        // (tutorial.js marks itself done as soon as it opens, so only the
-        // missing updateDismissed key identifies a first visit.)
-        if (!Aetheris.storage.getItem("updateDismissed")) {
-          Aetheris.storage.setItem("updateDismissed", UPDATE_VERSION);
-          return;
+
+        var dismissed = false;
+        function open() {
+          if (dismissed) return;
+          backdrop.style.display = "flex";
+          if (closebtn) closebtn.focus();
         }
 
-        backdrop.style.display = "flex";
-        if (closebtn) closebtn.focus();
-
         function dismiss() {
+          dismissed = true;
           // Aetheris.storage never throws, so a full/disabled storage can't
           // leave the overlay stuck open.
           Aetheris.storage.setItem("updateDismissed", UPDATE_VERSION);
@@ -501,6 +512,14 @@
           }
         }
         document.addEventListener("keydown", onesc);
+
+        window.addEventListener("message", function (e) {
+          if (e.origin !== location.origin || !e.data || dismissed) return;
+          if (e.data.type === "tutorial-open") backdrop.style.display = "none";
+          else if (e.data.type === "tutorial-closed") open();
+        });
+
+        if (!tutorialbusy()) open();
       }
 
       document.addEventListener("DOMContentLoaded", function () {

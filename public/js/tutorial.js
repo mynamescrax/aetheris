@@ -183,12 +183,24 @@
     root.querySelector(".tut-next").focus();
   }
 
+  // home.html (in an iframe) holds its "whats new" notice while the
+  // tutorial is up and shows it once the tutorial closes.
+  function tellframes(type) {
+    var frames = document.querySelectorAll("iframe");
+    for (var i = 0; i < frames.length; i++) {
+      try {
+        frames[i].contentWindow.postMessage({ type: type }, location.origin);
+      } catch (_) {}
+    }
+  }
+
   function close() {
     stopcapture();
     store.setItem(DONE_KEY, TUTORIAL_VERSION);
     document.removeEventListener("keydown", onkey, true);
     if (root && root.parentNode) root.parentNode.removeChild(root);
     root = null;
+    tellframes("tutorial-closed");
   }
 
   function onkey(e) {
@@ -248,9 +260,15 @@
     document.body.appendChild(root);
     document.addEventListener("keydown", onkey, true);
     render();
+    tellframes("tutorial-open");
   }
 
-  window.AetherisTutorial = { start: start };
+  window.AetherisTutorial = {
+    start: start,
+    active: function () {
+      return !!root;
+    },
+  };
 
   window.addEventListener("message", function (e) {
     if (e.origin !== location.origin) return;
