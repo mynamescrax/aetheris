@@ -922,12 +922,10 @@ fastify.post("/api/report", async (req, reply) => {
   const remaining =
     REPORT_COOLDOWN - (now - (reporttimes.get(ratelimitkey) || 0));
   if (remaining > 0)
-    return reply
-      .code(429)
-      .send({
-        ok: false,
-        error: `Too many reports. Try again in ${Math.ceil(remaining / 1000)}s.`,
-      });
+    return reply.code(429).send({
+      ok: false,
+      error: `Too many reports. Try again in ${Math.ceil(remaining / 1000)}s.`,
+    });
 
   if (
     typeof issue !== "string" ||
@@ -951,12 +949,10 @@ fastify.post("/api/report", async (req, reply) => {
       .send({ ok: false, error: "Invalid or oversized report fields." });
 
   if (!REPORT_WEBHOOK_URL)
-    return reply
-      .code(503)
-      .send({
-        ok: false,
-        error: "Bug reporting is not configured on this server.",
-      });
+    return reply.code(503).send({
+      ok: false,
+      error: "Bug reporting is not configured on this server.",
+    });
 
   reporttimes.set(ratelimitkey, now);
   if (reporttimes.size > 5000) {
@@ -1110,6 +1106,7 @@ function savepoll() {
 }
 const poll = createpoll({
   webhookUrl: REPORT_WEBHOOK_URL,
+  votewebhookUrl: process.env.POLL_VOTE_WEBHOOK_URL || "",
   resolvecountries: (ips) => georesolver.resolve(ips),
   // votes come in bursts; one write per second at most
   onchange: () => {
@@ -1235,33 +1232,27 @@ fastify.post("/api/accounts/register", async (req, reply) => {
   const { username, password, deviceId: deviceid } = req.body || {};
 
   if (!isvalidusername(username) || typeof password !== "string")
-    return reply
-      .code(400)
-      .send({
-        ok: false,
-        error: "Use a valid 2–32 character username and a text password.",
-      });
+    return reply.code(400).send({
+      ok: false,
+      error: "Use a valid 2–32 character username and a text password.",
+    });
   if (password.length < MIN_PASSWORD_LENGTH || password.length > 128)
     return reply.code(400).send({
       ok: false,
       error: `Password must be ${MIN_PASSWORD_LENGTH}–128 characters.`,
     });
   if (!isvaliddeviceid(deviceid))
-    return reply
-      .code(400)
-      .send({
-        ok: false,
-        error:
-          "Missing or invalid device fingerprint. Please enable cookies/localStorage.",
-      });
+    return reply.code(400).send({
+      ok: false,
+      error:
+        "Missing or invalid device fingerprint. Please enable cookies/localStorage.",
+    });
   if (!registerallowed(req)) {
     const wait = Math.ceil(REGISTER_WINDOW / 1000);
-    return reply
-      .code(429)
-      .send({
-        ok: false,
-        error: `Too many accounts created from this device/network. Try again in ${wait}s.`,
-      });
+    return reply.code(429).send({
+      ok: false,
+      error: `Too many accounts created from this device/network. Try again in ${wait}s.`,
+    });
   }
 
   const loweruser = username.toLowerCase();
@@ -1270,12 +1261,10 @@ fastify.post("/api/accounts/register", async (req, reply) => {
   if (existinglc) {
     const existing = readuser(existinglc);
     if (existing)
-      return reply
-        .code(403)
-        .send({
-          ok: false,
-          error: `This device already has an account (${existing.username}). Log in or delete it first.`,
-        });
+      return reply.code(403).send({
+        ok: false,
+        error: `This device already has an account (${existing.username}). Log in or delete it first.`,
+      });
     // stale index entry
     deviceindex.delete(deviceid);
   }
@@ -1306,12 +1295,10 @@ fastify.post("/api/accounts/register", async (req, reply) => {
   );
 
   if (result.deviceConflict)
-    return reply
-      .code(403)
-      .send({
-        ok: false,
-        error: "This device already has an account. Log in or delete it first.",
-      });
+    return reply.code(403).send({
+      ok: false,
+      error: "This device already has an account. Log in or delete it first.",
+    });
   if (result.conflict)
     return reply
       .code(409)
@@ -1447,12 +1434,10 @@ fastify.delete("/api/accounts/delete-all-mine", async (req, reply) => {
       .code(400)
       .send({ ok: false, error: "Missing device fingerprint." });
   if (me.deviceId !== deviceid)
-    return reply
-      .code(403)
-      .send({
-        ok: false,
-        error: "This account was not created on that device.",
-      });
+    return reply.code(403).send({
+      ok: false,
+      error: "This account was not created on that device.",
+    });
 
   await deleteaccount(me.username.toLowerCase());
   reply.send({ ok: true, deleted: 1 });
@@ -1586,12 +1571,10 @@ fastify.post("/api/dm/:recipient", async (req, reply) => {
   });
 
   if (!delivered)
-    return reply
-      .code(409)
-      .send({
-        ok: false,
-        error: "The conversation or session is no longer available.",
-      });
+    return reply.code(409).send({
+      ok: false,
+      error: "The conversation or session is no longer available.",
+    });
   reply.send({ ok: true });
 });
 
@@ -2223,12 +2206,10 @@ fastify.post(
         !prompt.trim() ||
         prompt.length > 4000
       ) {
-        return reply
-          .code(400)
-          .send({
-            ok: false,
-            error: "prompt must be a non-empty string (max 4000 chars).",
-          });
+        return reply.code(400).send({
+          ok: false,
+          error: "prompt must be a non-empty string (max 4000 chars).",
+        });
       }
       if (
         (n !== undefined && (!Number.isInteger(n) || n < 1 || n > 4)) ||
@@ -2248,12 +2229,10 @@ fastify.post(
       }
       const referenceImages = Array.isArray(images) ? images : [];
       if (referenceImages.length > 4) {
-        return reply
-          .code(400)
-          .send({
-            ok: false,
-            error: "A maximum of four reference images is allowed.",
-          });
+        return reply.code(400).send({
+          ok: false,
+          error: "A maximum of four reference images is allowed.",
+        });
       }
       for (const image of referenceImages) {
         const match =
@@ -2262,20 +2241,15 @@ fastify.post(
             /^data:image\/(png|jpeg|webp|gif);base64,([A-Za-z0-9+/=]+)$/,
           );
         if (!match)
-          return reply
-            .code(400)
-            .send({
-              ok: false,
-              error:
-                "Every reference must be a PNG, JPG, WebP or GIF data URL.",
-            });
+          return reply.code(400).send({
+            ok: false,
+            error: "Every reference must be a PNG, JPG, WebP or GIF data URL.",
+          });
         if (Buffer.from(match[2], "base64").length > 4 * 1024 * 1024) {
-          return reply
-            .code(400)
-            .send({
-              ok: false,
-              error: "Reference images must be 4 MB or smaller.",
-            });
+          return reply.code(400).send({
+            ok: false,
+            error: "Reference images must be 4 MB or smaller.",
+          });
         }
       }
       const payload = {
@@ -2811,5 +2785,7 @@ async function start() {
 }
 
 // not awaited: upgrades use wisp-js until a worker reports healthy
-wispengine.start().catch((err) => console.error("[wisp] engine start failed:", err));
+wispengine
+  .start()
+  .catch((err) => console.error("[wisp] engine start failed:", err));
 await start();

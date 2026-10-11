@@ -117,6 +117,55 @@ test("poll: restore keeps the original window and posted flag", () => {
   assert.equal(NEXT_FEATURE_POLL.options.length, 3);
 });
 
+test("poll: live feed posts each vote with country and totals once", async () => {
+  const feed = [];
+  let fail = false;
+  const { poll, tick } = setup({
+    votewebhookUrl: "https://discord.test/feed",
+    resolvecountries: async (ips) =>
+      new Map(
+        ips.map((ip) => [
+          ip,
+          ip === "1.0.0.9" ? null : { code: "AU", name: "Australia" },
+        ]),
+      ),
+    fetchimpl: async (url, init) => {
+      if (url.endsWith("/feed")) {
+        if (fail) return { ok: false, status: 429 };
+        feed.push(JSON.parse(init.body));
+      }
+      return { ok: true };
+    },
+  });
+  poll.vote(DEV(1), "more-games", "1.0.0.1");
+  poll.vote(DEV(2), "cloud-gaming", "1.0.0.9"); // lookup fails
+  await poll.tick();
+  assert.equal(feed.length, 1);
+  let embed = feed[0].embeds[0];
+  assert.equal(embed.title, "\uD83D\uDDF3\uFE0F New vote");
+  assert.match(
+    embed.description,
+    /Australia \u2192 \*\*Fix and add more games\*\*/,
+  );
+  assert.match(embed.fields[0].name, /2 votes/);
+  assert.match(embed.fields[0].value, /Cloud gaming: \*\*1\*\* \(50%\)/);
+
+  await poll.tick(); // nothing new yet
+  assert.equal(feed.length, 1);
+
+  fail = true;
+  tick(3 * 60 * 1000); // unresolved vote is announced as unknown...
+  await poll.tick();
+  assert.equal(feed.length, 1); // ...but Discord said no, so retry
+  fail = false;
+  await poll.tick();
+  assert.equal(feed.length, 2);
+  assert.match(
+    feed[1].embeds[0].description,
+    /Unknown location \u2192 \*\*Cloud gaming/,
+  );
+});
+
 test("poll: a failed webhook post is retried, not marked posted", async () => {
   let fail = true;
   const { poll, tick } = setup({
