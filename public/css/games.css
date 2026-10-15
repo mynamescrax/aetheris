@@ -393,21 +393,8 @@ body[theme="dark-blue"] #source-filter optgroup {
   display: none;
 }
 
-/* Popular is one scrollable row, so it never leaves a half-empty second row */
-#populargames {
-  grid-auto-flow: column;
-  grid-template-columns: none;
-  grid-auto-columns: clamp(128px, 12vw, 154px);
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scroll-snap-type: x proximity;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
-}
-
-#populargames > * {
-  scroll-snap-align: start;
-}
+/* Popular uses the responsive .card-container grid in cards.css, just like
+   the rest of the catalog: overflow wraps onto the next row. */
 
 .tag-chip {
   background: var(--tag-bg);

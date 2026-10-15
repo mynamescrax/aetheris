@@ -23,6 +23,7 @@ test("summary tallies plays and failures per source", async () => {
   const flixer = { name: "Flixer (flixer.su)", src: "0", kind: "movie", id: "550" };
   report.record({ ...flixer, ev: "play", ip: "a" });
   report.record({ ...flixer, ev: "ready", ip: "a" });
+  report.record({ ...flixer, ev: "playing", ip: "a" });
   report.record({ ...flixer, ev: "timeout", ip: "b" });
   report.record({ ...flixer, ev: "error", ip: "c" });
   report.record({ ...flixer, ev: "exhausted", ip: "c" });
@@ -57,8 +58,44 @@ test("no dead alert when the source also played for someone", () => {
   const { report, posts } = harness({ deadFailures: 3, deadIps: 2 });
   const s = { name: "2Embed (2embed.cc)", src: "1", kind: "tv", id: "2" };
   report.record({ ...s, ev: "ready", ip: "z" });
+  report.record({ ...s, ev: "playing", ip: "z" });
   for (const ip of ["a", "b", "c", "d"]) report.record({ ...s, ev: "error", ip });
   assert.equal(posts.length, 0);
+});
+
+test("metadata is reported separately and stable source IDs deduplicate beacons", () => {
+  const { report } = harness();
+  const event = { provider: "vidapi", src: "99", aid: "session-123-attempt-1", kind: "movie", id: "550" };
+  report.record({ ...event, ev: "ready" });
+  report.record({ ...event, ev: "ready" });
+  let field = report.summary().embeds[0].fields[0];
+  assert.match(field.name, /VidAPI/);
+  assert.match(field.value, /0 played.*1 ready only/);
+  report.record({ ...event, ev: "playing" });
+  report.record({ ...event, ev: "playing" });
+  field = report.summary().embeds[0].fields[0];
+  assert.match(field.value, /1 played.*0 ready only/);
+});
+
+test("episode failures are retained and failed webhook delivery preserves tallies", async () => {
+  const { report } = harness({ fetchimpl: async () => ({ ok: false, status: 503 }) });
+  const event = { provider: "flixer", aid: "session-123-attempt-1", kind: "tv", id: "387", season: "2", episode: "5" };
+  report.record({ ...event, ev: "timeout" });
+  report.record({ ...event, ev: "exhausted" });
+  report.record({ ...event, ev: "exhausted" });
+  assert.equal(await report.flush(), false);
+  const fields = report.summary().embeds[0].fields;
+  assert.match(fields[0].value, /1 failed/);
+  assert.match(fields.at(-1).name, /Nothing played: 1 time/);
+  assert.match(fields.at(-1).value, /tv\/387\/season\/2\/episode\/5/);
+});
+
+test("ready alone does not suppress dead-source alerts", () => {
+  const { report, posts } = harness({ deadFailures: 2, deadIps: 2 });
+  report.record({ provider: "flixer", ev: "ready", ip: "a" });
+  report.record({ provider: "flixer", ev: "timeout", ip: "b" });
+  report.record({ provider: "flixer", ev: "timeout", ip: "c" });
+  assert.equal(posts.length, 1);
 });
 
 test("junk names are ignored and state survives a restart", () => {

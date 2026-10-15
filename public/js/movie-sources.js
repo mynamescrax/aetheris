@@ -18,12 +18,15 @@ function relayUrl(upstream) {
 }
 
 var MOVIES_SOURCES = [
-  // Ordered so each fallback pulls video from a different CDN than the one
-  // before it (Flixer + VidSrc.su share dragonballzfans; 2Embed + VidAPI share
-  // videm). Verified playing through the relay from the VPS on 2026-10-11.
+  // Keep array indexes stable for old saved preferences. fallbackRank controls
+  // automatic retries: Flixer -> 2Embed -> VidAPI -> VidSrc.su -> VidRock.
+  // All remain selectable. Shared CDNs can still fail together; these ranks
+  // reflect the supplied Oct 12-14 reports, not independent availability.
   {
     // Default source. Full watch pages, not an embed; needs the relay to
     // forward its signed X-Api-Key/X-Request-* headers.
+    id: "flixer",
+    fallbackRank: 0,
     name: "Flixer (flixer.su)",
     url: function (t, id, s, e) {
       return relayUrl(
@@ -34,6 +37,8 @@ var MOVIES_SOURCES = [
   },
   {
     // Slow to start (~20-30s). Video from videm.xyz / vidsrc.buzz.
+    id: "2embed",
+    fallbackRank: 1,
     name: "2Embed (2embed.cc)",
     url: function (t, id, s, e) {
       // 2Embed wants "&s=" here; "?s=" is ignored and always plays S1E1.
@@ -46,6 +51,8 @@ var MOVIES_SOURCES = [
   },
   {
     // Video from boomchick.org; some titles hit hosts that 403 the VPS.
+    id: "vidrock",
+    fallbackRank: 4,
     name: "VidRock (vidrock.net)",
     url: function (t, id, s, e) {
       return relayUrl(
@@ -56,6 +63,8 @@ var MOVIES_SOURCES = [
   },
   {
     // Same dragonballzfans CDN as Flixer, but a different page/API.
+    id: "vidsrc-su",
+    fallbackRank: 3,
     name: "VidSrc.su (vidsrc.su)",
     url: function (t, id, s, e) {
       return relayUrl(
@@ -66,6 +75,8 @@ var MOVIES_SOURCES = [
   },
   {
     // Same videm CDN as 2Embed; slow to start (~25-35s).
+    id: "vidapi",
+    fallbackRank: 2,
     name: "VidAPI (vidapi.xyz)",
     url: function (t, id, s, e) {
       return relayUrl(

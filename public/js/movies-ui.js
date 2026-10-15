@@ -386,6 +386,9 @@
   var attempt = null;
   var triedSources = {};
   var triedKey = "";
+  var roundPlayed = false;
+  var attemptSequence = 0;
+  var sessionId = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
 
   function playKey() {
     return (
@@ -398,12 +401,12 @@
     );
   }
 
-  function nextUntriedSource(from) {
-    for (var step = 1; step < MOVIES_SOURCES.length; step++) {
-      var i = (from + step) % MOVIES_SOURCES.length;
-      if (!triedSources[i]) return i;
-    }
-    return -1;
+  function nextUntriedSource() {
+    var next = -1;
+    MOVIES_SOURCES.forEach(function (provider, i) {
+      if (!triedSources[i] && (next < 0 || provider.fallbackRank < MOVIES_SOURCES[next].fallbackRank)) next = i;
+    });
+    return next;
   }
 
   function attemptBeacon(ev, current, extra) {
@@ -412,40 +415,53 @@
       src: String(current.index),
       kind: current.kind,
       id: String(current.id),
+      aid: current.aid,
+      season: current.season,
+      episode: current.episode,
     };
     // name keeps the server-side report right even if the source order changes
     var provider = MOVIES_SOURCES[current.index];
     if (provider && provider.name) params.name = provider.name;
+    if (provider && provider.id) params.provider = provider.id;
     if (extra) params.host = extra;
     uiBeacon(params);
   }
 
-  function armWatchdog(ms) {
+  function armWatchdog(ms, reason) {
     clearTimeout(playerTimer);
     var current = attempt;
     playerTimer = setTimeout(function () {
-      if (attempt === current) sourceFailed(current, "timeout");
+      if (attempt !== current || current.failed) return;
+      if (document.hidden) {
+        armWatchdog(ms, reason);
+        return;
+      }
+      sourceFailed(current, reason || "timeout");
     }, ms);
   }
 
   function sourceFailed(failed, reason) {
-    if (!failed || failed.ready || attempt !== failed) return;
+    if (!failed || failed.failed || attempt !== failed) return;
+    failed.failed = true;
+    clearTimeout(playerTimer);
     var provider = MOVIES_SOURCES[failed.index] || { name: "This source" };
     dbg("source FAILED (" + reason + "):", provider.name);
     attemptBeacon(reason, failed);
-    var next = nextUntriedSource(failed.index);
+    var next = nextUntriedSource();
     if (next < 0) {
       playerStatus.classList.add("hidden");
       hint.textContent =
-        "No source could play this right now. Try again later, or pick a source to retry it.";
-      attemptBeacon("exhausted", failed);
+        roundPlayed
+          ? "Playback couldn't recover. Pick a source to retry, or try again later."
+          : "No source could play this right now. Try again later, or pick a source to retry it.";
+      if (!roundPlayed) attemptBeacon("exhausted", failed);
       return;
     }
     source.value = String(next);
     setIframe(true);
     hint.textContent =
       provider.name +
-      " didn't start, trying " +
+      (failed.playing ? " stopped playing, trying " : " didn't start, trying ") +
       MOVIES_SOURCES[next].name +
       "…";
   }
@@ -477,10 +493,36 @@
     )
       return;
     var current = attempt;
+    if (current.failed) return;
+    if (data.state === "starting" && !current.playing) {
+      current.interacted = true;
+      armWatchdog(INTERACTION_MS, "startup-stall");
+      return;
+    }
+    if (data.state === "progress") {
+      if (current.playing) {
+        current.buffering = false;
+        clearTimeout(playerTimer);
+        hint.textContent = "";
+      }
+      return;
+    }
+    if (data.state === "paused" || data.state === "ended") {
+      current.buffering = false;
+      clearTimeout(playerTimer);
+      return;
+    }
+    if (data.state === "buffering" && current.playing && !current.buffering) {
+      current.buffering = true;
+      hint.textContent = "Buffering… If this source stays stuck, we'll try another.";
+      armWatchdog(45000, "stall");
+      return;
+    }
     if (data.state === "ready" || data.state === "playing") {
       if (!current.ready) {
         current.ready = true;
         clearTimeout(playerTimer);
+        if ((current.interacted || data.paused === false) && data.state !== "playing") armWatchdog(INTERACTION_MS, "startup-stall");
         playerStatus.classList.add("hidden");
         hint.textContent =
           data.state === "ready"
@@ -491,10 +533,14 @@
       }
       if (data.state === "playing" && !current.playing) {
         current.playing = true;
+        roundPlayed = true;
+        current.buffering = false;
+        clearTimeout(playerTimer);
         hint.textContent = "";
         attemptBeacon("playing", current, data.host);
         // Remember the source that actually worked.
         Aetheris.storage.setItem("movieSourceIdx", String(current.index));
+        Aetheris.storage.setItem("movieSourceId", MOVIES_SOURCES[current.index].id);
       }
     } else if (data.state === "armed" && !current.ready && !current.armed) {
       current.armed = true;
@@ -503,10 +549,14 @@
         "Press play to start. Nothing happening? Try another source.";
       dbg("player waiting for play:", data.host);
       armWatchdog(ARMED_MS);
-    } else if (data.state === "error" && !current.ready) {
-      // Only logged: ad videos error too, and many players retry another
-      // server on their own, so this alone doesn't fail the source.
+    } else if (data.state === "error") {
+      // Only feature-length media errors reach here, not failed ad videos.
+      // Allow the provider to recover internally before switching sources.
       dbg("player media error:", data.host, data.detail);
+      if (!current.buffering) {
+        current.buffering = true;
+        armWatchdog(15000, "media-error");
+      }
     }
   });
 
@@ -516,11 +566,11 @@
       if (
         document.activeElement === player &&
         attempt &&
-        !attempt.ready &&
+        !attempt.playing &&
         !attempt.interacted
       ) {
         attempt.interacted = true;
-        armWatchdog(INTERACTION_MS);
+        armWatchdog(INTERACTION_MS, "startup-stall");
       }
     }, 0);
   });
@@ -542,12 +592,18 @@
     if (auto !== true || key !== triedKey) {
       triedSources = {};
       triedKey = key;
+      roundPlayed = false;
     }
     triedSources[index] = true;
     var current = (attempt = {
       index: index,
       kind: currentItem.type,
       id: currentItem.id,
+      aid: sessionId + "-" + (++attemptSequence),
+      season: currentItem.type === "tv" ? selection.season : "",
+      episode: currentItem.type === "tv" ? selection.episode : "",
+      failed: false,
+      buffering: false,
       ready: false,
       playing: false,
       armed: false,
@@ -611,7 +667,9 @@
     if (defaultIndex < 0) defaultIndex = 0;
     var sourceDefaultVersion = "flixer-default-20261011";
     var savedVersion = Aetheris.storage.getItem("movieSourceVersion");
-    var saved = Number(Aetheris.storage.getItem("movieSourceIdx"));
+    var savedId = Aetheris.storage.getItem("movieSourceId");
+    var saved = MOVIES_SOURCES.findIndex(function (provider) { return provider.id === savedId; });
+    if (saved < 0) saved = Number(Aetheris.storage.getItem("movieSourceIdx"));
     source.value =
       savedVersion === sourceDefaultVersion &&
       Aetheris.storage.getItem("movieSourceIdx") !== null &&
@@ -679,6 +737,7 @@
   });
   source.addEventListener("change", function () {
     Aetheris.storage.setItem("movieSourceIdx", source.value);
+    Aetheris.storage.setItem("movieSourceId", MOVIES_SOURCES[Number(source.value)].id);
     dbg(
       "source switched to:",
       source.value,

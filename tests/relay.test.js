@@ -34,8 +34,37 @@ test("vite chunk table stays relative to the preload base", () => {
 
 test("movie relay handles real HTTP bodies, ranges and redirect validation", async (t) => {
   const checked = [];
+  const attempts = new Map();
   const upstream = http.createServer(async (req, res) => {
-    if (req.url === "/range") {
+    if (
+      [
+        "/reset-once",
+        "/always-reset",
+        "/post-reset",
+        "/gateway-once",
+        "/forbidden",
+      ].includes(req.url)
+    ) {
+      const n = (attempts.get(req.url) || 0) + 1;
+      attempts.set(req.url, n);
+      if (
+        req.url === "/always-reset" ||
+        req.url === "/post-reset" ||
+        (req.url === "/reset-once" && n === 1)
+      )
+        return req.socket.destroy();
+      const status =
+        req.url === "/forbidden"
+          ? 403
+          : req.url === "/gateway-once" && n === 1
+            ? 502
+            : 200;
+      res.writeHead(status, {
+        "content-type": "application/json",
+        "retry-after": "0",
+      });
+      res.end(JSON.stringify({ ok: status === 200 }));
+    } else if (req.url === "/range") {
       res.writeHead(206, {
         "content-type": "video/mp4",
         "content-range": "bytes 2-5/10",
@@ -43,6 +72,17 @@ test("movie relay handles real HTTP bodies, ranges and redirect validation", asy
         "content-length": 4,
       });
       res.end(Buffer.from([2, 3, 4, 5]));
+    } else if (req.url.startsWith("/partial-playlist")) {
+      const text =
+        '#EXTM3U\n#EXT-X-KEY:METHOD=AES-128,URI="key.bin"\n#EXTINF:8.0,\nseg1.ts\n';
+      res.writeHead(206, {
+        "content-type": "application/vnd.apple.mpegurl",
+        "content-range": req.url.endsWith("incomplete")
+          ? "bytes 10-20/100"
+          : `bytes 0-${Buffer.byteLength(text) - 1}/${Buffer.byteLength(text)}`,
+        "content-length": Buffer.byteLength(text),
+      });
+      res.end(text);
     } else if (req.url === "/html") {
       res.writeHead(200, {
         "content-type": "text/html",
@@ -170,6 +210,35 @@ test("movie relay handles real HTTP bodies, ranges and redirect validation", asy
     "/movie-proxy?url=" +
     encodeURIComponent(`http://relay-fixture.test:${port}${tail}`);
 
+  await t.test(
+    "transient read failures recover once without retrying POSTs or access denials",
+    async () => {
+      for (const route of ["/reset-once", "/gateway-once"]) {
+        const result = await app.inject(path(route));
+        assert.equal(result.statusCode, 200);
+        assert.equal(result.json().ok, true);
+        assert.equal(attempts.get(route), 2);
+      }
+      assert.equal((await app.inject(path("/always-reset"))).statusCode, 502);
+      assert.equal(attempts.get("/always-reset"), 2, "retry budget is bounded");
+      assert.equal(
+        (await app.inject({ method: "POST", url: path("/post-reset") }))
+          .statusCode,
+        502,
+      );
+      assert.equal(
+        attempts.get("/post-reset"),
+        1,
+        "unsafe requests must not be replayed",
+      );
+      assert.equal((await app.inject(path("/forbidden"))).statusCode, 403);
+      assert.equal(
+        attempts.get("/forbidden"),
+        1,
+        "permanent denials must not retry",
+      );
+    },
+  );
   await t.test("form POSTs keep the exact body and content type", async () => {
     const result = await app.inject({
       method: "POST",
@@ -198,6 +267,41 @@ test("movie relay handles real HTTP bodies, ranges and redirect validation", asy
       const head = await app.inject({ method: "HEAD", url: path("/range") });
       assert.equal(head.statusCode, 206);
       assert.equal(head.rawPayload.length, 0);
+    },
+  );
+  await t.test(
+    "complete 206 HLS manifests are rewritten, not binary-passthrough",
+    async () => {
+      const referer = "https://provider.example/watch/7";
+      const result = await app.inject(
+        path("/partial-playlist") + "&referer=" + encodeURIComponent(referer),
+      );
+      assert.equal(result.statusCode, 200);
+      assert.equal(result.headers["content-range"], undefined);
+      assert.equal(
+        Number(result.headers["content-length"]),
+        Buffer.byteLength(result.body),
+      );
+      const lines = result.body.trim().split("\n");
+      const segment = new URL(lines.at(-1), "http://localhost");
+      assert.equal(segment.pathname, "/movie-proxy");
+      assert.equal(
+        segment.searchParams.get("url"),
+        `http://relay-fixture.test:${port}/seg1.ts`,
+      );
+      assert.equal(segment.searchParams.get("referer"), referer);
+      const key = new URL(
+        /URI="([^"]+)"/.exec(result.body)[1],
+        "http://localhost",
+      );
+      assert.equal(
+        key.searchParams.get("url"),
+        `http://relay-fixture.test:${port}/key.bin`,
+      );
+      assert.equal(key.searchParams.get("referer"), referer);
+      const partial = await app.inject(path("/partial-playlist-incomplete"));
+      assert.equal(partial.statusCode, 502);
+      assert.equal(partial.headers["content-range"], undefined);
     },
   );
   await t.test(
@@ -440,37 +544,45 @@ test("movie relay handles real HTTP bodies, ranges and redirect validation", asy
 
 test("rewriteHtml keeps self-hosted JWPlayer locatable", async (t) => {
   const target = new URL("https://2vcdn.skin/e/1e2f5rfkmjtj");
-  await t.test("jwplayer script keeps a usable upstream base for chunks", () => {
-    const out = rewriteHtml(
-      '<!doctype html><html><head></head><body><script src="/player/jw8/jwplayer.js?v=7"></script></body></html>',
-      target,
-      "http://localhost",
-    );
-    const src = out.match(/<script[^>]*src="([^"]*movie-proxy\?url=[^"]*)"/)[1];
-    // JW Player derives its webpack base with
-    // src.substr(0, src.lastIndexOf("/jwplayer.js") + 1). A plain proxied
-    // URL percent-encodes the upstream directory, so the relay appends a
-    // literal /jwplayer.js after the encoded directory instead. No fragment:
-    // the old `#/jwplayer.js` trick made the base end in `#/`, so every
-    // chunk request came back to the jwplayer.js proxy URL.
-    assert.ok(!src.includes("#/jwplayer.js"));
-    const index = src.lastIndexOf("/jwplayer.js");
-    assert.ok(index >= 0, "JW needs a literal /jwplayer.js in the script src");
-    const base = src.slice(0, index + 1);
-    for (const sibling of ["provider.hlsjs.js?v=42", "vast.js?v=32"]) {
-      const siblingUrl = new URL(base + sibling, "http://localhost");
-      assert.equal(siblingUrl.pathname, "/movie-proxy");
-      assert.equal(
-        siblingUrl.searchParams.get("url"),
-        `https://2vcdn.skin/player/jw8/${sibling}`,
+  await t.test(
+    "jwplayer script keeps a usable upstream base for chunks",
+    () => {
+      const out = rewriteHtml(
+        '<!doctype html><html><head></head><body><script src="/player/jw8/jwplayer.js?v=7"></script></body></html>',
+        target,
+        "http://localhost",
       );
-    }
-    const libraryUrl = new URL(src, "http://localhost");
-    assert.equal(
-      libraryUrl.searchParams.get("url"),
-      "https://2vcdn.skin/player/jw8/jwplayer.js?v=7",
-    );
-  });
+      const src = out.match(
+        /<script[^>]*src="([^"]*movie-proxy\?url=[^"]*)"/,
+      )[1];
+      // JW Player derives its webpack base with
+      // src.substr(0, src.lastIndexOf("/jwplayer.js") + 1). A plain proxied
+      // URL percent-encodes the upstream directory, so the relay appends a
+      // literal /jwplayer.js after the encoded directory instead. No fragment:
+      // the old `#/jwplayer.js` trick made the base end in `#/`, so every
+      // chunk request came back to the jwplayer.js proxy URL.
+      assert.ok(!src.includes("#/jwplayer.js"));
+      const index = src.lastIndexOf("/jwplayer.js");
+      assert.ok(
+        index >= 0,
+        "JW needs a literal /jwplayer.js in the script src",
+      );
+      const base = src.slice(0, index + 1);
+      for (const sibling of ["provider.hlsjs.js?v=42", "vast.js?v=32"]) {
+        const siblingUrl = new URL(base + sibling, "http://localhost");
+        assert.equal(siblingUrl.pathname, "/movie-proxy");
+        assert.equal(
+          siblingUrl.searchParams.get("url"),
+          `https://2vcdn.skin/player/jw8/${sibling}`,
+        );
+      }
+      const libraryUrl = new URL(src, "http://localhost");
+      assert.equal(
+        libraryUrl.searchParams.get("url"),
+        "https://2vcdn.skin/player/jw8/jwplayer.js?v=7",
+      );
+    },
+  );
   await t.test("pages without a doctype get standards mode", () => {
     const out = rewriteHtml(
       '<HTML><HEAD><meta http-equiv="Feature-Policy" content="autoplay *; encrypted-media *"></HEAD><BODY><img src="/images/a.png"></BODY></HTML>',
@@ -587,7 +699,9 @@ test("rewriteHtml relays srcset, posters, unquoted and POST form URLs", () => {
   const media = rewrite(
     '<video poster="/p.jpg" src=/v.mp4></video><img src = "/spaced.png"><a href=#top>t</a>',
   );
-  assert.ok(media.includes(`poster="${proxied("https://player.example/p.jpg")}"`));
+  assert.ok(
+    media.includes(`poster="${proxied("https://player.example/p.jpg")}"`),
+  );
   assert.ok(media.includes(`src="${proxied("https://player.example/v.mp4")}"`));
   assert.ok(
     media.includes(`src = "${proxied("https://player.example/spaced.png")}"`),
@@ -599,19 +713,25 @@ test("rewriteHtml relays srcset, posters, unquoted and POST form URLs", () => {
       '<form action="/search"><input name=q></form>' +
       '<button formmethod="POST" formaction=/y>y</button>',
   );
-  assert.ok(forms.includes(`action="${proxied("https://player.example/login")}"`));
+  assert.ok(
+    forms.includes(`action="${proxied("https://player.example/login")}"`),
+  );
   assert.ok(
     forms.includes('action="/search"'),
     "GET forms would drop ?url= from the action",
   );
   assert.ok(forms.includes('formaction="/x"'));
-  assert.ok(forms.includes(`formaction="${proxied("https://player.example/y")}"`));
+  assert.ok(
+    forms.includes(`formaction="${proxied("https://player.example/y")}"`),
+  );
 
   const code = "var img={src:1};img.src=next;el.poster=p;";
   const raw = rewrite(
     `<script src=/boot.js>${code}</script><!-- <img src=/c.png> --><textarea><img src=/t.png></textarea>`,
   );
-  assert.ok(raw.includes(`src="${proxied("https://player.example/boot.js")}">${code}`));
+  assert.ok(
+    raw.includes(`src="${proxied("https://player.example/boot.js")}">${code}`),
+  );
   assert.ok(raw.includes("<!-- <img src=/c.png> -->"));
   assert.ok(raw.includes("<textarea><img src=/t.png></textarea>"));
 
@@ -920,7 +1040,9 @@ test("a dedicated relay host keeps relayed pages off the main origin", async (t)
     const app = await build({});
     const relayed = await app.inject({ url: target, headers: main });
     assert.equal(relayed.statusCode, 200);
-    assert.ok(relayed.body.includes('src="http://aetheris.test/movie-proxy?url='));
+    assert.ok(
+      relayed.body.includes('src="http://aetheris.test/movie-proxy?url='),
+    );
     assert.match(
       relayed.headers["content-security-policy"],
       /frame-ancestors 'self'$/,

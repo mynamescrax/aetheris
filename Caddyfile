@@ -310,12 +310,19 @@ https:// {
 	@game_stylesheet path_regexp game_stylesheet ^/game-assets/.*\.css$
 	header @game_stylesheet >Content-Type "text/css; charset=utf-8"
 
-	handle_path /game-assets/1games-rips/* {
-		rewrite * /mynamescrax/1games-rips/main{path}
-		reverse_proxy raw.githubusercontent.com:443 {
-			header_up Host raw.githubusercontent.com
-			header_down -Content-Disposition
-			header_down -X-Content-Type-Options
+	# Node validates CDN bodies before returning/caching them and can retry the
+	# other jsDelivr revision. Preserve the path; do not use handle_path here.
+	handle /game-assets/1games-rips/* {
+		reverse_proxy http://127.0.0.1:8080
+	}
+
+	# The existing split-file helper must also load through our origin.
+	handle /game-assets/ugs-merge/merge.js {
+		rewrite * /gh/bubbls/UGS-Assets@ac5cdfc0042aca584e72619375b4aca948a9243c/merge.js
+		reverse_proxy cdn.jsdelivr.net:443 {
+			header_up Host cdn.jsdelivr.net
+			header_up -Cookie
+			header_up -Authorization
 			transport http {
 				tls
 			}

@@ -3,7 +3,8 @@
 // Caddyfile, deploy verification gate dropped, ...).
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
+import vm from "node:vm";
 import { fileURLToPath } from "node:url";
 
 const caddyfile = readFileSync(
@@ -37,6 +38,56 @@ test("wisp stream limits keep the per-host option disabled", () => {
   // until the dependency fixes its check.
   assert.match(wispenginejs, /stream_limit_total:\s*\d+/);
   assert.match(wispenginejs, /stream_limit_per_host:\s*-1\b/);
+});
+
+test("1games assets and the split-file helper use a pinned jsDelivr upstream", () => {
+  const route = caddyfile.split("handle /game-assets/1games-rips/* {")[1]
+    .split("handle /game-assets/ugs-merge/merge.js {")[0];
+  assert.match(route, /reverse_proxy http:\/\/127\.0\.0\.1:8080/);
+  assert.doesNotMatch(route, /raw\.githubusercontent\.com|rewrite/);
+  assert.match(indexjs, /registerGameAssets\(fastify\)/);
+  assert.match(caddyfile, /rewrite \* \/gh\/bubbls\/UGS-Assets@[a-f0-9]{40}\/merge\.js/);
+});
+
+test("1games pages resolve builds and split parts through our origin", () => {
+  const dir = new URL("../public/assets/games/", import.meta.url);
+  let pages = 0;
+  let splitPages = 0;
+  for (const file of readdirSync(dir)) {
+    if (!file.endsWith(".html")) continue;
+    const html = readFileSync(new URL(file, dir), "utf8");
+    if (!html.includes("1games-rips")) continue;
+    pages++;
+    assert.doesNotMatch(html, /https:\/\/[^"\s]*1games-rips/, file);
+    const base = new URL(html.match(/<base[^>]*href="([^"]+)/i)[1], "https://aetheris.win");
+    assert.equal(base.origin, "https://aetheris.win", file);
+    assert.ok(base.pathname.startsWith("/game-assets/1games-rips/"), file);
+    const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].map(m => m[1]);
+    const context = {
+      window: { location: new URL("https://aetheris.win/assets/games/" + file) },
+      localStorage: { setItem() {} }, URLSearchParams, Date,
+    };
+    vm.runInNewContext(scripts.find(s => /var config\s*=/.test(s)), context);
+    for (const path of [context.loaderUrl, context.config.dataUrl, context.config.frameworkUrl, context.config.codeUrl]) {
+      const url = new URL(path, base);
+      assert.equal(url.origin, base.origin, file);
+      assert.ok(url.pathname.startsWith(base.pathname), file);
+      assert.ok(!url.pathname.includes("//"), `${file}: duplicate slash in ${path}`);
+    }
+    const merger = scripts.find(s => s.includes("window.fileMergerConfig"));
+    if (merger) {
+      splitPages++;
+      assert.match(html, /src="\/game-assets\/ugs-merge\/merge\.js"/, file);
+      assert.doesNotMatch(html, /src="https:[^"]*\/merge\.js"/, file);
+      vm.runInNewContext(merger, context);
+      for (const part of context.window.fileMergerConfig.files) {
+        const prefix = context.window.fileMergerConfig.basePath + part.name;
+        assert.equal(new URL(prefix, base).pathname, new URL(context.config[part.name.includes(".wasm") ? "codeUrl" : "dataUrl"], base).pathname, file);
+      }
+    }
+  }
+  assert.equal(pages, 12);
+  assert.equal(splitPages, 8);
 });
 
 test("the TMDB key comes only from the environment", () => {

@@ -3,6 +3,17 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
 
+test("popular games wrap using the shared responsive card grid", () => {
+  const html = fs.readFileSync(new URL("../public/maths.html", import.meta.url), "utf8");
+  const gamesCss = fs.readFileSync(new URL("../public/css/games.css", import.meta.url), "utf8");
+  const cardsCss = fs.readFileSync(new URL("../public/css/cards.css", import.meta.url), "utf8");
+  assert.match(html, /class="card-container" id="populargames"/);
+  assert.match(cardsCss, /\.card-container\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*repeat\(auto-fill,/);
+  assert.doesNotMatch(gamesCss, /#populargames[^}]*grid-auto-flow:\s*column/);
+  assert.doesNotMatch(gamesCss, /#populargames[^}]*overflow-x:\s*(?:auto|scroll)/);
+  assert.match(html, /games\.css\?v=20261015\.1/);
+});
+
 function helpers(initial = {}, blocked = false) {
   const data = new Map(Object.entries(initial));
   const storage = {

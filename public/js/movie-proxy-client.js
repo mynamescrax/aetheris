@@ -3,7 +3,7 @@
   window.__MOVIE_PROXY_INIT__ = true;
 
   var PROXY_ROUTE = "/movie-proxy";
-  var CLIENT_VERSION = "20261008.2";
+  var CLIENT_VERSION = "20261015.1";
   // Cap error beacons so a provider stuck in an error loop can't flood us.
   var MAX_ERROR_BEACONS = 25;
   var errorBeacons = 0;
@@ -61,8 +61,8 @@
     var d = el.duration;
     return isFinite(d) && d >= MIN_FEATURE_SECONDS;
   }
-  function reportPlayback(state, el, detail) {
-    if (playbackSent[state]) return;
+  function reportPlayback(state, el, detail, repeat) {
+    if (!repeat && playbackSent[state]) return;
     playbackSent[state] = true;
     var msg = {
       type: "aetheris-movie-playback",
@@ -70,6 +70,7 @@
       host: "",
       duration: 0,
       detail: detail || "",
+      paused: !el || el.paused,
     };
     try {
       msg.host = new URL(targetOrigin).host;
@@ -485,7 +486,7 @@
                 ).host;
               } catch (e) {}
               beaconErr("video:error:" + t.tagName + ":code=" + code + ":host=" + srcHost);
-              if (t.tagName === "VIDEO") reportPlayback("error", t, String(code));
+              if (isFeatureVideo(t)) reportPlayback("error", t, String(code));
             }
           } catch (e) {}
         },
@@ -766,11 +767,29 @@
       "timeupdate",
       function (e) {
         var t = e.target;
-        if (isFeatureVideo(t) && !t.paused && t.currentTime > 2)
+        if (isFeatureVideo(t) && !t.paused && t.currentTime > 2) {
           reportPlayback("playing", t);
+          // Progress is parent-frame signalling only, not a network beacon.
+          // Repeated progress cancels buffering recovery timers.
+          var now = Date.now();
+          if ((!t.__mpProgressAt || now - t.__mpProgressAt >= 5000) && t.currentTime !== t.__mpProgressTime) {
+            t.__mpProgressAt = now;
+            t.__mpProgressTime = t.currentTime;
+            reportPlayback("progress", t, "", true);
+          }
+        }
       },
       true,
     );
+    ["play", "waiting", "stalled", "pause", "ended"].forEach(function (name) {
+      document.addEventListener(name, function (e) {
+        var t = e.target;
+        if (!isFeatureVideo(t)) return;
+        if (name === "play") reportPlayback("starting", t, "", true);
+        else if (name === "pause" || name === "ended") reportPlayback(name === "pause" ? "paused" : "ended", t, "", true);
+        else if (!t.paused && !t.ended) reportPlayback("buffering", t, "", true);
+      }, true);
+    });
     // A video that has a source but no metadata yet is usually waiting for
     // a tap (preload="none", or autoplay blocked on iPad). Report it so the
     // movies page waits for the user instead of switching source.

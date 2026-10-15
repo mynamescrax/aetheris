@@ -824,6 +824,7 @@ function shouldbypass(url) {
     url.indexOf("/proxy/") !== -1 ||
     url.indexOf("jsdelivr.net") !== -1 ||
     url.indexOf(SITE_ORIGIN + "/assets/") !== -1 ||
+    url.indexOf(SITE_ORIGIN + "/game-assets/") === 0 ||
     url.indexOf(SITE_ORIGIN + "/scramjet/") !== -1 ||
     url.indexOf(SITE_ORIGIN + "/controller/") !== -1 ||
     url.indexOf(SITE_ORIGIN + "/api/") !== -1 ||

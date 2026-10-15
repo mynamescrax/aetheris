@@ -85,10 +85,10 @@ const FLIXER_DOMAINS = ["flixer.su", "hexa.su"];
 // Flixer's update checker polls version.json every few seconds per viewer
 // (~12 requests per play). One cached copy per host is plenty.
 const VERSION_CACHE_MS = 60_000;
-// Media hosts throttle the shared VPS IP in bursts (503/429, often the same
-// segment three times in a row). One short delayed retry turns most of
-// those into a success before the player gives up on the server.
-const MAX_THROTTLE_RETRIES = 1;
+// Media hosts sometimes throttle the shared VPS IP or return transient
+// gateway/reset errors. Share one retry budget across those failures, and
+// only retry safe reads before any response bytes reach the viewer.
+const MAX_UPSTREAM_RETRIES = 1;
 const EMPTY_HTML = "<!DOCTYPE html><html><body></body></html>";
 
 function hostMatches(hostname, domains) {
@@ -121,7 +121,8 @@ function localAnswer(rawUrl, dest) {
 
 function isCachedVersionFile(url) {
   return (
-    hostMatches(url.hostname, FLIXER_DOMAINS) && url.pathname === "/version.json"
+    hostMatches(url.hostname, FLIXER_DOMAINS) &&
+    url.pathname === "/version.json"
   );
 }
 
@@ -258,7 +259,8 @@ async function decompressBufferAsync(
   for (const enc of encodingsToUndo(encoding)) {
     const options = { maxOutputLength: maxBytes };
     if (enc === "gzip") buffer = await gunzipAsync(buffer, options);
-    else if (enc === "br") buffer = await brotliDecompressAsync(buffer, options);
+    else if (enc === "br")
+      buffer = await brotliDecompressAsync(buffer, options);
     else if (enc === "deflate") buffer = await inflateAsync(buffer, options);
     else if (enc === "zstd" && HAS_ZSTD)
       buffer = await zstdDecompressAsync(buffer, options);
@@ -505,7 +507,7 @@ function rewriteHtml(html, targetUrl, proxyOrigin) {
     }
   }
 
-  const scriptTag = `<script>window.__MOVIE_PROXY_TARGET__=${JSON.stringify(href).replace(/</g, "\\u003c")};window.__MOVIE_PROXY_ORIGIN__=${JSON.stringify(origin).replace(/</g, "\\u003c")};</script><script src="/js/movie-proxy-client.js?v=20261008.2"></script>`;
+  const scriptTag = `<script>window.__MOVIE_PROXY_TARGET__=${JSON.stringify(href).replace(/</g, "\\u003c")};window.__MOVIE_PROXY_ORIGIN__=${JSON.stringify(origin).replace(/</g, "\\u003c")};</script><script src="/js/movie-proxy-client.js?v=20261015.1"></script>`;
 
   // Some players (2vcdn.skin) call `$` without loading jQuery, which aborts
   // their boot. Inject full jQuery (they use $.ajax) when the page uses `$(`
@@ -983,7 +985,7 @@ export function registerMovieRelay(
       }
 
       let redirectCount = 0;
-      let throttleRetries = 0;
+      let upstreamRetries = 0;
       let upstreamRes = null;
       let method = req.method;
       let body = Buffer.isBuffer(req.body) ? req.body : null;
@@ -1078,25 +1080,41 @@ export function registerMovieRelay(
             );
           });
         } catch (err) {
-          console.warn(
-            `[movie-proxy] upstream error ${currentUrl.host}${currentUrl.pathname}: ${err.message}`,
-          );
+          // Retry only safe reads that failed before response headers. Never
+          // replay POSTs or retry after streaming any media bytes to a viewer.
+          const transient =
+            ["ECONNRESET", "ETIMEDOUT", "EAI_AGAIN"].includes(err.code) ||
+            /Upstream (?:connect )?timeout/.test(err.message);
+          if (
+            !abort.signal.aborted &&
+            transient &&
+            (method === "GET" || method === "HEAD") &&
+            upstreamRetries < MAX_UPSTREAM_RETRIES
+          ) {
+            upstreamRetries++;
+            await new Promise((resolve) => setTimeout(resolve, 250));
+            if (!abort.signal.aborted) continue;
+          }
           if (abort.signal.aborted) {
             // Client went away; nothing to answer.
             reply.raw.destroy();
             return;
           }
+          console.warn(
+            `[movie-proxy] upstream error ${currentUrl.host}${currentUrl.pathname}: ${err.message}`,
+          );
+          reply.header("Cache-Control", "no-store");
           reply.code(502).send(`Upstream request error: ${err.message}`);
           return;
         }
 
         const status = upstreamRes.statusCode;
         if (
-          (status === 503 || status === 429) &&
+          [429, 502, 503, 504].includes(status) &&
           (method === "GET" || method === "HEAD") &&
-          throttleRetries < MAX_THROTTLE_RETRIES
+          upstreamRetries < MAX_UPSTREAM_RETRIES
         ) {
-          throttleRetries++;
+          upstreamRetries++;
           const delay = throttleDelayMs(upstreamRes.headers["retry-after"]);
           upstreamRes.destroy();
           await new Promise((resolve) => setTimeout(resolve, delay));
@@ -1233,10 +1251,37 @@ export function registerMovieRelay(
         );
       }
 
-      // Stream binary payloads straight through.
+      // Some stream proxies return a COMPLETE HLS manifest with status 206,
+      // even without a Range request. It still needs URL rewriting: native HLS
+      // otherwise resolves its relative media/key URLs against /movie-proxy.
+      // A genuinely partial manifest cannot be rewritten safely.
+      if (req.method !== "HEAD" && isM3u8 && upstreamRes.statusCode === 206) {
+        const range = upstreamRes.headers["content-range"];
+        const match = /^bytes 0-(\d+)\/(\d+)$/.exec(String(range || ""));
+        const complete =
+          !range || (match && Number(match[1]) + 1 === Number(match[2]));
+        if (!complete) {
+          upstreamRes.destroy();
+          for (const name of [
+            "content-length",
+            "content-range",
+            "content-encoding",
+          ])
+            reply.removeHeader(name);
+          return reply
+            .code(502)
+            .type("text/plain")
+            .send("Provider returned an incomplete HLS playlist.");
+        }
+        reply.code(200);
+        reply.removeHeader("content-range");
+        reply.removeHeader("accept-ranges");
+      }
+
+      // Stream binary payloads straight through, preserving media byte ranges.
       if (
         req.method === "HEAD" ||
-        upstreamRes.statusCode === 206 ||
+        (upstreamRes.statusCode === 206 && !isM3u8) ||
         (!isHtml && !isM3u8 && !isJson && !isJs && !isCss && !isPlain)
       ) {
         // reply.header() is ignored after hijack(), so write headers raw.
@@ -1341,7 +1386,7 @@ export function registerMovieRelay(
         reply.header("content-length", Buffer.byteLength(rawBody));
         reply.send(rawBody);
       } else if (isM3u8 || sniffM3u8) {
-        const rewritten = rewriteM3u8(rawBody, currentUrl);
+        const rewritten = rewriteM3u8(rawBody, currentUrl, customReferer);
         reply.type("application/vnd.apple.mpegurl");
         reply.raw.setHeader("Content-Type", "application/vnd.apple.mpegurl");
         reply.header("content-length", Buffer.byteLength(rewritten));
@@ -1353,7 +1398,10 @@ export function registerMovieRelay(
           req.method === "GET" &&
           isCachedVersionFile(currentUrl)
         ) {
-          versionCache.set(currentUrl.host, { at: Date.now(), body: rewritten });
+          versionCache.set(currentUrl.host, {
+            at: Date.now(),
+            body: rewritten,
+          });
         }
         reply.type("application/json");
         reply.raw.setHeader("Content-Type", "application/json");
@@ -1449,15 +1497,11 @@ export function registerMovieRelay(
       if (via === "lul") {
         apiPath = type === "movie" ? `/movie/${id}` : `/tv/${id}`;
         pickUrl = (payload) =>
-          payload && typeof payload.stream === "string"
-            ? payload.stream
-            : null;
+          payload && typeof payload.stream === "string" ? payload.stream : null;
       } else {
         apiPath = `/content/${type}/${id}`;
         pickUrl = (payload) =>
-          payload &&
-          payload.found === true &&
-          typeof payload.url === "string"
+          payload && payload.found === true && typeof payload.url === "string"
             ? payload.url
             : null;
       }
@@ -1493,9 +1537,7 @@ export function registerMovieRelay(
         });
         if (apiRes.status !== 200)
           throw new Error(`API answered ${apiRes.status}`);
-        const playlistUrl = pickUrl(
-          JSON.parse(apiRes.body.toString("utf-8")),
-        );
+        const playlistUrl = pickUrl(JSON.parse(apiRes.body.toString("utf-8")));
         if (!playlistUrl)
           return reply.code(404).send("No stream found for this title");
         playlistHref = playlistUrl;
@@ -1527,8 +1569,7 @@ export function registerMovieRelay(
             finalUrl = playlistRes.url;
           }
         }
-        if (!playlistText)
-          throw new Error("Playlist is not an m3u8 document");
+        if (!playlistText) throw new Error("Playlist is not an m3u8 document");
         // Rewrite against the post-redirect URL (the signed master).
         const rewritten = rewriteM3u8(playlistText, finalUrl || playlistUrl);
         console.log(
@@ -1585,6 +1626,10 @@ export function registerMovieRelay(
             ev: clean(q.ev, 40),
             name: q.name ? clean(q.name, 60) : "",
             src: clean(q.src, 8),
+            provider: q.provider ? clean(q.provider, 30) : "",
+            aid: q.aid ? clean(q.aid, 80) : "",
+            season: q.season ? clean(q.season, 5) : "",
+            episode: q.episode ? clean(q.episode, 5) : "",
             kind: clean(q.kind, 10),
             id: clean(q.id, 20),
             ip: req.ip,
