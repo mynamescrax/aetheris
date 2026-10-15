@@ -820,6 +820,17 @@ test("movie relay answers trackers locally and remaps own-host subdomains", () =
   assert.deepEqual(localAnswer("https://flixer.su/api/send", "empty"), {
     status: 204,
   });
+  assert.deepEqual(localAnswer("https://vidsrc.su/api/send", "empty"), {
+    status: 204,
+  });
+  assert.deepEqual(localAnswer("https://flixer.su/cdn-cgi/rum", "empty"), {
+    status: 204,
+  });
+  assert.equal(
+    localAnswer("https://artanime.to/cdn-cgi/rum", "empty"),
+    null,
+    "RUM answers stay scoped to provider domains",
+  );
   assert.deepEqual(
     localAnswer("https://stellarconductornexus.com/movie-ping?v=1", "image"),
     { status: 204 },
@@ -926,6 +937,122 @@ test("movie relay retries throttled media once and caches flixer version.json", 
   });
   assert.equal(remapped.statusCode, 200);
   assert.equal(hits.hosts.at(-1), "themoviedb.relay-fixture.test");
+});
+
+test("movie relay caches media bodies and answers repeat failures locally", async (t) => {
+  const hits = { seg: 0, mislabeled: 0, storm: 0, slow: 0 };
+  const upstream = http.createServer(async (req, res) => {
+    if (req.url.startsWith("/seg.ts")) {
+      hits.seg++;
+      res.writeHead(200, { "content-type": "video/mp2t" });
+      res.end(Buffer.alloc(4096, 7));
+    } else if (req.url.startsWith("/mislabeled.mp4")) {
+      // MPEG-TS bytes under a text/html label (Videm-style segment host).
+      hits.mislabeled++;
+      res.writeHead(200, { "content-type": "text/html; charset=UTF-8" });
+      res.end(
+        Buffer.concat([
+          Buffer.from([0x47, 0x00, 0x01, 0x02]),
+          Buffer.alloc(2048, 9),
+        ]),
+      );
+    } else if (req.url.startsWith("/storm.jpg")) {
+      hits.storm++;
+      res.writeHead(400, { "content-type": "text/plain" });
+      res.end("expired");
+    } else if (req.url.startsWith("/slow.ts")) {
+      hits.slow++;
+      res.writeHead(200, { "content-type": "video/mp2t" });
+      res.write(Buffer.alloc(1024, 1));
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      res.end(Buffer.alloc(1024, 2));
+    } else {
+      res.writeHead(404, { "content-type": "text/plain" });
+      res.end("nope");
+    }
+  });
+  await new Promise((resolve) => upstream.listen(0, "127.0.0.1", resolve));
+  const port = upstream.address().port;
+  const app = Fastify();
+  registerMovieRelay(app, {
+    resolveTarget: async (raw) => {
+      const url = new URL(raw);
+      if (url.hostname !== "relay-fixture.test" || url.port !== String(port))
+        throw new Error("Fixture host rejected.");
+      return { url, addresses: [{ address: "127.0.0.1", family: 4 }] };
+    },
+  });
+  await app.ready();
+  t.after(async () => {
+    await app.close();
+    upstream.closeAllConnections();
+    await new Promise((resolve) => upstream.close(resolve));
+  });
+  const path = (tail) =>
+    "/movie-proxy?url=" +
+    encodeURIComponent(`http://relay-fixture.test:${port}${tail}`);
+
+  await t.test("segments are served from memory on repeat", async () => {
+    const first = await app.inject(path("/seg.ts"));
+    assert.equal(first.statusCode, 200);
+    assert.equal(hits.seg, 1);
+    const second = await app.inject(path("/seg.ts"));
+    assert.equal(second.statusCode, 200);
+    assert.equal(second.headers["x-movie-cache"], "hit");
+    assert.deepEqual(second.rawPayload, first.rawPayload);
+    assert.equal(hits.seg, 1, "repeat must not touch the upstream");
+    // Range requests must keep streaming from the upstream.
+    const ranged = await app.inject({
+      method: "GET",
+      url: path("/seg.ts"),
+      headers: { range: "bytes=0-3" },
+    });
+    assert.equal(ranged.statusCode, 200);
+    assert.equal(hits.seg, 2, "ranges bypass the body cache");
+  });
+
+  await t.test(
+    "binary bytes mislabeled text/html are cached as octet-stream",
+    async () => {
+      const first = await app.inject(path("/mislabeled.mp4"));
+      assert.equal(first.statusCode, 200);
+      assert.ok(
+        String(first.headers["content-type"]).includes(
+          "application/octet-stream",
+        ),
+      );
+      const second = await app.inject(path("/mislabeled.mp4"));
+      assert.equal(second.headers["x-movie-cache"], "hit");
+      assert.deepEqual(second.rawPayload, first.rawPayload);
+      assert.equal(hits.mislabeled, 1);
+    },
+  );
+
+  await t.test("repeat deterministic failures stay local", async () => {
+    for (let i = 0; i < 5; i++) {
+      const res = await app.inject(path("/storm.jpg"));
+      assert.equal(res.statusCode, 400);
+    }
+    assert.equal(hits.storm, 1, "retry storms must not re-hit the upstream");
+  });
+
+  await t.test("concurrent requests for one URL share a fetch", async () => {
+    const [a, b] = await Promise.all([
+      app.inject(path("/slow.ts")),
+      new Promise((resolve) => setTimeout(resolve, 100)).then(() =>
+        app.inject(path("/slow.ts")),
+      ),
+    ]);
+    assert.equal(a.statusCode, 200);
+    assert.equal(b.statusCode, 200);
+    assert.deepEqual(a.rawPayload, b.rawPayload);
+    assert.match(
+      String(b.headers["x-movie-cache"]),
+      /hit|coalesced/,
+      "the second request must be served from the shared fetch",
+    );
+    assert.equal(hits.slow, 1);
+  });
 });
 
 test("a dedicated relay host keeps relayed pages off the main origin", async (t) => {

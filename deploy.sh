@@ -98,6 +98,7 @@ else
         --name "$APP_NAME" \
         --cwd "$APP_DIR" \
         --node-args="--env-file=$ENV_FILE" \
+        --max-memory-restart 2G \
         --kill-timeout 5000
     pm2 save
 fi

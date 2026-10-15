@@ -7,6 +7,12 @@
 }
 
 http://127.0.0.1:9999 {
+	# Browsers never send an IP as SNI; scanners do. Let's Encrypt rejects IP
+	# identifiers, so denying these asks stops the every-minute retry spam.
+	@ipv4 query domain=144.91.64.65
+	@ipv6 query domain=*2a02:c207:2313:5236*
+	respond @ipv4 403
+	respond @ipv6 403
 	respond 200
 }
 

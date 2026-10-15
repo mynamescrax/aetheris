@@ -50,6 +50,13 @@ PM2; Caddy uses the repo's `Caddyfile` as `/etc/caddy/Caddyfile`.
   hijacks the whole site after a movie loads - this once made the homepage
   render `streamingnow.mov`.
 - Don't hard-code rotating media CDN hostnames as the only fix.
+- `/movie-proxy` keeps a small in-memory LRU of immutable media bodies
+  (`MOVIE_SEGMENT_CACHE_MB`, default 192; `MOVIE_SEGMENT_TTL_MIN`, default 15)
+  and coalesces concurrent requests for the same URL into one upstream fetch.
+  Deterministic failures (400/401/404/410) are answered locally for 60s, 403
+  for 15s unless it's HTML (Cloudflare challenges clear on their own). Range
+  requests and bodies over 24MB stream as before. Hit/miss counters log every
+  10 minutes of activity; cached responses carry `x-movie-cache: hit|coalesced`.
 - Changing `Origin`/`Referer`/CSP/frame headers doesn't fix an upstream that
   blocks the VPS IP.
 - A previous movie fix was fully reverted (commits `3cf60bbe`..`8cfd2243`).
