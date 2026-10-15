@@ -316,6 +316,12 @@ https:// {
 		reverse_proxy http://127.0.0.1:8080
 	}
 
+	# Universal mirror relay (see MIRRORS in lib/game-assets.js): same-origin
+	# delivery for any allowlisted static CDN. Same rule: preserve the path.
+	handle /game-assets/m/* {
+		reverse_proxy http://127.0.0.1:8080
+	}
+
 	# The existing split-file helper must also load through our origin.
 	handle /game-assets/ugs-merge/merge.js {
 		rewrite * /gh/bubbls/UGS-Assets@ac5cdfc0042aca584e72619375b4aca948a9243c/merge.js

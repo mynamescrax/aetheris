@@ -8,7 +8,7 @@
 
 <html lang="en-us">
 <head>
-	<base href="https://cdn.jsdelivr.net/gh/bubblfan/escape-road-3@main/">
+	<base href="/game-assets/m/jsdelivr/gh/bubblfan/escape-road-3@ce369b3812532300e39eb549592a040e7d896aa4/">
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 	<link rel="stylesheet" href="game.css">
@@ -88,6 +88,17 @@
 
     async function fetchWithProgress(url) {
       const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch ${url}: HTTP ${response.status}`);
+      }
+      const contentLength = Number(response.headers.get("content-length"));
+      // jsDelivr proxies GitHub 429/404 pages as HTTP 200 with a ~199-byte
+      // text body ("429: Too Many Requests..."). Reject tiny bodies up front
+      // so a poisoned part can't merge into a corrupt wasm blob.
+      // Real parts are ~20MB; anything under 512KB is not valid game data.
+      if (Number.isFinite(contentLength) && contentLength > 0 && contentLength < 512 * 1024) {
+        throw new Error(`Rejected ${url}: unexpected ${contentLength}-byte body (CDN error page?)`);
+      }
       const reader = response.body.getReader();
       let chunks = [];
       let received = 0;
@@ -110,22 +121,64 @@
         fullBuffer.set(chunk, offset);
         offset += chunk.length;
       }
+      if (received < 512 * 1024) {
+        const head = new TextDecoder().decode(fullBuffer.subarray(0, 200));
+        throw new Error(`Rejected ${url}: got ${received} bytes ("${head.slice(0, 120)}") instead of game data`);
+      }
       return fullBuffer.buffer;
     }
 
+    // Cache keys are pinned to the jsDelivr commit so a poisoned @main entry
+    // ("429: Too Many Requests" cached as 200) is never reused.
+    const CACHE_VERSION = "@ce369b3";
+    function cacheKeyFor(name) {
+      return `${name}${CACHE_VERSION}`;
+    }
+
+    async function purgePoisonedCache(cache) {
+      // Old unversioned keys may hold the 199-byte GitHub 429 page merged as
+      // game data. Drop them and any versioned entry that is suspiciously small.
+      for (const key of ["escape-road-3-v26041006.data", "escape-road-3-v26041006.wasm"]) {
+        try { await cache.delete(key); } catch (e) {}
+      }
+      try {
+        for (const req of await cache.keys()) {
+          const url = req.url || "";
+          if (url.includes("escape-road-3-v26041006") && !url.includes(CACHE_VERSION)) {
+            await cache.delete(req);
+          }
+        }
+      } catch (e) {}
+    }
+
+    function blobLooksPoisoned(blob, kind) {
+      // wasm must start with \0asm; data parts merge to ~100MB+.
+      // Anything tiny here is a CDN error page, not game data.
+      if (blob.size < 512 * 1024) return true;
+      return false;
+    }
+
     async function mergeFiles(fileParts, cacheKey) {
+      const versionedKey = cacheKeyFor(cacheKey);
       const cache = await caches.open("gash-cache");
-      const cachedResponse = await cache.match(cacheKey);
+      await purgePoisonedCache(cache);
+      const cachedResponse = await cache.match(versionedKey);
       if (cachedResponse) {
         const blob = await cachedResponse.blob();
-        return URL.createObjectURL(blob);
+        if (!blobLooksPoisoned(blob)) {
+          return URL.createObjectURL(blob);
+        }
+        await cache.delete(versionedKey);
       }
       const buffers = await Promise.all(
         fileParts.map(part => fetchWithProgress(part))
       );
       const mergedBlob = new Blob(buffers);
+      if (blobLooksPoisoned(mergedBlob)) {
+        throw new Error(`Merged ${cacheKey} is only ${mergedBlob.size} bytes - a CDN part failed. Clear site data and retry.`);
+      }
       const response = new Response(mergedBlob);
-      await cache.put(cacheKey, response);
+      await cache.put(versionedKey, response);
       return URL.createObjectURL(mergedBlob);
     }
 
@@ -137,6 +190,7 @@
       return parts;
     }
     (async () => {
+      try {
       const [dataUrl, wasmUrl] = await Promise.all([
         mergeFiles(getParts("Build/escape-road-3-v26041006.data", 1, 7), "escape-road-3-v26041006.data"),
         mergeFiles(getParts("Build/escape-road-3-v26041006.wasm", 1, 3), "escape-road-3-v26041006.wasm")
@@ -153,6 +207,9 @@
 			productName: "Escape Road 3",
 			productVersion: "26041006"
 		};
+		// The obfuscated framework bundle references a bare `config` global
+		// in some builds; keep it available alongside the local binding.
+		window.config = config;
 		config.gameId = "escape-road-3";
 		config.eventLog = true;
 		let currentDate = new Date();
@@ -176,6 +233,9 @@ function isDiffHost() {
 		let text_percent = "";
 		var script = document.createElement("script");
 		script.src = loaderUrl;
+		script.onerror = () => {
+			loadingText.textContent = "Failed to load game loader (CDN blocked?). Reload to retry.";
+		};
 		script.onload = () => {
 		createUnityInstance(canvas, config, (progress) => {
 			progressElement.style.width = 100 * progress + "%";
@@ -197,6 +257,10 @@ function isDiffHost() {
 		});
 		};
 		document.body.appendChild(script);
+      } catch (err) {
+        console.error(err);
+        loadingText.textContent = `LOADING FAILED: ${err.message}`;
+      }
 	})();
 	</script>
 	<script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>

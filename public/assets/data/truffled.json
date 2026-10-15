@@ -1478,13 +1478,6 @@
       "unsorted": true
     },
     {
-      "title": "Friday Night Funkin Golden Apple",
-      "url": "https://truffled.lol/games/fnf/goldenapple.html",
-      "image": "https://truffled.lol/png/games/goldenapple.webp",
-      "source": "truffled",
-      "unsorted": true
-    },
-    {
       "title": "Friday Night Funkin Hex",
       "url": "https://truffled.lol/games/fnf/hex.html",
       "image": "https://truffled.lol/png/games/hex.webp",
@@ -2906,13 +2899,6 @@
       "unsorted": true
     },
     {
-      "title": "Poppy Playtime",
-      "url": "https://nowgg.fun/apps/a/1293/b.html",
-      "image": "https://truffled.lol/png/games/poppy.webp",
-      "source": "truffled",
-      "unsorted": true
-    },
-    {
       "title": "Potion Craft Alchemy Simulator, Webport",
       "url": "https://truffled.lol/games/pcraft/index.html",
       "image": "https://truffled.lol/png/games/pcraft.webp",
@@ -4131,13 +4117,6 @@
       "unsorted": true
     },
     {
-      "title": "Worldbox, Webport",
-      "url": "https://truffled.lol/games/worldbox/index.html",
-      "image": "https://truffled.lol/png/games/worldbox.webp",
-      "source": "truffled",
-      "unsorted": true
-    },
-    {
       "title": "Wordle",
       "url": "https://truffled.lol/games/wordle-unlimited/index.html",
       "image": "https://truffled.lol/png/games/world.webp",
@@ -4225,6 +4204,125 @@
       "title": "Zuma",
       "url": "https://truffled.lol/games/zuma/index.html",
       "image": "https://truffled.lol/png/games/zuma.webp",
+      "source": "truffled",
+      "unsorted": true
+    },
+    {
+      "title": "Dune",
+      "url": "https://truffled.lol/games/dune/index.html",
+      "image": "https://truffled.lol/png/games/dune.webp",
+      "source": "truffled",
+      "unsorted": true
+    },
+    {
+      "title": "Hill Climb Racing, Webport",
+      "url": "https://truffled.lol/games/hcr/",
+      "image": "https://truffled.lol/png/games/hill.webp",
+      "source": "truffled",
+      "unsorted": true
+    },
+    {
+      "title": "Hotline Miami 2, Webport",
+      "url": "https://truffled.lol/games/hlm2/index.html",
+      "image": "https://truffled.lol/png/games/hlm2.webp",
+      "source": "truffled",
+      "unsorted": true
+    },
+    {
+      "title": "Kerbal Space Program, Webport",
+      "url": "https://truffled.lol/games/ksp/index.html",
+      "image": "https://truffled.lol/png/games/ksp.webp",
+      "source": "truffled",
+      "unsorted": true
+    },
+    {
+      "title": "Melon Sandbox",
+      "url": "https://truffled.lol/games/melon-playground/index.html",
+      "image": "https://truffled.lol/png/games/melonsandbox.webp",
+      "source": "truffled",
+      "unsorted": true
+    },
+    {
+      "title": "Noomiclone",
+      "url": "https://truffled.lol/games/noomi/",
+      "image": "https://truffled.lol/png/games/noomiclone.webp",
+      "source": "truffled",
+      "unsorted": true
+    },
+    {
+      "title": "Peggle Deluxe",
+      "url": "https://truffled.lol/games/pegg/deluxe/index.html",
+      "image": "https://truffled.lol/png/games/pegdeluxe.webp",
+      "source": "truffled",
+      "unsorted": true
+    },
+    {
+      "title": "Peggle Extreme",
+      "url": "https://truffled.lol/games/pegg/extreme/index.html",
+      "image": "https://truffled.lol/png/games/pegextreme.webp",
+      "source": "truffled",
+      "unsorted": true
+    },
+    {
+      "title": "Peggle Nights",
+      "url": "https://truffled.lol/games/pegg/nights/index.html",
+      "image": "https://truffled.lol/png/games/pegnights.webp",
+      "source": "truffled",
+      "unsorted": true
+    },
+    {
+      "title": "Peggle WoW Edition",
+      "url": "https://truffled.lol/games/pegg/wow/index.html",
+      "image": "https://truffled.lol/png/games/pegwow.webp",
+      "source": "truffled",
+      "unsorted": true
+    },
+    {
+      "title": "Pego (Prototype)",
+      "url": "https://truffled.lol/games/pegg/pego/index.html",
+      "image": "https://truffled.lol/png/games/pegoo.webp",
+      "source": "truffled",
+      "unsorted": true
+    },
+    {
+      "title": "Phineas and Ferb: Transport-inators of Doom, Webport",
+      "url": "https://truffled.lol/games/dooom/index.html",
+      "image": "https://truffled.lol/png/games/dooom.webp",
+      "source": "truffled",
+      "unsorted": true
+    },
+    {
+      "title": "Plague Inc.",
+      "url": "https://truffled.lol/games/PlagueInc/index.html",
+      "image": "https://truffled.lol/png/games/plagueinc.webp",
+      "source": "truffled",
+      "unsorted": true
+    },
+    {
+      "title": "Roblox (revival), Webport",
+      "url": "https://better16.xyz",
+      "image": "https://truffled.lol/png/games/r16.webp",
+      "source": "truffled",
+      "unsorted": true
+    },
+    {
+      "title": "Team Fortress 2, Webport",
+      "url": "https://truffled.lol/games/tf2/index.html",
+      "image": "https://truffled.lol/png/games/tf2.webp",
+      "source": "truffled",
+      "unsorted": true
+    },
+    {
+      "title": "Wallkickers, Webport",
+      "url": "https://truffled.lol/games/wallkickers/index.html",
+      "image": "https://truffled.lol/png/games/wallkickers.webp",
+      "source": "truffled",
+      "unsorted": true
+    },
+    {
+      "title": "WorldBox - Sandbox God Sim",
+      "url": "https://truffled.lol/games/worldbox/index.html",
+      "image": "https://truffled.lol/png/games/worldboxsandboxgodsim.webp",
       "source": "truffled",
       "unsorted": true
     }

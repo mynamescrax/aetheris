@@ -11,7 +11,7 @@ test("popular games wrap using the shared responsive card grid", () => {
   assert.match(cardsCss, /\.card-container\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*repeat\(auto-fill,/);
   assert.doesNotMatch(gamesCss, /#populargames[^}]*grid-auto-flow:\s*column/);
   assert.doesNotMatch(gamesCss, /#populargames[^}]*overflow-x:\s*(?:auto|scroll)/);
-  assert.match(html, /games\.css\?v=20261015\.1/);
+  assert.match(html, /games\.css\?v=20261015\.3/);
 });
 
 function helpers(initial = {}, blocked = false) {
@@ -132,7 +132,7 @@ test("remote images route through the same-origin relay", () => {
   assert.equal(site.imageUrl(undefined), undefined);
 });
 
-test("player accepts iframe-only catalog entries (igroutka)", () => {
+test("player accepts iframe-only catalog entries", () => {
   const source = fs.readFileSync(
     new URL("../public/js/load.js", import.meta.url),
     "utf8",

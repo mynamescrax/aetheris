@@ -317,7 +317,7 @@
     searchTimer = setTimeout(applyFilters, 120);
   });
   source.addEventListener("change", function () {
-    // Deferred sources (igroutka) load on demand; "all" pulls every source.
+    // Sources load on demand; "all" pulls every source.
     if (source.value === "all") {
       if (typeof window.gamesloadall === "function") window.gamesloadall();
     } else if (typeof window.gamesloadsource === "function") {

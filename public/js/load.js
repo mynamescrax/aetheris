@@ -196,7 +196,7 @@
 
   async function loaditem(item) {
     var container = document.getElementById("game-frame");
-    // some igroutka entries only have an "iframe" URL.
+    // some catalog entries only have an "iframe" URL.
     var url = Aetheris.httpUrl(item.url || item.html || item.iframe || "");
 
     if (!container) {

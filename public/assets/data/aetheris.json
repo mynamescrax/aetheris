@@ -8365,7 +8365,7 @@
   },
   {
     "id": "wasm-granny",
-    "title": "Granny 3",
+    "title": "Granny 3 (Mirror)",
     "html": "assets/games/wasm-granny.html",
     "image": "assets/images/wasm-granny.png",
     "source": "aetheris",
@@ -8405,7 +8405,7 @@
   },
   {
     "id": "wasm-lethal",
-    "title": "Lethal Company",
+    "title": "Lethal Company (Mirror)",
     "html": "assets/games/wasm-lethal.html",
     "image": "assets/images/wasm-lethal.jpg",
     "source": "aetheris",

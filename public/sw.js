@@ -804,6 +804,52 @@ function isproxiedurl(url) {
   return url.indexOf("/~/sj/") !== -1;
 }
 
+// Static CDN mirrors relayed same-origin through /game-assets/m/ (see
+// MIRRORS in lib/game-assets.js). Keys must stay in sync with that map:
+// unknown hosts are never relayed, so this can't become an open proxy.
+var MIRROR_HOSTS = {
+  "cdn.jsdelivr.net": "jsdelivr",
+  "fastly.jsdelivr.net": "fastly",
+  "gcore.jsdelivr.net": "gcore",
+  "cdn.statically.io": "statically",
+  "raw.githubusercontent.com": "ghraw",
+  "raw.githack.com": "githack",
+  "cdnjs.cloudflare.com": "cdnjs",
+};
+
+// Absolute CDN URLs hardcoded in game pages (hundreds of them) bypass the
+// relay on their own. Redirect them same-origin so every mirror fetch gets
+// the relay's poisoned-body validation and shows as localhost/our domain.
+// Only safe GET/HEAD traffic: never redirect POSTs or proxied (/~/sj/)
+// requests, and never touch the relay's own same-origin requests.
+function mirrorredirecturl(url, method) {
+  if (method !== "GET" && method !== "HEAD") return null;
+  if (isproxiedurl(url)) return null;
+  var parsed = null;
+  try {
+    parsed = new URL(url);
+  } catch (e) {
+    return null;
+  }
+  if (parsed.origin === SITE_ORIGIN) return null;
+  if (parsed.username || parsed.password) return null;
+  var mirror = MIRROR_HOSTS[parsed.hostname.toLowerCase()];
+  if (!mirror) return null;
+  // Visitor path only: strict charset, no traversal, no credential smuggling.
+  // Client query strings are dropped; the relay ignores them anyway.
+  var path = parsed.pathname;
+  if (!/^[A-Za-z0-9_@.\-/]+$/.test(path) || path.indexOf("//") !== -1) return null;
+  // pathname always starts with "/"; skip that empty first segment.
+  if (
+    path.split("/").slice(1).some(function (p) {
+      return !p || p === "." || p === "..";
+    })
+  )
+    return null;
+  if (path.length > 512) return null;
+  return SITE_ORIGIN + "/game-assets/m/" + mirror + path;
+}
+
 function shouldbypass(url) {
   if (
     url.indexOf("data:") === 0 ||
@@ -920,6 +966,16 @@ self.addEventListener("fetch", function (event) {
       }),
     );
     return;
+  }
+
+  // Universal mirror relay: any absolute static-CDN URL becomes a same-origin
+  // /game-assets/m/ request before the bypass below can let it through direct.
+  if (!proxied) {
+    var mirrorurl = mirrorredirecturl(url, event.request.method);
+    if (mirrorurl) {
+      event.respondWith(Response.redirect(mirrorurl, 302));
+      return;
+    }
   }
 
   if (shouldbypass(url)) return;

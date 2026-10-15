@@ -9,7 +9,6 @@ var gamesources = [
   "assets/data/petezah.json",
   "assets/data/truffled.json",
   "assets/data/aetheris.json",
-  "assets/data/igroutka.json",
 ];
 
 function slugify(str) {
@@ -116,7 +115,7 @@ async function getcachedgames() {
         var v = get.result;
         finish(
           v &&
-            v.schema === 7 &&
+            v.schema === 8 &&
             Array.isArray(v.data) &&
             v.data.length &&
             Date.now() - v.ts >= 0 &&
@@ -143,7 +142,7 @@ async function setcachedgames(data) {
   try {
     var tx = db.transaction(GAMES_STORE, "readwrite");
     tx.objectStore(GAMES_STORE).put(
-      { schema: 7, ts: Date.now(), data: data },
+      { schema: 8, ts: Date.now(), data: data },
       GAMES_IDB_KEY,
     );
     tx.oncomplete = function () {
@@ -207,13 +206,10 @@ function mergegames(lists) {
 
 var gamelistbyload = new Array(gamesources.length);
 var gameloadpromises = new Array(gamesources.length);
-// igroutka is ~4.5MB and most visitors never open that source, so the games
-// grid defers it until the source is actually selected. The player page sets
-// window.gamesLoadAll before this script runs because deep links can point
-// at any source.
-var gamessourcesdeferred = window.gamesLoadAll
-  ? []
-  : ["assets/data/igroutka.json"];
+// No source is currently deferred: every catalog is small enough to load up
+// front. Keep the mechanism (the player sets window.gamesLoadAll and the grid
+// calls gamesloadsource) in case a large source is added again.
+var gamessourcesdeferred = [];
 
 function gamessourcename(file) {
   return file
@@ -319,7 +315,7 @@ async function loadgamesdata() {
   return window.games;
 }
 
-// Load one source by its short name ("igroutka", "velara", …). Resolves to
+// Load one source by its short name ("velara", "aetheris", …). Resolves to
 // null for unknown names; rejections are swallowed here because the failure
 // is already recorded in window.gamesLoadErrors for the retry UI.
 window.gamesloadsource = function (name) {

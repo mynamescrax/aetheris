@@ -1659,6 +1659,13 @@
     "unsorted": true
   },
   {
+    "title": "Five Nights at Epstein's",
+    "url": "https://velara.my/assets/games/fivenightsepstien.html",
+    "image": "https://velara.my/assets/games/nightsepstein.png",
+    "source": "velara",
+    "unsorted": true
+  },
+  {
     "title": "Five Nights At Candys",
     "url": "https://velara.my/assets/games/fivenightsatcandys.html",
     "image": "https://velara.my/assets/games/fivenightsatcandys.png",
@@ -1757,9 +1764,9 @@
     "unsorted": true
   },
   {
-    "title": "Fnaf Sister url",
-    "url": "https://velara.my/assets/games/fnafsisterurl.html",
-    "image": "https://velara.my/assets/games/fnafsisterurl.png",
+    "title": "Fnaf Sister Location",
+    "url": "https://velara.my/assets/games/fnafsisterlocation.html",
+    "image": "https://velara.my/assets/games/fnafsisterlocation.png",
     "source": "velara",
     "unsorted": true
   },
@@ -4886,9 +4893,23 @@
     "unsorted": true
   },
   {
+    "title": "Untitled Goose Game",
+    "url": "https://velara.my/assets/games/Untitled Goose Game.html",
+    "image": "https://velara.my/assets/games/untitled-goose-game.png",
+    "source": "velara",
+    "unsorted": true
+  },
+  {
     "title": "Ultra Kill",
     "url": "https://velara.my/assets/games/ultrakillgame.html",
     "image": "https://velara.my/assets/games/ultrakill.jpg",
+    "source": "velara",
+    "unsorted": true
+  },
+  {
+    "title": "Undertale",
+    "url": "https://velara.my/assets/games/undertalegame.html",
+    "image": "https://velara.my/assets/games/undertale.png",
     "source": "velara",
     "unsorted": true
   },
