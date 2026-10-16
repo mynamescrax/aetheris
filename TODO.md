@@ -61,10 +61,6 @@ Each of these needs a product decision or live testing first.
   backpressure terminates at 4 MB buffered).
 - On-demand TLS is intentionally open (any hostname pointing here gets a cert,
   UBG-style). Abuse risk is LE rate-limit exhaustion.
-- `sw.js` restores the desktop-UA spoof flag asynchronously, so early
-  requests can miss spoofing.
-- No transport liveness probe: a dead transport behind a still-connected frame
-  only recovers when the user retries.
 - AI model menu: no arrow-key navigation / listbox role.
 - `theme.js` `applyTheme()` doesn't persist the choice itself.
 - Proxy content runs same-origin with the site; a separate origin for proxied

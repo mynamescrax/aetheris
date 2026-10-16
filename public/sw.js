@@ -52,8 +52,10 @@ var spoofdesktopua = false;
 var SITE_ORIGIN = self.location.origin;
 var SITE_HOST = self.location.hostname;
 
-// the SW can be recycled at any time, so the spoof setting is persisted
-(function restorespoofstate() {
+// the SW can be recycled at any time, so the spoof setting is persisted; this
+// promise settles once the stored value is back in memory, so the first
+// requests after a cold start wait for it instead of racing the restore
+var spoofrestored = new Promise(function (resolve) {
   caches
     .open("__sw_meta__")
     .then(function (c) {
@@ -65,8 +67,9 @@ var SITE_HOST = self.location.hostname;
     .then(function (v) {
       if (v !== null) spoofdesktopua = v === "1";
     })
-    .catch(function () {});
-})();
+    .catch(function () {})
+    .then(resolve);
+});
 
 // --- proxy ad/tracker blocking ---
 // Requests from proxied pages to domains on the HaGeZi LIGHT list (see
@@ -192,7 +195,9 @@ function blockedresponse(host) {
   });
 }
 
-(function restoreadblockstate() {
+// same as the spoof flag: settle the stored value before requests route, so a
+// user who turned blocking off doesn't get blocked requests after a cold start
+var adblockrestored = new Promise(function (resolve) {
   caches
     .open("__sw_meta__")
     .then(function (c) {
@@ -207,8 +212,13 @@ function blockedresponse(host) {
     })
     .catch(function () {
       loadadblocklist();
-    });
-})();
+    })
+    .then(resolve);
+});
+
+// both flags live in the same cache; the fetch handler awaits this before
+// routing so early requests never see the defaults
+var settingsrestored = Promise.all([spoofrestored, adblockrestored]);
 
 function persistadblockstate(enabled) {
   caches
@@ -948,13 +958,15 @@ self.addEventListener("fetch", function (event) {
     /\.html$/i.test(parsed.pathname)
   ) {
     event.respondWith(
-      fetch(event.request)
-        .then(function (r) {
-          return injecthtmlshims(r, { desktopua: spoofdesktopua });
-        })
-        .catch(function () {
-          return fetch(event.request);
-        }),
+      settingsrestored.then(function () {
+        return fetch(event.request)
+          .then(function (r) {
+            return injecthtmlshims(r, { desktopua: spoofdesktopua });
+          })
+          .catch(function () {
+            return fetch(event.request);
+          });
+      }),
     );
     return;
   }
@@ -1012,25 +1024,26 @@ self.addEventListener("fetch", function (event) {
 
   if (!shouldroute) return;
 
-  if (adblockenabled && event.request.mode !== "navigate") {
-    if (!adhosts) loadadblocklist();
-    var adtarget = proxiedtargethost(url);
-    if (isadhost(adtarget)) {
-      event.respondWith(blockedresponse(adtarget));
-      return;
-    }
-  }
-
   event.respondWith(
-    buildrouteevent(event)
-      .then(function (re) {
-        return $scramjetController.route(re);
-      })
-      .then(function (r) {
-        return surfacerouteerror(r, event.request);
-      })
-      .then(function (r) {
-        return injecthtmlshims(r, { desktopua: spoofdesktopua });
+    settingsrestored
+      .then(function () {
+        // the adblock check moved in here so a cold start can't block with
+        // the blocker the user turned off (or slip past one they enabled)
+        if (adblockenabled && event.request.mode !== "navigate") {
+          if (!adhosts) loadadblocklist();
+          var adtarget = proxiedtargethost(url);
+          if (isadhost(adtarget)) return blockedresponse(adtarget);
+        }
+        return buildrouteevent(event)
+          .then(function (re) {
+            return $scramjetController.route(re);
+          })
+          .then(function (r) {
+            return surfacerouteerror(r, event.request);
+          })
+          .then(function (r) {
+            return injecthtmlshims(r, { desktopua: spoofdesktopua });
+          });
       })
       .catch(function (err) {
         logfetchfail(event.request, err);
