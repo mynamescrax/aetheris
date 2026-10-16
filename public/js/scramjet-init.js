@@ -357,11 +357,59 @@
     return false;
   }
 
+  // Probe the transport end to end: a tiny same-origin request through the
+  // real wisp path. A socket the OS killed silently neither errors nor
+  // resolves, so bound the probe with a timeout. On old Safari without
+  // AbortSignal.timeout, keep trusting a connected frame instead of risking a
+  // reset of a working session.
+  function probetransport() {
+    if (
+      !activetransport ||
+      typeof activetransport.request !== "function" ||
+      typeof AbortSignal === "undefined" ||
+      typeof AbortSignal.timeout !== "function"
+    ) {
+      return Promise.resolve(true);
+    }
+    var transport = activetransport;
+    return Promise.resolve()
+      .then(function () {
+        return transport.request(
+          location.origin + "/online-count?proxy-probe=" + Date.now(),
+          "GET",
+          null,
+          {},
+          AbortSignal.timeout(8000),
+        );
+      })
+      .then(
+        function (r) {
+          try {
+            if (r && r.body && typeof r.body.cancel === "function") {
+              var closing = r.body.cancel();
+              if (closing && typeof closing.catch === "function")
+                closing.catch(function () {});
+            }
+          } catch (_) {
+            /* releasing the probe stream is best effort */
+          }
+          return true;
+        },
+        function () {
+          // a failover swap means the failed probe tested a transport that is
+          // no longer in use; don't judge the replacement by it
+          return transport !== activetransport;
+        },
+      );
+  }
+
   // iOS/Safari suspends background tabs and silently kills the transport
   // WebSocket. If the tab comes back after a long break with nothing framed,
   // drop the cached controller so the next launch builds a live transport
   // instead of reusing a socket the OS already closed. A connected frame is
-  // left alone: resetting would kill a game that may still be running.
+  // kept: resetting would kill a game that may still be running, so probe the
+  // transport first and only pull the rug after two failures (one failed
+  // probe also happens while the network is still waking up).
   var RESUME_RESET_AFTER = 60000;
   var hiddensince = 0;
   document.addEventListener("visibilitychange", function () {
@@ -371,7 +419,16 @@
     }
     if (!hiddensince || Date.now() - hiddensince < RESUME_RESET_AFTER) return;
     hiddensince = 0;
-    if (!hasliveframe()) resetcontroller();
+    if (!hasliveframe()) {
+      resetcontroller();
+      return;
+    }
+    probetransport().then(function (alive) {
+      if (alive) return;
+      probetransport().then(function (aliveagain) {
+        if (!aliveagain) resetcontroller();
+      });
+    });
   });
 
   window.aetherisProxy = {

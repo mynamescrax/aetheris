@@ -236,6 +236,14 @@ header change fixes it.
   in `movie-report.json` (gitignored).
 - Scramjet runs with `allowFailedIntercepts` + `allowInvalidJs` (scripts the
   rewriter can't parse pass through instead of failing).
+- `index.js` serves the pinned scramjet/controller bundles with serve-time
+  patches (`patchsource`) for fixes that landed upstream after alpha.2 but
+  were never published: history's undefined-url, SRI/integrity stripping,
+  percent-encoded blob/data paths, anchor `toString` + `img.currentSrc`
+  unrewriting, the location-proxy `tryset`, and a snapshot-bound
+  `String.prototype.startsWith` for the URL rewriter. If a dependency bump
+  removes an anchor, the server logs `[scramjet-patch] <label> pattern not
+  found` and serves that snippet unpatched.
 - `sw.js` blocks proxied subresources on the HaGeZi LIGHT list
   (`public/assets/data/adblock-domains.txt`, refresh with
   `node scripts/update-adblock.js`, then bump `ADBLOCK_LIST_VERSION`).

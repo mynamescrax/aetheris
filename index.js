@@ -2492,6 +2492,102 @@ fastify.get("/scramjet/scramjet.js", (_req, reply) => {
       "blob/data path",
     );
 
+    // The four fixes below are unpublished upstream commits newer than the
+    // pinned 2.0.67-alpha.2 release, ported to the minified bundle.
+
+    // HTMLAnchorElement.prototype.toString() serializes the anchor's
+    // underlying (still rewritten) href, so stringifying a link leaked the
+    // /~/sj/ proxy URL. Upstream scramjet@591ca35.
+    raw = patchsource(
+      raw,
+      'e.Trap(["HTMLIFrameElement.prototype.contentWindow",',
+      'e.Proxy("HTMLAnchorElement.prototype.toString",{apply(t){let r=t.call();if(!r)return r;return t.return((0,l.v2)(r,e.context))}}),e.Trap(["HTMLIFrameElement.prototype.contentWindow",',
+      "element.ts anchor toString",
+    );
+
+    // img.currentSrc had no trap and returned the rewritten URL. Upstream
+    // scramjet@d5bea53.
+    raw = patchsource(
+      raw,
+      'for(let t of["protocol","hash","host","hostname","origin","pathname","port","search"])for(let r in f){',
+      'e.Trap("HTMLImageElement.prototype.currentSrc",{get(t){let r=t.get();return r?(0,l.v2)(r,e.context):r}});for(let t of["protocol","hash","host","hostname","origin","pathname","port","search"])for(let r in f){',
+      "element.ts img currentSrc",
+    );
+
+    // tryset() only recognized raw Location instances, but the rewriter hands
+    // it the location proxy, so `location = url` assignments silently did
+    // nothing. Upstream scramjet@8cfd0c5.
+    raw = patchsource(
+      raw,
+      "value:function(r,i,n){return r instanceof t.Location&&(e.locationProxy.href=n,!0)}",
+      "value:function(r,i,n){return e.box.locations.has(r)&&(r.href=n,!0)}",
+      "wrap.ts tryset location",
+    );
+
+    // The URL rewriter calls String.prototype.startsWith on every URL, so a
+    // page patching startsWith (fingerprinting scripts do) corrupts rewriting
+    // globally. Take a pristine bound copy at snapshot time and route every
+    // check in the rewriter through it. Upstream scramjet@e9ff92d.
+    raw = patchsource(
+      raw,
+      "z$:()=>b});let i=globalThis.String,",
+      "z$:()=>b,AeSw:()=>AeSw});let AeSw=globalThis.Function.prototype.call.bind(globalThis.String.prototype.startsWith),i=globalThis.String,",
+      "snapshot.ts String.startsWith",
+    );
+    for (const [i, [broken, fixed]] of [
+      [
+        'function c(e,t,r,o){if((e=(0,s.Qf)(e)).startsWith("javascript:"))',
+        'function c(e,t,r,o){if((0,s.AeSw)(e=(0,s.Qf)(e),"javascript:"))',
+      ],
+      [
+        'if(e.startsWith("blob:"))return t.prefix.href+e;',
+        'if((0,s.AeSw)(e,"blob:"))return t.prefix.href+e;',
+      ],
+      [
+        'if(e.startsWith("data:")){if(e.length+t.prefix.href.length+1024>2097152)',
+        'if((0,s.AeSw)(e,"data:")){if(e.length+t.prefix.href.length+1024>2097152)',
+      ],
+      [
+        'l.some(e=>e.toLowerCase().startsWith("charset="))',
+        'l.some(e=>(0,s.AeSw)(e.toLowerCase(),"charset="))',
+      ],
+      [
+        'if(e.startsWith("mailto:")||e.startsWith("about:"))return e;let i=r.base.href;i.startsWith("about:")&&',
+        'if((0,s.AeSw)(e,"mailto:")||(0,s.AeSw)(e,"about:"))return e;let i=r.base.href;(0,s.AeSw)(i,"about:")&&',
+      ],
+      [
+        'function h(e,t){if((e=(0,s.Qf)(e)).startsWith("javascript:")||e.startsWith("blob:"))',
+        'function h(e,t){if((0,s.AeSw)(e=(0,s.Qf)(e),"javascript:")||(0,s.AeSw)(e,"blob:"))',
+      ],
+      [
+        'if(e.startsWith(t.prefix.href+"blob:"))return e.substring(t.prefix.href.length);',
+        'if((0,s.AeSw)(e,t.prefix.href+"blob:"))return e.substring(t.prefix.href.length);',
+      ],
+      [
+        'if(e.startsWith(t.prefix.href+"data:"))return e.substring(t.prefix.href.length);',
+        'if((0,s.AeSw)(e,t.prefix.href+"data:"))return e.substring(t.prefix.href.length);',
+      ],
+      [
+        'if(e.startsWith("mailto:")||e.startsWith("about:"))return e;else{',
+        'if((0,s.AeSw)(e,"mailto:")||(0,s.AeSw)(e,"about:"))return e;else{',
+      ],
+      [
+        'if(!(e.startsWith("http:")||e.startsWith("https:")))',
+        'if(!((0,s.AeSw)(e,"http:")||(0,s.AeSw)(e,"https:")))',
+      ],
+      [
+        "if(!r.href.startsWith(t.prefix.href))",
+        "if(!(0,s.AeSw)(r.href,t.prefix.href))",
+      ],
+    ].entries()) {
+      raw = patchsource(
+        raw,
+        broken,
+        fixed,
+        "url.ts startsWith [" + i + "]",
+      );
+    }
+
     patchedscramjetcore = legacybrowsercompat + raw;
   }
   reply.type("application/javascript").send(patchedscramjetcore);
