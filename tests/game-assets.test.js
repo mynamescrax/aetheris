@@ -136,7 +136,7 @@ test("mirror relay rejects unknown hosts, traversal and poisoned bodies", async 
   let calls = 0;
   const app = fixture({ fetchimpl: async (url) => {
     calls++;
-    assert.ok(url.startsWith("https://cdn.jsdelivr.net/"), "never fetches outside the allowlist");
+    assert.ok(/^https:\/\/(?:cdn|fastly|gcore)\.jsdelivr\.net\//.test(url), "never fetches outside the allowlist");
     return new Response("429: Too Many Requests", { status: 200 });
   }});
   try {
@@ -148,6 +148,6 @@ test("mirror relay rejects unknown hosts, traversal and poisoned bodies", async 
     assert.equal(poisoned.statusCode, 502);
     assert.equal(poisoned.headers["cache-control"], "no-store");
     assert.equal((await app.inject("/game-assets/m/jsdelivr/gh/bubbls/clusterarchive@b7c6a3b/Release/NG.asm.js")).statusCode, 503);
-    assert.equal(calls, 1, "poisoned bodies are not cached or retried in a storm");
+    assert.equal(calls, 3, "each jsDelivr upstream is tried once; a cooldown then stops retries");
   } finally { await app.close(); }
 });

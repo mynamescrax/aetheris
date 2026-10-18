@@ -115,7 +115,7 @@ async function getcachedgames() {
         var v = get.result;
         finish(
           v &&
-            v.schema === 8 &&
+            v.schema === 9 &&
             Array.isArray(v.data) &&
             v.data.length &&
             Date.now() - v.ts >= 0 &&
@@ -142,7 +142,7 @@ async function setcachedgames(data) {
   try {
     var tx = db.transaction(GAMES_STORE, "readwrite");
     tx.objectStore(GAMES_STORE).put(
-      { schema: 8, ts: Date.now(), data: data },
+      { schema: 9, ts: Date.now(), data: data },
       GAMES_IDB_KEY,
     );
     tx.oncomplete = function () {
