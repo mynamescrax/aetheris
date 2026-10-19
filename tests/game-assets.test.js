@@ -20,7 +20,7 @@ test("game CDN rejects HTTP-200 errors and falls back only within jsDelivr", asy
   const app = fixture({ fetchimpl: async (url, options) => {
     urls.push(url);
     assert.equal(options.redirect, "error");
-    assert.equal(options.headers, undefined, "visitor credentials are never forwarded");
+    assert.deepEqual(options.headers, { "accept-encoding": "identity" }, "only an identity hint is sent upstream; visitor credentials never are");
     return urls.length === 1
       ? new Response("429: Too Many Requests", { status: 200 })
       : new Response(binary, { headers: { "Content-Encoding": "br", "Set-Cookie": "bad=1" } });
@@ -203,6 +203,41 @@ test("large assets stream instead of being buffered whole", async () => {
     const again = await app.inject("/game-assets/m/jsdelivr/gh/bubblfan/fnaf@main/1/resources.zip.part1");
     assert.equal(again.statusCode, 200);
     assert.equal((await bodyOf(again)).length, size);
+  } finally { await app.close(); }
+});
+
+test("a length hint from a compressed body never truncates the asset", async () => {
+  // Node's fetch inflates a gzip body but leaves the on-wire (compressed)
+  // Content-Length in the headers. Treating that hint as "the body ended here"
+  // served a prefix of every compressed text asset: FNAF's main.js reached the
+  // browser as 7,229 of 19,599 bytes and the loader never ran.
+  const part = Buffer.alloc(5000, 0x61);
+  const app = fixture({ fetchimpl: async () => {
+    const body = new ReadableStream({
+      start(controller) {
+        for (let i = 0; i < 4; i++) controller.enqueue(new Uint8Array(part));
+        controller.close();
+      },
+    });
+    // 20,000 decoded bytes, but the header describes the 10,000-byte compressed form.
+    return new Response(body, { headers: { "content-length": "10000", "content-encoding": "gzip" } });
+  }});
+  try {
+    const result = await app.inject("/game-assets/m/jsdelivr/gh/bubblfan/fnaf@main/1/main.js");
+    assert.equal(result.statusCode, 200);
+    assert.equal((await bodyOf(result)).length, 20000, "the whole decoded body is served");
+    assert.equal(result.headers["content-encoding"], undefined);
+  } finally { await app.close(); }
+});
+
+test("a length hint larger than the body does not stall the response", async () => {
+  const app = fixture({ fetchimpl: async () => new Response("console.log(1);", {
+    headers: { "content-length": "999999" },
+  }) });
+  try {
+    const result = await app.inject("/game-assets/m/jsdelivr/gh/bubbls/clusterarchive@b7c6a3b/Release/UnityLoader.js");
+    assert.equal(result.statusCode, 200);
+    assert.equal((await bodyOf(result)).toString(), "console.log(1);");
   } finally { await app.close(); }
 });
 
