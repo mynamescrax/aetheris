@@ -850,6 +850,17 @@ function validsegment(segment) {
   return true;
 }
 
+// The relay serves opaque URLs as well, so an absolute CDN URL is sent there
+// too: a page never shows the CDN layout it pulls from. The token is
+// base64url of "<mirror>:<directory>"; keep this in sync with assetToken()
+// in lib/game-assets.js.
+function assettoken(mirror, dir) {
+  return btoa(mirror + ":" + dir)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
 // Absolute CDN URLs hardcoded in game pages (hundreds of them) bypass the
 // relay on their own. Redirect them same-origin so every mirror fetch gets
 // the relay's poisoned-body validation and shows as localhost/our domain.
@@ -877,7 +888,13 @@ function mirrorredirecturl(url, method) {
   for (var i = 0; i < segments.length; i++) {
     if (!validsegment(segments[i])) return null;
   }
-  return SITE_ORIGIN + "/game-assets/m/" + mirror + path;
+  // The directory travels in the token, the file name stays readable.
+  var relative = path.slice(1);
+  var slash = relative.lastIndexOf("/");
+  if (slash <= 0) return null;
+  var dir = relative.slice(0, slash);
+  var file = relative.slice(slash + 1);
+  return SITE_ORIGIN + "/s/" + assettoken(mirror, dir) + "/" + file;
 }
 
 function shouldbypass(url) {
@@ -901,6 +918,7 @@ function shouldbypass(url) {
     url.indexOf("jsdelivr.net") !== -1 ||
     url.indexOf(SITE_ORIGIN + "/assets/") !== -1 ||
     url.indexOf(SITE_ORIGIN + "/game-assets/") === 0 ||
+    url.indexOf(SITE_ORIGIN + "/s/") === 0 ||
     url.indexOf(SITE_ORIGIN + "/scramjet/") !== -1 ||
     url.indexOf(SITE_ORIGIN + "/controller/") !== -1 ||
     url.indexOf(SITE_ORIGIN + "/api/") !== -1 ||

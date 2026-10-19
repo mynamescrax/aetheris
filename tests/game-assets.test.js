@@ -7,8 +7,11 @@ import {
   registerGameAssets,
   validGameAsset,
   decodeAssetSegment,
+  assetToken,
+  opaqueAssetUrl,
   GAME_ASSET_REVISION,
 } from "../lib/game-assets.js";
+import { rewriteAssetUrls } from "../lib/asset-urls.js";
 
 const path = "/game-assets/1games-rips/trackdash/game.data.unityweb";
 const binary = Buffer.concat([Buffer.from("UnityWebData1.0\0"), Buffer.alloc(1024)]);
@@ -264,6 +267,44 @@ test("the githack mirror is served from GitHub, not its dead redirect", async ()
   } finally { await app.close(); }
 });
 
+test("an opaque URL carries the mirror and the directory, not the CDN layout", async () => {
+  const urls = [];
+  const app = fixture({ fetchimpl: async (url) => {
+    urls.push(url);
+    return new Response("ok");
+  }});
+  try {
+    const opaque = opaqueAssetUrl("jsdelivr", "gh/bubbls/UGS-Assets@ac5cdfc0042aca584e72619375b4aca948a9243c/merge.js");
+    assert.ok(opaque.startsWith("/s/"), "the opaque URL hides the mirror and the repo");
+    assert.ok(opaque.endsWith("/merge.js"), "the file name stays readable");
+    assert.ok(!opaque.includes("jsdelivr"), "the mirror is not in the URL");
+    assert.ok(!opaque.includes("UGS-Assets"), "the repo is not in the URL");
+
+    const result = await app.inject(opaque);
+    assert.equal(result.statusCode, 200);
+    assert.equal(
+      urls[0],
+      "https://cdn.jsdelivr.net/gh/bubbls/UGS-Assets@ac5cdfc0042aca584e72619375b4aca948a9243c/merge.js",
+      "the opaque URL fetches the same file",
+    );
+  } finally { await app.close(); }
+});
+
+test("an opaque URL is refused when the token does not decode", async () => {
+  let calls = 0;
+  const app = fixture({ fetchimpl: async () => {
+    calls++;
+    return new Response("ok");
+  }});
+  try {
+    assert.equal((await app.inject("/s/not-base64!!/x.js")).statusCode, 400);
+    assert.equal((await app.inject("/s/" + Buffer.from("evil:gh/x").toString("base64url") + "/x.js")).statusCode, 400);
+    assert.equal((await app.inject("/s/" + Buffer.from("jsdelivr:gh/x/%2e%2e%2fsecret").toString("base64url") + "/x.js")).statusCode, 400);
+    assert.equal((await app.inject("/s/" + Buffer.from("jsdelivr:gh/x").toString("base64url") + "/%2e%2e%2fsecret")).statusCode, 400);
+    assert.equal(calls, 0, "nothing is fetched for a refused token");
+  } finally { await app.close(); }
+});
+
 test("the service worker relays the same paths as the relay does", () => {
   // The worker redirects absolute CDN URLs to the relay, so its path rules
   // have to match the relay's: a path the worker accepts but the relay
@@ -273,9 +314,9 @@ test("the service worker relays the same paths as the relay does", () => {
   const from = source.indexOf("var SEGMENT =");
   const to = source.indexOf("// Absolute CDN URLs hardcoded");
   assert.ok(from !== -1 && to > from, "the worker segment rules are where we expect them");
-  const context = { decodeURIComponent };
+  const context = { decodeURIComponent, btoa };
   vm.runInNewContext(
-    source.slice(from, to) + "\nthis.validsegment = validsegment;",
+    source.slice(from, to) + "\nthis.validsegment = validsegment;\nthis.assettoken = assettoken;",
     context,
   );
   const segments = [
@@ -300,6 +341,33 @@ test("the service worker relays the same paths as the relay does", () => {
       `the worker and the relay disagree about "${segment}"`,
     );
   }
+  // the worker builds the same opaque tokens as the relay
+  for (const [mirror, dir] of [
+    ["jsdelivr", "gh/bubbls/UGS-Assets@ac5cdfc0042aca584e72619375b4aca948a9243c"],
+    ["ghraw", "ParrrotVR/ultrapoolwebport/main"],
+    ["cdnjs", "ajax/libs/jquery/3.7.1"],
+  ]) {
+    assert.equal(context.assettoken(mirror, dir), assetToken(mirror, dir), `${mirror} ${dir}`);
+  }
+});
+
+test("a page shows opaque URLs instead of the CDN layout", () => {
+  const html = [
+    '<base href="/game-assets/m/jsdelivr/gh/bubbls/UGS-Assets@main/10minutestilldawn/">',
+    '<script src="/game-assets/m/jsdelivr/gh/bubbls/UGS-Assets@ac5cdf/merge.js"></script>',
+    '<img src="/game-assets/m/ghraw/ParrrotVR/ultrapoolwebport/main/index2.png">',
+    '<a href="/game-assets/m/jsdelivr/gh/x/y.js?v=2">',
+  ].join("\n");
+  const rewritten = rewriteAssetUrls(html);
+  assert.ok(!rewritten.includes("/game-assets/m/"), "no relay URL is left in the page");
+  assert.ok(!rewritten.includes("jsdelivr"), "no mirror is named");
+  assert.ok(!rewritten.includes("UGS-Assets"), "no repo is named");
+  assert.ok(rewritten.includes('href="/s/'), "the base href points at the relay");
+  assert.ok(rewritten.includes("/merge.js\""), "the file name stays readable");
+  assert.ok(rewritten.includes("?v=2"), "a query string survives");
+  // a URL the relay would not serve is left alone
+  const unknown = rewriteAssetUrls('<img src="/game-assets/m/nosuchmirror/x/y.png">');
+  assert.ok(unknown.includes("/game-assets/m/nosuchmirror/"), "an unknown mirror is untouched");
 });
 
 test("HEAD probes report sizes without downloading the body", async () => {

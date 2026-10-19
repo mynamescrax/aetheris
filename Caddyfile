@@ -311,17 +311,19 @@ https:// {
 	import root_proxy /proxy/veck veck.io
 
 	# GitHub-hosted game builds, served from our origin to avoid CORS issues.
-	@game_javascript path_regexp game_javascript ^/game-assets/.*\.js$
+	@game_javascript path_regexp game_javascript ^/(game-assets|s)/.*\.js$
 	header @game_javascript >Content-Type "application/javascript; charset=utf-8"
 
-	@game_stylesheet path_regexp game_stylesheet ^/game-assets/.*\.css$
+	@game_stylesheet path_regexp game_stylesheet ^/(game-assets|s)/.*\.css$
 	header @game_stylesheet >Content-Type "text/css; charset=utf-8"
 
 	# Every game asset goes through the app's mirror relay (see MIRRORS in
 	# lib/game-assets.js): one rule serves any allowlisted static CDN, so a
 	# new game needs no config change here. The path picks the file, never the
-	# host, and the app validates every body before it is served.
-	handle /game-assets/* {
+	# host, and the app validates every body before it is served. /s/ is the
+	# opaque form of the same relay.
+	@game_assets path /game-assets/* /s/*
+	handle @game_assets {
 		reverse_proxy http://127.0.0.1:8080
 	}
 

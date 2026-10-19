@@ -30,6 +30,7 @@ import { createRateLimiter } from "./lib/rate-limit.js";
 import { downloadPublicImage, resolvePublicUrl } from "./lib/public-network.js";
 import { registerImageProxy } from "./lib/image-proxy.js";
 import { registerGameAssets } from "./lib/game-assets.js";
+import { rewriteAssetUrls } from "./lib/asset-urls.js";
 import { uniqueOnlineCount } from "./lib/online.js";
 import { createPresence } from "./lib/presence.js";
 import {
@@ -1865,6 +1866,8 @@ const CRAX_GPT_MODEL = process.env.CRAX_GPT_MODEL || "gpt-5-6-sol";
 const CRAX_GPT_IMG_MODEL = process.env.CRAX_GPT_IMAGE_MODEL || "gpt-image-2";
 const MAX_GENERATED_IMAGE_BYTES = 20 * 1024 * 1024;
 const AI_MODELS_TIMEOUT_MS = 15 * 1000;
+// A game page is rewritten to opaque relay URLs only when it fits in memory.
+const MAX_HTML_REWRITE_BYTES = 2 * 1024 * 1024;
 const AI_CHAT_TIMEOUT_MS = 5 * 60 * 1000;
 const AI_IMAGE_TIMEOUT_MS = 3 * 60 * 1000;
 const AI_IMAGE_DOWNLOAD_TIMEOUT_MS = 30 * 1000;
@@ -2324,7 +2327,7 @@ fastify.get("/sw-recover", (_req, reply) =>
   reply.redirect("/recover.html", 302),
 );
 
-fastify.addHook("onSend", (req, reply, payload, done) => {
+fastify.addHook("onSend", async (req, reply, payload) => {
   const path = req.url.split("?")[0];
 
   if (path === "/sw.js" || path === "/register-sw.js") {
@@ -2393,11 +2396,31 @@ fastify.addHook("onSend", (req, reply, payload, done) => {
     reply.header("Access-Control-Allow-Origin", "*");
   }
 
-  done(null, payload);
+  // Show the pages an opaque relay URL: a game page should not advertise
+  // which CDN it pulls from. Only pages small enough to hold in memory are
+  // rewritten; the big ones carry no relay URLs.
+  const contenttype = String(reply.getHeader("content-type") || "");
+  if (contenttype.includes("text/html") && payload && typeof payload.pipe === "function") {
+    const size = Number(reply.getHeader("content-length") || 0);
+    if (size > 0 && size <= MAX_HTML_REWRITE_BYTES) {
+      const chunks = [];
+      for await (const chunk of payload) chunks.push(chunk);
+      const body = Buffer.concat(chunks);
+      const text = body.toString("utf8");
+      if (text.includes("/game-assets/m/")) {
+        const rewritten = Buffer.from(rewriteAssetUrls(text), "utf8");
+        reply.removeHeader("content-length");
+        reply.header("content-length", rewritten.length);
+        return rewritten;
+      }
+      return body;
+    }
+  }
+
+  return payload;
 });
 
 // --- serve-time patches for pinned proxy dependencies ---
-
 // Replaces one minified snippet; warns instead of failing if the dependency
 // version changed and the snippet is gone.
 function patchsource(raw, broken, fixed, label) {

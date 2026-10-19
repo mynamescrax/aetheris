@@ -41,13 +41,15 @@ test("wisp stream limits keep the per-host option disabled", () => {
 });
 
 test("1games assets and the split-file helper use a pinned jsDelivr upstream", () => {
-  const route = caddyfile.match(/handle \/game-assets\/\* \{[^}]*\}/)[0];
+  const route = caddyfile.match(/handle @game_assets \{[^}]*\}/)[0];
   assert.match(route, /reverse_proxy http:\/\/127\.0\.0\.1:8080/);
   assert.doesNotMatch(route, /raw\.githubusercontent\.com|rewrite/);
   assert.match(indexjs, /registerGameAssets\(fastify\)/);
-  // No per-file CDN rules: every asset goes through the app's mirror relay,
-  // which picks the upstream from its allowlist (see MIRRORS in
+  // Both the plain relay path and the opaque one reach the app, and no
+  // per-file CDN rule is left: every asset goes through the app's mirror
+  // relay, which picks the upstream from its allowlist (see MIRRORS in
   // lib/game-assets.js) and validates the body before serving it.
+  assert.match(caddyfile, /@game_assets path \/game-assets\/\* \/s\/\*/);
   assert.doesNotMatch(caddyfile, /cdn\.jsdelivr\.net|raw\.githubusercontent\.com/);
 });
 
