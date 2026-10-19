@@ -200,6 +200,70 @@ test("the relay refuses paths that could name another file", async () => {
   } finally { await app.close(); }
 });
 
+test("Unity's compressed build type is a valid asset, not a poisoned body", () => {
+  // A "Compressed" Unity build wraps its data in its own container, and the
+  // WebGL framework file is the loader module itself. Neither is gzip, and
+  // refusing them 502'd 3dash, BitLife and 10 Minutes Till Dawn.
+  const compressed = Buffer.concat([
+    Buffer.from([0x6b, 0x8d, 0x00]),
+    Buffer.from("UnityWeb Compressed"),
+    Buffer.alloc(1024, 0x41),
+  ]);
+  const module = Buffer.concat([
+    Buffer.from([0x0a]),
+    Buffer.from("var UnityModule = (function() {"),
+    Buffer.alloc(1024, 0x41),
+  ]);
+  assert.equal(validGameAsset("x.data.unityweb", compressed), true);
+  assert.equal(validGameAsset("x.wasm.unityweb", compressed), true);
+  assert.equal(validGameAsset("x.wasm.framework.unityweb", module), true);
+  assert.equal(validGameAsset("x.wasm.framework.unityweb.part1", module), true);
+  // the error bodies the check exists for are still refused
+  assert.equal(validGameAsset("x.data.unityweb", Buffer.from("<!DOCTYPE html><html>")), false);
+  assert.equal(validGameAsset("x.data.unityweb", Buffer.from("429: Too Many Requests")), false);
+});
+
+test("a blocked jsDelivr user still serves the file from GitHub", async () => {
+  // jsDelivr answers 403 "User <name> is blocked" for abusive users, and the
+  // file is still on GitHub. The path has no @ref, so the fallback has to
+  // resolve the default branch.
+  const urls = [];
+  const app = fixture({ fetchimpl: async (url) => {
+    urls.push(url);
+    if (url.includes("jsdelivr")) {
+      return new Response("User genizy is blocked.", { status: 403 });
+    }
+    return new Response(Buffer.alloc(1024, 0x42));
+  }});
+  try {
+    const result = await app.inject("/game-assets/m/jsdelivr/gh/genizy/google-class/nova-craft/assets/pinwheel.png");
+    assert.equal(result.statusCode, 200);
+    assert.equal(
+      urls.at(-1),
+      "https://raw.githubusercontent.com/genizy/google-class/HEAD/nova-craft/assets/pinwheel.png",
+    );
+  } finally { await app.close(); }
+});
+
+test("the githack mirror is served from GitHub, not its dead redirect", async () => {
+  // raw.githack.com is a 301 to raw.githubusercontent.com these days and the
+  // relay refuses upstream redirects, so the mirror points at GitHub.
+  const urls = [];
+  const app = fixture({ fetchimpl: async (url) => {
+    urls.push(url);
+    return new Response("ok");
+  }});
+  try {
+    const result = await app.inject("/game-assets/m/githack/gn-math/assets/main/198/TemplateData/progressFull.Dark.png");
+    assert.equal(result.statusCode, 200);
+    assert.equal(
+      urls[0],
+      "https://raw.githubusercontent.com/gn-math/assets/main/198/TemplateData/progressFull.Dark.png",
+    );
+    assert.ok(!urls.some((url) => url.includes("githack")), "no request goes to the redirecting host");
+  } finally { await app.close(); }
+});
+
 test("the service worker relays the same paths as the relay does", () => {
   // The worker redirects absolute CDN URLs to the relay, so its path rules
   // have to match the relay's: a path the worker accepts but the relay
