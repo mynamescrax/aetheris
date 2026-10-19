@@ -11,6 +11,10 @@ function fixture(options = {}) {
   return app;
 }
 
+function bodyOf(result) {
+  return Buffer.from(result.rawPayload);
+}
+
 test("game CDN rejects HTTP-200 errors and falls back only within jsDelivr", async () => {
   const urls = [];
   const app = fixture({ fetchimpl: async (url, options) => {
@@ -24,7 +28,7 @@ test("game CDN rejects HTTP-200 errors and falls back only within jsDelivr", asy
   try {
     const result = await app.inject(path);
     assert.equal(result.statusCode, 200);
-    assert.deepEqual(result.rawPayload, binary);
+    assert.deepEqual(await bodyOf(result), binary);
     assert.equal(urls.length, 2);
     assert.ok(urls[0].includes("@" + GAME_ASSET_REVISION));
     assert.ok(urls[1].includes("@main/"));
@@ -118,7 +122,7 @@ test("mirror relay serves any allowlisted static CDN through our origin", async 
   try {
     const asm = await app.inject("/game-assets/m/jsdelivr/gh/bubbls/clusterarchive@b7c6a3b/Release/NG.asm.js");
     assert.equal(asm.statusCode, 200);
-    assert.deepEqual(asm.rawPayload, binary);
+    assert.deepEqual(await bodyOf(asm), binary);
     assert.equal(urls[0], "https://cdn.jsdelivr.net/gh/bubbls/clusterarchive@b7c6a3b/Release/NG.asm.js");
     const script = await app.inject("/game-assets/m/fastly/gh/bubbls/clusterarchive@b7c6a3b/Release/UnityLoader.js");
     assert.equal(script.statusCode, 200);
@@ -136,7 +140,7 @@ test("mirror relay rejects unknown hosts, traversal and poisoned bodies", async 
   let calls = 0;
   const app = fixture({ fetchimpl: async (url) => {
     calls++;
-    assert.ok(/^https:\/\/(?:cdn|fastly|gcore)\.jsdelivr\.net\//.test(url), "never fetches outside the allowlist");
+    assert.ok(/^https:\/\/(?:cdn|fastly|gcore)\.jsdelivr\.net\/|^https:\/\/raw\.githubusercontent\.com\//.test(url), "never fetches outside the allowlist");
     return new Response("429: Too Many Requests", { status: 200 });
   }});
   try {
@@ -148,6 +152,73 @@ test("mirror relay rejects unknown hosts, traversal and poisoned bodies", async 
     assert.equal(poisoned.statusCode, 502);
     assert.equal(poisoned.headers["cache-control"], "no-store");
     assert.equal((await app.inject("/game-assets/m/jsdelivr/gh/bubbls/clusterarchive@b7c6a3b/Release/NG.asm.js")).statusCode, 503);
-    assert.equal(calls, 3, "each jsDelivr upstream is tried once; a cooldown then stops retries");
+    assert.equal(calls, 4, "each jsDelivr upstream plus the GitHub raw fallback is tried once; a cooldown then stops retries");
+  } finally { await app.close(); }
+});
+
+test("HEAD probes report sizes without downloading the body", async () => {
+  const calls = [];
+  const app = fixture({ fetchimpl: async (url, options) => {
+    calls.push({ url, method: options.method || "GET" });
+    if (options.method === "HEAD") {
+      return new Response(null, { headers: { "content-length": "20893373" } });
+    }
+    return new Response(binary);
+  }});
+  try {
+    const head = await app.inject({
+      method: "HEAD",
+      url: "/game-assets/m/jsdelivr/gh/bubblfan/fnaf@main/1/resources.zip.part1",
+    });
+    assert.equal(head.statusCode, 200);
+    assert.equal(head.headers["content-length"], "20893373");
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].method, "HEAD", "the body is never fetched for a size probe");
+    // cached for the next probe, so a split loader asks upstream only once
+    await app.inject({ method: "HEAD", url: "/game-assets/m/jsdelivr/gh/bubblfan/fnaf@main/1/resources.zip.part1" });
+    assert.equal(calls.length, 1);
+  } finally { await app.close(); }
+});
+
+test("large assets stream instead of being buffered whole", async () => {
+  const size = 20 * 1024 * 1024;
+  let streamed = false;
+  const app = fixture({ fetchimpl: async () => {
+    streamed = true;
+    const body = new ReadableStream({
+      start(controller) {
+        for (let i = 0; i < size / 65536; i++) controller.enqueue(new Uint8Array(65536));
+        controller.close();
+      },
+    });
+    return new Response(body, { headers: { "content-length": String(size) } });
+  }});
+  try {
+    const result = await app.inject("/game-assets/m/jsdelivr/gh/bubblfan/fnaf@main/1/resources.zip.part1");
+    assert.equal(result.statusCode, 200);
+    assert.equal(result.headers["content-length"], undefined, "streamed bodies are chunked, not length-framed");
+    assert.equal((await bodyOf(result)).length, size);
+    assert.ok(streamed);
+    // a second request cannot reuse the consumed stream and must refetch
+    const again = await app.inject("/game-assets/m/jsdelivr/gh/bubblfan/fnaf@main/1/resources.zip.part1");
+    assert.equal(again.statusCode, 200);
+    assert.equal((await bodyOf(again)).length, size);
+  } finally { await app.close(); }
+});
+
+test("jsDelivr package-size 403 falls back to the GitHub raw mirror", async () => {
+  const urls = [];
+  const app = fixture({ fetchimpl: async (url) => {
+    urls.push(url);
+    if (url.includes("jsdelivr.net")) {
+      return new Response("Package size exceeded the configured limit of 50 MB.", { status: 403 });
+    }
+    return new Response(binary);
+  }});
+  try {
+    const result = await app.inject("/game-assets/m/jsdelivr/gh/bubblfan/fnaf@main/4/resources.zip.part10");
+    assert.equal(result.statusCode, 200);
+    assert.deepEqual(await bodyOf(result), binary);
+    assert.equal(urls.at(-1), "https://raw.githubusercontent.com/bubblfan/fnaf/main/4/resources.zip.part10");
   } finally { await app.close(); }
 });
