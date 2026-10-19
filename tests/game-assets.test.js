@@ -1,7 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import vm from "node:vm";
+import { readFileSync } from "node:fs";
 import Fastify from "fastify";
-import { registerGameAssets, validGameAsset, GAME_ASSET_REVISION } from "../lib/game-assets.js";
+import {
+  registerGameAssets,
+  validGameAsset,
+  decodeAssetSegment,
+  GAME_ASSET_REVISION,
+} from "../lib/game-assets.js";
 
 const path = "/game-assets/1games-rips/trackdash/game.data.unityweb";
 const binary = Buffer.concat([Buffer.from("UnityWebData1.0\0"), Buffer.alloc(1024)]);
@@ -154,6 +161,81 @@ test("mirror relay rejects unknown hosts, traversal and poisoned bodies", async 
     assert.equal((await app.inject("/game-assets/m/jsdelivr/gh/bubbls/clusterarchive@b7c6a3b/Release/NG.asm.js")).statusCode, 503);
     assert.equal(calls, 4, "each jsDelivr upstream plus the GitHub raw fallback is tried once; a cooldown then stops retries");
   } finally { await app.close(); }
+});
+
+test("the relay forwards the exact path the visitor asked for", async () => {
+  const urls = [];
+  const app = fixture({ fetchimpl: async (url) => {
+    urls.push(url);
+    return new Response("ok");
+  }});
+  try {
+    // A jsDelivr path can carry an encoded space ("fruit%20ninja/"). The CDN
+    // has to see the same path the browser would have sent directly, so the
+    // raw request target is forwarded and never re-encoded.
+    const result = await app.inject("/game-assets/m/jsdelivr/gh/bubbls/UGS-Assets@main/fruit%20ninja/Build/x.js");
+    assert.equal(result.statusCode, 200);
+    assert.equal(urls[0], "https://cdn.jsdelivr.net/gh/bubbls/UGS-Assets@main/fruit%20ninja/Build/x.js");
+    // the decoded name still decides the content type
+    const script = await app.inject("/game-assets/m/jsdelivr/gh/bubbls/UGS-Assets@main/x%2Ejs");
+    assert.equal(script.headers["content-type"], "application/javascript; charset=utf-8");
+  } finally { await app.close(); }
+});
+
+test("the relay refuses paths that could name another file", async () => {
+  let calls = 0;
+  const app = fixture({ fetchimpl: async () => {
+    calls++;
+    return new Response("ok");
+  }});
+  try {
+    // encoded traversal, an encoded separator, a malformed escape and an
+    // empty segment all name a different file than the visitor asked for
+    assert.equal((await app.inject("/game-assets/m/jsdelivr/gh/x/%2e%2e%2fsecret")).statusCode, 400);
+    assert.equal((await app.inject("/game-assets/m/jsdelivr/gh/x/a%2Fb")).statusCode, 400);
+    assert.equal((await app.inject("/game-assets/m/jsdelivr/gh/x/%zz")).statusCode, 400);
+    assert.equal((await app.inject("/game-assets/m/jsdelivr/gh/x//y")).statusCode, 400);
+    assert.equal((await app.inject("/game-assets/m/jsdelivr/gh/x/y/")).statusCode, 400);
+    assert.equal(calls, 0, "nothing is fetched for a refused path");
+  } finally { await app.close(); }
+});
+
+test("the service worker relays the same paths as the relay does", () => {
+  // The worker redirects absolute CDN URLs to the relay, so its path rules
+  // have to match the relay's: a path the worker accepts but the relay
+  // refuses ends in a 400, and one the worker refuses is fetched from the CDN
+  // directly. Pull the worker's rules out of the shipped file and compare.
+  const source = readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
+  const from = source.indexOf("var SEGMENT =");
+  const to = source.indexOf("// Absolute CDN URLs hardcoded");
+  assert.ok(from !== -1 && to > from, "the worker segment rules are where we expect them");
+  const context = { decodeURIComponent };
+  vm.runInNewContext(
+    source.slice(from, to) + "\nthis.validsegment = validsegment;",
+    context,
+  );
+  const segments = [
+    "x.js",
+    "UnityLoader.js",
+    "fruit%20ninja",
+    "a%2Fb",
+    "%2e%2e%2f",
+    "%2E%2E",
+    "..",
+    ".",
+    "",
+    "a b",
+    "a%zz",
+    "x%25y",
+    "UPPER@main",
+  ];
+  for (const segment of segments) {
+    assert.equal(
+      Boolean(context.validsegment(segment)),
+      decodeAssetSegment(segment) !== null,
+      `the worker and the relay disagree about "${segment}"`,
+    );
+  }
 });
 
 test("HEAD probes report sizes without downloading the body", async () => {

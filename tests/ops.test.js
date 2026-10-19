@@ -41,12 +41,14 @@ test("wisp stream limits keep the per-host option disabled", () => {
 });
 
 test("1games assets and the split-file helper use a pinned jsDelivr upstream", () => {
-  const route = caddyfile.split("handle /game-assets/1games-rips/* {")[1]
-    .split("handle /game-assets/ugs-merge/merge.js {")[0];
+  const route = caddyfile.match(/handle \/game-assets\/\* \{[^}]*\}/)[0];
   assert.match(route, /reverse_proxy http:\/\/127\.0\.0\.1:8080/);
   assert.doesNotMatch(route, /raw\.githubusercontent\.com|rewrite/);
   assert.match(indexjs, /registerGameAssets\(fastify\)/);
-  assert.match(caddyfile, /rewrite \* \/gh\/bubbls\/UGS-Assets@[a-f0-9]{40}\/merge\.js/);
+  // No per-file CDN rules: every asset goes through the app's mirror relay,
+  // which picks the upstream from its allowlist (see MIRRORS in
+  // lib/game-assets.js) and validates the body before serving it.
+  assert.doesNotMatch(caddyfile, /cdn\.jsdelivr\.net|raw\.githubusercontent\.com/);
 });
 
 test("1games pages resolve builds and split parts through our origin", () => {
@@ -77,7 +79,7 @@ test("1games pages resolve builds and split parts through our origin", () => {
     const merger = scripts.find(s => s.includes("window.fileMergerConfig"));
     if (merger) {
       splitPages++;
-      assert.match(html, /src="\/game-assets\/ugs-merge\/merge\.js"/, file);
+      assert.match(html, /src="\/game-assets\/m\/jsdelivr\/gh\/bubbls\/UGS-Assets@[a-f0-9]{40}\/merge\.js"/, file);
       assert.doesNotMatch(html, /src="https:[^"]*\/merge\.js"/, file);
       vm.runInNewContext(merger, context);
       for (const part of context.window.fileMergerConfig.files) {

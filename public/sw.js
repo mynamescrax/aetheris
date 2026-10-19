@@ -827,6 +827,29 @@ var MIRROR_HOSTS = {
   "cdnjs.cloudflare.com": "cdnjs",
 };
 
+// One path segment of a relayed asset path. Percent escapes are allowed (a
+// jsDelivr path can contain encoded spaces, "fruit%20ninja/"), but a decoded
+// separator or a traversal segment is not: it would name a different file
+// than the visitor asked for. Keep this in sync with decodeAssetSegment()
+// in lib/game-assets.js.
+var SEGMENT = /^[-A-Za-z0-9._~!$&'()*+,;=:@%]+$/;
+
+function validsegment(segment) {
+  if (!SEGMENT.test(segment)) return false;
+  for (var i = segment.indexOf("%"); i !== -1; i = segment.indexOf("%", i + 1)) {
+    if (!/^[0-9A-Fa-f]{2}$/.test(segment.substring(i + 1, i + 3))) return false;
+  }
+  var decoded;
+  try {
+    decoded = decodeURIComponent(segment);
+  } catch (e) {
+    return false;
+  }
+  if (decoded.indexOf("/") !== -1 || decoded.indexOf("\\") !== -1) return false;
+  if (decoded === "." || decoded === "..") return false;
+  return true;
+}
+
 // Absolute CDN URLs hardcoded in game pages (hundreds of them) bypass the
 // relay on their own. Redirect them same-origin so every mirror fetch gets
 // the relay's poisoned-body validation and shows as localhost/our domain.
@@ -848,15 +871,12 @@ function mirrorredirecturl(url, method) {
   // Visitor path only: strict charset, no traversal, no credential smuggling.
   // Client query strings are dropped; the relay ignores them anyway.
   var path = parsed.pathname;
-  if (!/^[A-Za-z0-9_@.\-/]+$/.test(path) || path.indexOf("//") !== -1) return null;
-  // pathname always starts with "/"; skip that empty first segment.
-  if (
-    path.split("/").slice(1).some(function (p) {
-      return !p || p === "." || p === "..";
-    })
-  )
-    return null;
   if (path.length > 512) return null;
+  // pathname always starts with "/"; skip that empty first segment.
+  var segments = path.split("/").slice(1);
+  for (var i = 0; i < segments.length; i++) {
+    if (!validsegment(segments[i])) return null;
+  }
   return SITE_ORIGIN + "/game-assets/m/" + mirror + path;
 }
 
