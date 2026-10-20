@@ -630,6 +630,34 @@ test("a build that is on disk is served from there and supports ranges", async (
   } finally { await app.close(); }
 });
 
+test("a build served from disk carries the CORS headers too", async () => {
+  const size = 6 * 1024 * 1024;
+  const chunk = 65536;
+  const app = fixture({ fetchimpl: async () => {
+    const body = new ReadableStream({
+      start(controller) {
+        for (let i = 0; i < size / chunk; i++) controller.enqueue(new Uint8Array(chunk));
+        controller.close();
+      },
+    });
+    return new Response(body, { headers: { "content-length": String(size) } });
+  }});
+  try {
+    const url = "/game-assets/m/jsdelivr/gh/bubblfan/fnaf@main/1/resources.zip.part1";
+    await bodyOf(await app.inject(url));
+    // The service worker redirect makes the browser send "Origin: null".
+    for (const origin of ["null", "https://aetheris.win"]) {
+      for (const range of [undefined, "bytes=100-199"]) {
+        const headers = { origin };
+        if (range) headers.range = range;
+        const res = await app.inject({ method: "GET", url, headers });
+        assert.equal(res.headers["access-control-allow-origin"], origin, `${origin} ${range || "full"}`);
+        assert.equal(res.headers.vary, "Origin");
+      }
+    }
+  } finally { await app.close(); }
+});
+
 test("a pinned build may sit in the browser for a year", () => {
   assert.equal(
     assetCacheControl("gh/bubblfan/fnaf@0123456789abcdef0123456789abcdef01234567/1/main.js"),
