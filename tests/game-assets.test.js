@@ -314,6 +314,21 @@ test("an opaque URL is refused when the token does not decode", async () => {
   } finally { await app.close(); }
 });
 
+test("the worker's redirect to the relay passes the CORS check on its own", () => {
+  const source = readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
+  const from = source.indexOf("function mirrorredirectresponse(");
+  const to = source.indexOf("function shouldbypass(");
+  assert.ok(from !== -1 && to > from, "the redirect helper is where we expect it");
+  const context = { Response };
+  vm.runInNewContext(source.slice(from, to) + "\nthis.build = mirrorredirectresponse;", context);
+  const target = "https://aetheris.win/s/token/build.wasm.unityweb";
+  const res = context.build(target);
+  assert.equal(res.status, 302);
+  assert.equal(res.headers.get("location"), target);
+  assert.equal(res.headers.get("access-control-allow-origin"), "*");
+  assert.ok(!source.includes("Response.redirect(mirrorurl"), "no header-less redirect is left");
+});
+
 test("the service worker relays the same paths as the relay does", () => {
   // The worker redirects absolute CDN URLs to the relay, so its path rules
   // have to match the relay's: a path the worker accepts but the relay

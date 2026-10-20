@@ -970,6 +970,21 @@ function mirrorredirecturl(url, method) {
   return SITE_ORIGIN + "/s/" + assettoken(mirror, dir) + "/" + file;
 }
 
+// The redirect for a cross-origin fetch() is itself CORS-checked: the browser
+// needs Access-Control-Allow-Origin on the 302, not just on the file it points
+// to. Response.redirect() cannot carry headers, and a strict engine (WebKit)
+// then drops the request before it ever reaches the relay.
+function mirrorredirectresponse(location) {
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: location,
+      "Access-Control-Allow-Origin": "*",
+      "Cache-Control": "no-store",
+    },
+  });
+}
+
 function shouldbypass(url) {
   if (
     url.indexOf("data:") === 0 ||
@@ -1103,7 +1118,7 @@ self.addEventListener("fetch", function (event) {
   if (!proxied) {
     var mirrorurl = mirrorredirecturl(url, event.request.method);
     if (mirrorurl) {
-      event.respondWith(Response.redirect(mirrorurl, 302));
+      event.respondWith(mirrorredirectresponse(mirrorurl));
       return;
     }
   }
