@@ -739,10 +739,12 @@
           reject(tx.error || new Error("Restore rolled back for " + name));
         };
         try {
+          // Merge instead of clear(): shared databases such as /idbfs hold
+          // every Unity game's saves, so wiping the store would erase games
+          // that are not in the backup. Backup records overwrite matching ones.
           names.forEach(function (s) {
             var store = tx.objectStore(s),
               rows = saved.stores[s];
-            store.clear();
             rows.values.forEach(function (value, i) {
               if (store.keyPath === null && rows.keys)
                 store.put(value, rows.keys[i]);
@@ -774,7 +776,7 @@
       var data = prepareBackup(JSON.parse(await file.text()));
       if (
         !confirm(
-          "Restore this backup? It will replace records in the included game databases and merge saved settings. Close other Aetheris/game tabs first. Chat sign-ins will not be imported.",
+          "Restore this backup? It will merge the backup into your game databases (matching saves are overwritten by the backup; other saves are kept) and merge saved settings. Close other Aetheris/game tabs first. Chat sign-ins will not be imported.",
         )
       )
         return;
