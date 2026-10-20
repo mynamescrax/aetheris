@@ -1829,6 +1829,15 @@
         window["c3_runtimeInterface"] = new self.RuntimeInterface({
           useWorker: enableWorker,
           workerMainUrl: "workermain.js",
+          // The workers are fetched from the CDN that actually hosts them. The
+          // runtime would otherwise resolve them against this page's own
+          // directory (/assets/games/scripts/scripts/...) and get a 404. A
+          // cross-origin worker script is fetched and turned into a blob, and
+          // the service worker relays that fetch to the mirror relay.
+          workerScripts: {
+            "scripts/dispatchworker.js": "https://cdn.jsdelivr.net/gh/bubbls/UGS-Assets@main/fall-guys/scripts/dispatchworker.js",
+            "scripts/jobworker.js": "https://cdn.jsdelivr.net/gh/bubbls/UGS-Assets@main/fall-guys/scripts/jobworker.js"
+          },
           engineScripts: ["https://cdn.jsdelivr.net/gh/bubbls/UGS-Assets@main/fall-guys/scripts/c3runtime.js"],
           projectScripts: [],
           mainProjectScript: "",

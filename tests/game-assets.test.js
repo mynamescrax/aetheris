@@ -235,6 +235,24 @@ test("Unity's compressed build type is a valid asset, not a poisoned body", () =
   assert.equal(validGameAsset("x.data.unityweb", Buffer.from("429: Too Many Requests")), false);
 });
 
+test("an empty script is a real file, an empty build is not", async () => {
+  // The Construct 3 exports ship empty script stubs (fall-guys/redblackset.js
+  // is an empty blob in the repository). The browser loads those without
+  // trouble, so the relay must not turn them into a 502.
+  assert.equal(validGameAsset("redblackset.js", Buffer.alloc(0)), true);
+  assert.equal(validGameAsset("data.json", Buffer.alloc(0)), true);
+  assert.equal(validGameAsset("x.data.unityweb", Buffer.alloc(0)), false);
+  assert.equal(validGameAsset("x.wasm.unityweb", Buffer.alloc(0)), false);
+  const app = fixture({ fetchimpl: async () => new Response(Buffer.alloc(0), {
+    headers: { "content-type": "application/javascript" },
+  }) });
+  try {
+    const result = await app.inject("/game-assets/m/jsdelivr/gh/x/y/fall-guys/redblackset.js");
+    assert.equal(result.statusCode, 200);
+    assert.equal(result.body.length, 0);
+  } finally { await app.close(); }
+});
+
 test("a blocked jsDelivr user still serves the file from GitHub", async () => {
   // jsDelivr answers 403 "User <name> is blocked" for abusive users, and the
   // file is still on GitHub. The path has no @ref, so the fallback has to
@@ -311,6 +329,35 @@ test("an opaque URL is refused when the token does not decode", async () => {
     assert.equal((await app.inject("/s/" + Buffer.from("jsdelivr:gh/x/%2e%2e%2fsecret").toString("base64url") + "/x.js")).statusCode, 400);
     assert.equal((await app.inject("/s/" + Buffer.from("jsdelivr:gh/x").toString("base64url") + "/%2e%2e%2fsecret")).statusCode, 400);
     assert.equal(calls, 0, "nothing is fetched for a refused token");
+  } finally { await app.close(); }
+});
+
+test("a relay failure is still a CORS response", async () => {
+  // A 502 without the origin header is reported by the browser as a CORS
+  // error, and the real status never reaches the page.
+  const app = fixture({ fetchimpl: async () => {
+    throw new Error("upstream is down");
+  }});
+  try {
+    const result = await app.inject({
+      url: "/s/" + assetToken("jsdelivr", "gh/x/y") + "/file.js",
+      headers: { origin: "null" },
+    });
+    assert.equal(result.statusCode, 502);
+    assert.equal(result.headers["access-control-allow-origin"], "null");
+    assert.equal(result.headers.vary, "Origin");
+  } finally { await app.close(); }
+});
+
+test("a refused relay path is still a CORS response", async () => {
+  const app = fixture({ fetchimpl: async () => new Response("ok") });
+  try {
+    const result = await app.inject({
+      url: "/s/not-base64!!/x.js",
+      headers: { origin: "https://aetheris.win" },
+    });
+    assert.equal(result.statusCode, 400);
+    assert.equal(result.headers["access-control-allow-origin"], "https://aetheris.win");
   } finally { await app.close(); }
 });
 
