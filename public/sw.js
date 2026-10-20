@@ -671,6 +671,38 @@ var cookieenabledshim =
   "})();" +
   "<\/script>";
 
+// Cloudflare's Web Analytics beacon was saved into the game pages when they
+// were copied from a browser. The beacon posts to a root-relative
+// "/cdn-cgi/rum", and the games carry a <base href="https://cdn.jsdelivr.net/...">
+// that sends that post to the CDN: the answer there has no CORS header, so
+// every game that ships the beacon logs a CORS error that has nothing to do
+// with the game itself. The site has its own analytics, so the beacon is
+// dropped from the game pages.
+var CF_BEACON_TAG =
+  /<script[^>]*static\.cloudflareinsights\.com[^>]*>[\s\S]*?<\/script>/gi;
+
+async function stripbeacon(response) {
+  if (!response || response.status !== 200) return response;
+  var ct = (response.headers.get("content-type") || "").toLowerCase();
+  if (ct.indexOf("text/html") === -1) return response;
+  try {
+    var text = await response.clone().text();
+    if (text.indexOf("static.cloudflareinsights.com") === -1) return response;
+    var headers = new Headers(response.headers);
+    // The body is plain text now: the length and the encoding of the
+    // original body no longer describe it.
+    headers.delete("content-length");
+    headers.delete("content-encoding");
+    return new Response(text.replace(CF_BEACON_TAG, ""), {
+      status: response.status,
+      statusText: response.statusText,
+      headers: headers,
+    });
+  } catch (e) {
+    return response;
+  }
+}
+
 // past this many bytes without <head>/<html>, shims go at the front
 var SHIM_SCAN_LIMIT = 256 * 1024;
 
@@ -1133,7 +1165,9 @@ self.addEventListener("fetch", function (event) {
       settingsrestored
         .then(function () {
           return gamepageresponse(event.request).then(function (r) {
-            return injecthtmlshims(r, { desktopua: spoofdesktopua });
+            return stripbeacon(r).then(function (clean) {
+              return injecthtmlshims(clean, { desktopua: spoofdesktopua });
+            });
           });
         })
         .catch(function () {
