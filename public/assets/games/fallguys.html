@@ -88,7 +88,10 @@
       } else window.C3_IsSupported = !0
     }();
   </script>
-  <script src='/everypage.js'></script>
+  <!-- The export loads a root-relative "/everypage.js". The base tag below
+       sends that to the CDN root, where the file does not exist: the 400
+       error page answers with a beacon that then fails the CORS check, and
+       the game runs without the file anyway. -->
   <script type="module">
     "use strict";
     {
