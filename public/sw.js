@@ -1046,21 +1046,29 @@ function isrelaypath(pathname) {
 function relayresponse(request) {
   return fetch(request).then(
     function (response) {
-      if (response && response.status < 500) return response;
+      if (response && response.status < 400) return response;
       var headers = new Headers(response.headers);
-      headers.set(
-        "Access-Control-Allow-Origin",
-        request.headers.get("Origin") || "*",
-      );
-      headers.set("Vary", "Origin");
-      // The body is handed over unchanged, so the length may no longer be
-      // the one of the error page.
-      headers.delete("content-length");
-      return new Response(response.body, {
-        status: response.status,
-        statusText: response.statusText,
-        headers: headers,
-      });
+      // A failed answer must still be readable by the page. Cloudflare
+      // replaces a 5xx from the origin with its own error page, and that
+      // page has no CORS header at all, so the browser would report a CORS
+      // error instead of the status. Any answer that arrives without the
+      // header gets it here.
+      if (!headers.get("Access-Control-Allow-Origin")) {
+        headers.set(
+          "Access-Control-Allow-Origin",
+          request.headers.get("Origin") || "*",
+        );
+        headers.set("Vary", "Origin");
+        // The body is handed over unchanged, so the length may no longer be
+        // the one of the error page.
+        headers.delete("content-length");
+        return new Response(response.body, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: headers,
+        });
+      }
+      return response;
     },
     function () {
       return new Response("Game CDN temporarily unavailable; retry shortly.", {

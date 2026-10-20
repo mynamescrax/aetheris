@@ -361,6 +361,27 @@ test("a refused relay path is still a CORS response", async () => {
   } finally { await app.close(); }
 });
 
+test("a relay answer that never reaches a route is still a CORS response", async () => {
+  // Fastify answers a path it does not know itself, and that answer has no
+  // CORS header unless the relay puts one there.
+  const app = fixture({ fetchimpl: async () => new Response("ok") });
+  try {
+    const result = await app.inject({
+      url: "/s",
+      headers: { origin: "https://aetheris.win" },
+    });
+    assert.equal(result.statusCode, 404);
+    assert.equal(result.headers["access-control-allow-origin"], "https://aetheris.win");
+    assert.equal(result.headers.vary, "Origin");
+    // an answer outside the relay keeps its own headers
+    const other = await app.inject({
+      url: "/not-the-relay",
+      headers: { origin: "https://aetheris.win" },
+    });
+    assert.equal(other.headers["access-control-allow-origin"], undefined);
+  } finally { await app.close(); }
+});
+
 test("a cached game page is never older than the current version", async () => {
   // The game pages are served with a week of stale-while-revalidate. A
   // fixed cache key would keep handing out the copy the browser cached a
