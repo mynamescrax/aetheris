@@ -76,9 +76,8 @@
       <div class="update-modal">
         <h2 id="updatemodaltitle">What's new</h2>
         <ul class="update-list">
-          <li>Games that failed to load because a download server refused a file now fall back to backup servers, so more of them start. If one still won't load, go to Settings → Data and use Reset cache, then try again</li>
-          <li>Movies: repeated requests are cached, so playback and seeking should be smoother</li>
-          <li>Proxy: fixes for some sites that broke on back/forward, blob links and images, plus your ad blocker and desktop-site settings now apply right when the page starts</li>
+          <li>Most games are fixed, including Unity games like Space Waves and Escape Road that sat on an empty loading bar on Firefox and iPad Safari</li>
+          <li>If a game still won't load, go to Settings → Data and use Reset cache, then reload the page and try again</li>
         </ul>
         <div class="update-modal-footer">
           <button id="updatemodalclose" type="button">Got it</button>
@@ -418,7 +417,7 @@
     </style>
 
     <script>
-      var UPDATE_VERSION = "23";
+      var UPDATE_VERSION = "24";
 
       async function loadquote() {
         try {
