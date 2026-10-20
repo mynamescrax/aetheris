@@ -252,6 +252,46 @@ header change fixes it.
   URLs are `/~/sj/<tab>/<frame>/<encoded url>`. Users can turn it off in
   settings (`proxyAdblock`).
 
+## Game asset relay
+
+`lib/game-assets.js` serves every game build the visitor asks for. The
+service worker sends absolute CDN URLs there, so a game loads from the VPS
+instead of the CDN.
+
+- A build that is too big to keep in memory (a 30MB Unity wasm) is streamed
+  to the visitor and written to the disk cache at the same time. The next
+  visitor gets it from the disk: no upstream bandwidth, and a `Range` request
+  resumes where the last one stopped. The cache lives in `cache/` (gitignored),
+  defaults to 4GB and 24 hours: `GAME_ASSET_CACHE_DIR`,
+  `GAME_ASSET_DISK_CACHE_MB`, `GAME_ASSET_DISK_CACHE_MIN`.
+- An upstream that stops sending halfway does not end the transfer. The bytes
+  the visitor already has stay with them and the next mirror is asked for the
+  rest with a `Range` header. A mirror that ignores the header sends the file
+  again and its first bytes are dropped, so nothing is duplicated.
+- The stall guard gives up after `GAME_ASSET_STALL_MS` (default 20s) without
+  a byte. It used to be 45s, which left the visitor staring at a frozen
+  progress bar.
+- A path that pins a commit (`@<40-hex>`) gets
+  `Cache-Control: public, max-age=31536000, immutable`; a moving ref
+  (`@main`) keeps `max-age=300`. The pinned builds are the big ones, so the
+  browser stops pulling 30MB every five minutes.
+- `HEAD` never downloads the body: split-file loaders ask for the size of
+  every part first, and buffering that cost 160MB of pointless traffic.
+
+## Game pages
+
+- The game pages are static files under `public/assets/games/`. One of them
+  (`unonomercy.html`) is 34MB, so it is the slowest thing on the site.
+- Cloudflare does not cache HTML by default, so every visit pulled the whole
+  page from the origin. Two things fix that:
+  - the browser keeps it for a day
+    (`Cache-Control: public, max-age=86400, stale-while-revalidate=604800`),
+  - the service worker keeps its own copy in the `aetheris-gamepages` cache
+    (16 entries) and serves that while a fresh one is fetched in the
+    background.
+- A Cloudflare cache rule for `/assets/games/*` would fix the first visit too.
+  That needs the dashboard; the code cannot do it.
+
 ## Production access
 
 - SSH alias: `craxvps`

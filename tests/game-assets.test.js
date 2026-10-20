@@ -1,7 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import vm from "node:vm";
-import { readFileSync } from "node:fs";
+import { readFileSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import Fastify from "fastify";
 import {
   registerGameAssets,
@@ -9,6 +11,7 @@ import {
   decodeAssetSegment,
   assetToken,
   opaqueAssetUrl,
+  assetCacheControl,
   GAME_ASSET_REVISION,
 } from "../lib/game-assets.js";
 import { rewriteAssetUrls } from "../lib/asset-urls.js";
@@ -17,7 +20,13 @@ const path = "/game-assets/1games-rips/trackdash/game.data.unityweb";
 const binary = Buffer.concat([Buffer.from("UnityWebData1.0\0"), Buffer.alloc(1024)]);
 function fixture(options = {}) {
   const app = Fastify();
-  registerGameAssets(app, options);
+  // Every fixture gets its own cache directory: the disk cache outlives the
+  // process, so a shared one would let one test serve another's bytes.
+  const dir = mkdtempSync(join(tmpdir(), "aetheris-assets-"));
+  registerGameAssets(app, { cacheDir: dir, ...options });
+  app.addHook("onClose", async () => {
+    rmSync(dir, { recursive: true, force: true });
+  });
   return app;
 }
 
@@ -413,11 +422,157 @@ test("large assets stream instead of being buffered whole", async () => {
     assert.equal(result.headers["content-length"], undefined, "streamed bodies are chunked, not length-framed");
     assert.equal((await bodyOf(result)).length, size);
     assert.ok(streamed);
-    // a second request cannot reuse the consumed stream and must refetch
+    // The build is on disk now, so the second visitor gets it from there
+    // instead of pulling it through the VPS again.
     const again = await app.inject("/game-assets/m/jsdelivr/gh/bubblfan/fnaf@main/1/resources.zip.part1");
     assert.equal(again.statusCode, 200);
     assert.equal((await bodyOf(again)).length, size);
+    assert.equal(again.headers["content-length"], String(size), "a cached build is served from disk");
+    assert.equal(again.headers["accept-ranges"], "bytes");
   } finally { await app.close(); }
+});
+
+test("an upstream that stops halfway continues on the next mirror", async () => {
+  // A jsDelivr edge that stops sending used to end the whole request: the
+  // visitor waited for the stall guard, got a truncated build and reloaded.
+  // The bytes already sent stay with the visitor and the next mirror is
+  // asked for the rest.
+  const size = 6 * 1024 * 1024;
+  const chunk = 65536;
+  const delivered = 16;
+  const calls = [];
+  const app = fixture({ fetchimpl: async (url, options) => {
+    calls.push({ url, range: options.headers.range || null });
+    const start = options.headers.range
+      ? Number(options.headers.range.replace("bytes=", "").replace("-", ""))
+      : 0;
+    let sent = start;
+    let pulls = 0;
+    const body = new ReadableStream({
+      pull(controller) {
+        if (!options.headers.range && pulls >= delivered) {
+          // The first mirror delivers a megabyte and then stops.
+          controller.error(new Error("upstream stalled"));
+          return;
+        }
+        pulls++;
+        if (sent >= size) {
+          controller.close();
+          return;
+        }
+        controller.enqueue(new Uint8Array(chunk));
+        sent += chunk;
+      },
+    });
+    return new Response(body, {
+      status: options.headers.range ? 206 : 200,
+      headers: { "content-length": String(size - start) },
+    });
+  }});
+  try {
+    const result = await app.inject("/game-assets/m/jsdelivr/gh/bubblfan/fnaf@main/1/resources.zip.part1");
+    assert.equal(result.statusCode, 200);
+    const served = await bodyOf(result);
+    assert.equal(served.length, size, "the visitor gets the whole build");
+    assert.ok(calls.length >= 2, "the transfer moved to another mirror");
+    assert.equal(
+      calls[1].range,
+      `bytes=${delivered * chunk}-`,
+      "the next mirror is asked for the missing bytes",
+    );
+    assert.notEqual(calls[0].url, calls[1].url, "a different mirror is used");
+  } finally { await app.close(); }
+});
+
+test("a mirror that ignores the range header does not duplicate bytes", async () => {
+  const size = 6 * 1024 * 1024;
+  const chunk = 65536;
+  const delivered = 16;
+  const calls = [];
+  const app = fixture({ fetchimpl: async (url, options) => {
+    calls.push({ url, range: options.headers.range || null });
+    let sent = 0;
+    let pulls = 0;
+    const body = new ReadableStream({
+      pull(controller) {
+        if (!options.headers.range && pulls >= delivered) {
+          controller.error(new Error("upstream stalled"));
+          return;
+        }
+        pulls++;
+        // The mirror ignores the range and sends the whole file again.
+        if (sent >= size) {
+          controller.close();
+          return;
+        }
+        controller.enqueue(new Uint8Array(chunk));
+        sent += chunk;
+      },
+    });
+    return new Response(body, { headers: { "content-length": String(size) } });
+  }});
+  try {
+    const result = await app.inject("/game-assets/m/jsdelivr/gh/bubblfan/fnaf@main/1/resources.zip.part1");
+    assert.equal(result.statusCode, 200);
+    const served = await bodyOf(result);
+    assert.equal(served.length, size, "the bytes the visitor already had are not sent twice");
+    assert.equal(calls[1].range, `bytes=${delivered * chunk}-`);
+  } finally { await app.close(); }
+});
+
+test("a build that is on disk is served from there and supports ranges", async () => {
+  const size = 6 * 1024 * 1024;
+  const chunk = 65536;
+  let calls = 0;
+  const app = fixture({ fetchimpl: async () => {
+    calls++;
+    const body = new ReadableStream({
+      start(controller) {
+        for (let i = 0; i < size / chunk; i++) controller.enqueue(new Uint8Array(chunk));
+        controller.close();
+      },
+    });
+    return new Response(body, { headers: { "content-length": String(size) } });
+  }});
+  try {
+    const url = "/game-assets/m/jsdelivr/gh/bubblfan/fnaf@main/1/resources.zip.part1";
+    const first = await app.inject(url);
+    assert.equal(first.statusCode, 200);
+    assert.equal((await bodyOf(first)).length, size);
+    assert.equal(calls, 1);
+
+    const second = await app.inject(url);
+    assert.equal(second.statusCode, 200);
+    assert.equal((await bodyOf(second)).length, size);
+    assert.equal(calls, 1, "the second visitor does not touch the CDN again");
+
+    const slice = await app.inject({
+      method: "GET",
+      url,
+      headers: { range: "bytes=100-199" },
+    });
+    assert.equal(slice.statusCode, 206);
+    assert.equal(slice.headers["content-range"], `bytes 100-199/${size}`);
+    assert.equal((await bodyOf(slice)).length, 100);
+
+    const broken = await app.inject({
+      method: "GET",
+      url,
+      headers: { range: `bytes=${size + 10}-` },
+    });
+    assert.equal(broken.statusCode, 416);
+  } finally { await app.close(); }
+});
+
+test("a pinned build may sit in the browser for a year", () => {
+  assert.equal(
+    assetCacheControl("gh/bubblfan/fnaf@0123456789abcdef0123456789abcdef01234567/1/main.js"),
+    "public, max-age=31536000, immutable",
+  );
+  assert.equal(
+    assetCacheControl("gh/bubblfan/fnaf@main/1/main.js"),
+    "public, max-age=300",
+  );
 });
 
 test("a length hint from a compressed body never truncates the asset", async () => {

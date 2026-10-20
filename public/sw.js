@@ -71,6 +71,79 @@ var spoofrestored = new Promise(function (resolve) {
     .then(resolve);
 });
 
+// --- game page cache ---
+// One game page is 34MB and Cloudflare does not cache HTML, so every visit
+// pulled the whole thing from the origin again. Keep a copy here: the page
+// goes out from the cache and a fresh one is fetched in the background.
+var GAMEPAGE_CACHE = "aetheris-gamepages";
+// A handful of games is plenty; the cache is dropped when it grows past this.
+var GAMEPAGE_MAX_ENTRIES = 16;
+// Anything bigger is not worth the storage.
+var GAMEPAGE_MAX_BYTES = 48 * 1024 * 1024;
+
+function gamepageresponse(request) {
+  // Only a GET may be answered from the cache: a HEAD has to report the
+  // headers of the file that is on the server, not a stored body.
+  if (request.method !== "GET") return fetch(request);
+  return caches.open(GAMEPAGE_CACHE).then(function (cache) {
+    return cache.match(request).then(function (cached) {
+      if (cached) {
+        // A fresh copy is fetched in the background for the next visit. Its
+        // body goes straight into the cache, so nothing is read twice.
+        fetch(request)
+          .then(function (response) {
+            if (response && response.ok) storegamepage(cache, request, response);
+          })
+          .catch(function () {});
+        return cached;
+      }
+      return fetch(request)
+        .then(function (response) {
+          if (response && response.ok) storegamepage(cache, request, response, true);
+          return response;
+        })
+        .catch(function () {
+          return new Response("", {
+            status: 503,
+            statusText: "Game unavailable",
+          });
+        });
+    });
+  });
+}
+
+function storegamepage(cache, request, response, clone) {
+  var length = Number(response.headers.get("content-length") || 0);
+  if (length && length > GAMEPAGE_MAX_BYTES) {
+    if (response.body) response.body.cancel().catch(function () {});
+    return;
+  }
+  var headers = new Headers(response.headers);
+  // The cache keeps the decoded body, so the encoding headers must not go
+  // with it.
+  headers.delete("content-length");
+  headers.delete("content-encoding");
+  if (!response.body) return;
+  var stored = clone ? response.clone().body : response.body;
+  cache
+    .put(request, new Response(stored, { status: 200, headers: headers }))
+    .then(function () {
+      return cache.keys();
+    })
+    .then(function (keys) {
+      if (keys.length <= GAMEPAGE_MAX_ENTRIES) return;
+      var excess = keys.slice(0, keys.length - GAMEPAGE_MAX_ENTRIES);
+      return Promise.all(
+        excess.map(function (key) {
+          return cache.delete(key);
+        }),
+      );
+    })
+    .catch(function () {
+      // a full storage quota must never break the game
+    });
+}
+
 // --- proxy ad/tracker blocking ---
 // Requests from proxied pages to domains on the HaGeZi LIGHT list (see
 // scripts/update-adblock.js) fail like a blocked network request. Top-level
@@ -996,15 +1069,22 @@ self.addEventListener("fetch", function (event) {
     /\.html$/i.test(parsed.pathname)
   ) {
     event.respondWith(
-      settingsrestored.then(function () {
-        return fetch(event.request)
-          .then(function (r) {
+      settingsrestored
+        .then(function () {
+          return gamepageresponse(event.request).then(function (r) {
             return injecthtmlshims(r, { desktopua: spoofdesktopua });
-          })
-          .catch(function () {
-            return fetch(event.request);
           });
-      }),
+        })
+        .catch(function () {
+          return fetch(event.request).catch(function () {
+            if (event.request.mode === "navigate")
+              return Response.redirect("/recover", 302);
+            return new Response("", {
+              status: 503,
+              statusText: "Game unavailable",
+            });
+          });
+        }),
     );
     return;
   }

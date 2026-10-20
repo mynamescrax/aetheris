@@ -12,3 +12,4 @@ server.log
 server.err.log
 
 movie-report.json
+cache

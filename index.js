@@ -2333,16 +2333,20 @@ fastify.addHook("onSend", async (req, reply, payload) => {
   if (path === "/sw.js" || path === "/register-sw.js") {
     reply.header("Cache-Control", "no-store");
   } else if (path.startsWith("/assets/games/")) {
-    // game builds are large (30MB+ Unity wasm) and rarely change
+    // game builds are large (30MB+ Unity wasm) and rarely change. The page
+    // itself can be 34MB, so keeping it in the browser's cache for a day
+    // saves pulling all of it from the origin on every visit. The
+    // stale-while-revalidate window means an updated game still lands on the
+    // next load.
     if (/\.html?$/i.test(path)) {
       reply.header(
         "Cache-Control",
-        "public, max-age=3600, stale-while-revalidate=86400",
+        "public, max-age=86400, stale-while-revalidate=604800",
       );
     } else {
       reply.header(
         "Cache-Control",
-        "public, max-age=86400, stale-while-revalidate=604800",
+        "public, max-age=604800, stale-while-revalidate=86400",
       );
     }
   } else if (/^\/(scramjet|controller|libcurl|epoxy)\//.test(path)) {
@@ -2404,7 +2408,12 @@ fastify.addHook("onSend", async (req, reply, payload) => {
     const size = Number(reply.getHeader("content-length") || 0);
     if (size > 0 && size <= MAX_HTML_REWRITE_BYTES) {
       const chunks = [];
-      for await (const chunk of payload) chunks.push(chunk);
+      // A HEAD request gets an empty string stream (Readable.from("")), and
+      // Buffer.concat() refuses a string chunk - that turned every HEAD on a
+      // page into a 500. Coerce instead of pushing the raw chunk.
+      for await (const chunk of payload) {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      }
       const body = Buffer.concat(chunks);
       const text = body.toString("utf8");
       if (text.includes("/game-assets/m/")) {

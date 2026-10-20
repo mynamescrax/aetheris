@@ -3,28 +3,28 @@
     "id": "ruffle",
     "title": "Ruffle",
     "html": "assets/games/ruffle.html",
-    "image": "assets/images/ruffle.png",
+    "image": "assets/images/ruffle.webp",
     "source": "aetheris"
   },
   {
     "id": "Barricade",
     "title": "Barricade",
     "url": "https://barricade.gg/",
-    "image": "assets/images/barricadegg.png",
+    "image": "assets/images/barricadegg.webp",
     "source": "aetheris"
   },
   {
     "id": "legionio",
     "title": "Legion.io",
     "url": "https://legionsdk.com/",
-    "image": "assets/images/legion.jpg",
+    "image": "assets/images/legion.webp",
     "source": "aetheris"
   },
   {
     "id": "tiktok",
     "title": "TikTok",
     "url": "https://www.tiktok.com/",
-    "image": "assets/images/tiktok.png"
+    "image": "assets/images/tiktok.webp"
   },
   {
     "id": "soundboard",
@@ -49,7 +49,7 @@
     "id": "vscode",
     "title": "Visual Studio Code",
     "url": "https://vscode.dev/",
-    "image": "assets/images/vscode.png"
+    "image": "assets/images/vscode.webp"
   },
   {
     "id": "reddit",

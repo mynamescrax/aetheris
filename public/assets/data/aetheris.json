@@ -3,7 +3,7 @@
     "id": "bartblast",
     "title": "Bart Blast",
     "html": "assets/games/bartblast.html",
-    "image": "assets/images/bart.jpg",
+    "image": "assets/images/bart.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -64,7 +64,7 @@
     "id": "3dash",
     "title": "3Dash",
     "html": "assets/games/3dash.html",
-    "image": "assets/images/3dash.png",
+    "image": "assets/images/3dash.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -235,7 +235,7 @@
     "id": "baldisbasicsbirthdaybash",
     "title": "Baldis Basics: Birthday Bash",
     "html": "assets/games/wasm-birthdaybash.html",
-    "image": "assets/images/wasm-birthdaybash.png",
+    "image": "assets/images/wasm-birthdaybash.webp",
     "source": "aetheris",
     "tags": [
       "Skill",
@@ -276,7 +276,7 @@
     "id": "beatblock",
     "title": "Beat Block",
     "html": "assets/games/wasm-beatblock.html",
-    "image": "assets/images/wasm-beatblock.jpg",
+    "image": "assets/images/wasm-beatblock.webp",
     "source": "aetheris",
     "tags": [
       "Skill",
@@ -297,7 +297,7 @@
     "id": "snakeio",
     "title": "Snake Io",
     "html": "assets/games/snakeio.html",
-    "image": "assets/images/snakeio.png",
+    "image": "assets/images/snakeio.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -387,7 +387,7 @@
     "id": "arcadeglide",
     "title": "Arcade Glide",
     "html": "assets/games/arcadeglide.html",
-    "image": "assets/images/arcadeglide.png",
+    "image": "assets/images/arcadeglide.webp",
     "source": "aetheris",
     "tags": [
       "Skill",
@@ -398,7 +398,7 @@
     "id": "sloperider",
     "title": "Slope Rider",
     "html": "assets/games/sloperider.html",
-    "image": "assets/images/sloperider.png",
+    "image": "assets/images/sloperider.webp",
     "source": "aetheris",
     "tags": [
       "Skill",
@@ -420,7 +420,7 @@
     "id": "fartingflight",
     "title": "Farting Flight",
     "html": "assets/games/fartingflight.html",
-    "image": "assets/images/fartingflight.png",
+    "image": "assets/images/fartingflight.webp",
     "source": "aetheris",
     "tags": [
       "Skill",
@@ -431,7 +431,7 @@
     "id": "longlegmaster",
     "title": "Long Leg Master",
     "html": "assets/games/longlegmaster.html",
-    "image": "assets/images/longlegmaster.jpg",
+    "image": "assets/images/longlegmaster.webp",
     "source": "aetheris",
     "tags": [
       "Skill",
@@ -453,7 +453,7 @@
     "id": "escaperoad3",
     "title": "Escape Road 3",
     "html": "assets/games/escaperoad3.html",
-    "image": "assets/images/escaperoad3.png",
+    "image": "assets/images/escaperoad3.webp",
     "source": "aetheris",
     "tags": [
       "Skill",
@@ -465,7 +465,7 @@
     "id": "pizzatower",
     "title": "Pizza Tower",
     "html": "assets/games/PizzaTower_GM2.html",
-    "image": "assets/images/pizzatower.jpg",
+    "image": "assets/images/pizzatower.webp",
     "source": "aetheris",
     "tags": [
       "Strategy",
@@ -531,7 +531,7 @@
     "id": "budgiesbugshop",
     "title": "Budgies Bug Shop",
     "html": "assets/games/budgiesbugshop.html",
-    "image": "assets/images/budgiesbugshop.jpg",
+    "image": "assets/images/budgiesbugshop.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -552,7 +552,7 @@
     "id": "famidash",
     "title": "FamiDash",
     "html": "assets/games/famidash.html",
-    "image": "assets/images/famidash.png",
+    "image": "assets/images/famidash.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -562,7 +562,7 @@
     "id": "tetris",
     "title": "Tetris",
     "html": "assets/games/tetris.html",
-    "image": "assets/images/tetris.png",
+    "image": "assets/images/tetris.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -572,7 +572,7 @@
     "id": "thelegendofzeldaocarinaoftime",
     "title": "The Legend of Zelda: Ocarina of Time",
     "html": "assets/games/thelegendofzeldaocarinaoftime.html",
-    "image": "assets/images/thelegendofzeldaocarinaoftime.png",
+    "image": "assets/images/thelegendofzeldaocarinaoftime.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -582,7 +582,7 @@
     "id": "thelegendofzeldamajorasmask",
     "title": "The Legend of Zelda: Majora's Mask",
     "html": "assets/games/thelegendofzeldamajorasmask.html",
-    "image": "assets/images/thelegendofzeldamajorasmask.png",
+    "image": "assets/images/thelegendofzeldamajorasmask.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -602,7 +602,7 @@
     "id": "vex1",
     "title": "Vex 1",
     "html": "assets/games/vex1.html",
-    "image": "assets/images/vex1.png",
+    "image": "assets/images/vex1.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -612,7 +612,7 @@
     "id": "vex2",
     "title": "Vex 2",
     "html": "assets/games/vex2.html",
-    "image": "assets/images/vex2.png",
+    "image": "assets/images/vex2.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -622,7 +622,7 @@
     "id": "achievementunlocked",
     "title": "Achievement Unlocked",
     "html": "assets/games/achievementunlocked.html",
-    "image": "assets/images/achievementunlocked.png",
+    "image": "assets/images/achievementunlocked.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -632,7 +632,7 @@
     "id": "achievementunlocked2",
     "title": "Achievement Unlocked 2",
     "html": "assets/games/achievementunlocked2.html",
-    "image": "assets/images/achievementunlocked2.png",
+    "image": "assets/images/achievementunlocked2.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -642,7 +642,7 @@
     "id": "achievementunlocked3",
     "title": "Achievement Unlocked 3",
     "html": "assets/games/achievementunlocked3.html",
-    "image": "assets/images/achievementunlocked3.png",
+    "image": "assets/images/achievementunlocked3.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -672,7 +672,7 @@
     "id": "papaswingeria",
     "title": "Papa's Wingeria",
     "html": "assets/games/papaswingeria.html",
-    "image": "assets/images/papaswingeria.png",
+    "image": "assets/images/papaswingeria.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -682,7 +682,7 @@
     "id": "papastacomia",
     "title": "Papa's Tacomia",
     "html": "assets/games/papastacomia.html",
-    "image": "assets/images/papastacomia.png",
+    "image": "assets/images/papastacomia.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -702,7 +702,7 @@
     "id": "papasscooperia",
     "title": "Papa's Scooperia",
     "html": "assets/games/papasscooperia.html",
-    "image": "assets/images/papasscooperia.png",
+    "image": "assets/images/papasscooperia.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -732,7 +732,7 @@
     "id": "papaspancakeria",
     "title": "Papa's Pancakeria",
     "html": "assets/games/papaspancakeria.html",
-    "image": "assets/images/papaspancakeria.png",
+    "image": "assets/images/papaspancakeria.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -772,7 +772,7 @@
     "id": "papascupcakeria",
     "title": "Papa's Cupcakeria",
     "html": "assets/games/papascupcakeria.html",
-    "image": "assets/images/papascupcakeria.png",
+    "image": "assets/images/papascupcakeria.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -782,7 +782,7 @@
     "id": "ducklife",
     "title": "Duck Life",
     "html": "assets/games/ducklife.html",
-    "image": "assets/images/ducklife.png",
+    "image": "assets/images/ducklife.webp",
     "source": "aetheris",
     "tags": [
       "Sports",
@@ -793,7 +793,7 @@
     "id": "ducklife2",
     "title": "Duck Life 2",
     "html": "assets/games/ducklife2.html",
-    "image": "assets/images/ducklife2.png",
+    "image": "assets/images/ducklife2.webp",
     "source": "aetheris",
     "tags": [
       "Sports",
@@ -826,7 +826,7 @@
     "id": "ducklife5",
     "title": "Duck Life 5",
     "html": "assets/games/ducklife5.html",
-    "image": "assets/images/ducklife5.png",
+    "image": "assets/images/ducklife5.webp",
     "source": "aetheris",
     "tags": [
       "Sports",
@@ -857,7 +857,7 @@
     "id": "theworldshardestgame",
     "title": "The World's Hardest Game",
     "html": "assets/games/theworldshardestgame.html",
-    "image": "assets/images/theworldshardestgame.png",
+    "image": "assets/images/theworldshardestgame.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -867,7 +867,7 @@
     "id": "theworldshardestgame3",
     "title": "The World's Hardest Game 3",
     "html": "assets/games/theworldshardestgame3.html",
-    "image": "assets/images/theworldshardestgame3.png",
+    "image": "assets/images/theworldshardestgame3.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -877,7 +877,7 @@
     "id": "theworldshardestgame4",
     "title": "The World's Hardest Game 4",
     "html": "assets/games/theworldshardestgame4.html",
-    "image": "assets/images/theworldshardestgame4.png",
+    "image": "assets/images/theworldshardestgame4.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -897,7 +897,7 @@
     "id": "cannonbasketball2",
     "title": "Cannon Basketball 2",
     "html": "assets/games/cannonbasketball2.html",
-    "image": "assets/images/cannonbasketball2.png",
+    "image": "assets/images/cannonbasketball2.webp",
     "source": "aetheris",
     "tags": [
       "Sports"
@@ -917,7 +917,7 @@
     "id": "thisistheonlylevel",
     "title": "This Is the Only Level",
     "html": "assets/games/thisistheonlylevel.html",
-    "image": "assets/images/thisistheonlylevel.png",
+    "image": "assets/images/thisistheonlylevel.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -927,7 +927,7 @@
     "id": "thisistheonlylevel2",
     "title": "This Is the Only Level 2",
     "html": "assets/games/thisistheonlylevel2.html",
-    "image": "assets/images/thisistheonlylevel2.png",
+    "image": "assets/images/thisistheonlylevel2.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -969,7 +969,7 @@
     "id": "cubefield",
     "title": "Cube Field",
     "html": "assets/games/cubefield.html",
-    "image": "assets/images/cubefield.png",
+    "image": "assets/images/cubefield.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -989,7 +989,7 @@
     "id": "redball2",
     "title": "Red Ball 2",
     "html": "assets/games/redball2.html",
-    "image": "assets/images/redball2.png",
+    "image": "assets/images/redball2.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -1009,7 +1009,7 @@
     "id": "redball4vol2",
     "title": "Red Ball 4: Volume 2",
     "html": "assets/games/redball4vol2.html",
-    "image": "assets/images/redball4vol2.png",
+    "image": "assets/images/redball4vol2.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -1019,7 +1019,7 @@
     "id": "redball4vol3",
     "title": "Red Ball 4: Volume 3",
     "html": "assets/games/redball4vol3.html",
-    "image": "assets/images/redball4vol3.png",
+    "image": "assets/images/redball4vol3.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -1029,7 +1029,7 @@
     "id": "wheely",
     "title": "Wheely",
     "html": "assets/games/wheely.html",
-    "image": "assets/images/wheely.png",
+    "image": "assets/images/wheely.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -1049,7 +1049,7 @@
     "id": "wheely3",
     "title": "Wheely 3",
     "html": "assets/games/wheely3.html",
-    "image": "assets/images/wheely3.png",
+    "image": "assets/images/wheely3.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -1099,7 +1099,7 @@
     "id": "wheely8",
     "title": "Wheely 8",
     "html": "assets/games/wheely8.html",
-    "image": "assets/images/wheely8.png",
+    "image": "assets/images/wheely8.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -1109,7 +1109,7 @@
     "id": "underwheels",
     "title": "UnderWheels",
     "html": "assets/games/underwheels.html",
-    "image": "assets/images/underwheels.png",
+    "image": "assets/images/underwheels.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -1129,7 +1129,7 @@
     "id": "riddleschool",
     "title": "Riddle School",
     "html": "assets/games/riddleschool.html",
-    "image": "assets/images/riddleschool.png",
+    "image": "assets/images/riddleschool.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -1139,7 +1139,7 @@
     "id": "riddleschool2",
     "title": "Riddle School 2",
     "html": "assets/games/riddleschool2.html",
-    "image": "assets/images/riddleschool2.png",
+    "image": "assets/images/riddleschool2.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -1149,7 +1149,7 @@
     "id": "riddleschool3",
     "title": "Riddle School 3",
     "html": "assets/games/riddleschool3.html",
-    "image": "assets/images/riddleschool3.png",
+    "image": "assets/images/riddleschool3.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -1159,7 +1159,7 @@
     "id": "riddleschool4",
     "title": "Riddle School 4",
     "html": "assets/games/riddleschool4.html",
-    "image": "assets/images/riddleschool4.png",
+    "image": "assets/images/riddleschool4.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -1169,7 +1169,7 @@
     "id": "riddleschool5",
     "title": "Riddle School 5",
     "html": "assets/games/riddleschool5.html",
-    "image": "assets/images/riddleschool5.png",
+    "image": "assets/images/riddleschool5.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -1179,7 +1179,7 @@
     "id": "riddletransfer",
     "title": "Riddle Transfer",
     "html": "assets/games/riddletransfer.html",
-    "image": "assets/images/riddletransfer.png",
+    "image": "assets/images/riddletransfer.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -1189,7 +1189,7 @@
     "id": "riddletransfer2",
     "title": "Riddle Transfer 2",
     "html": "assets/games/riddletransfer2.html",
-    "image": "assets/images/riddletransfer2.png",
+    "image": "assets/images/riddletransfer2.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -1199,7 +1199,7 @@
     "id": "alienhominid",
     "title": "Alien Hominid",
     "html": "assets/games/alienhominid.html",
-    "image": "assets/images/alienhominid.png",
+    "image": "assets/images/alienhominid.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -1269,7 +1269,7 @@
     "id": "learn2fly2",
     "title": "Learn 2 Fly 2",
     "html": "assets/games/learn2fly2.html",
-    "image": "assets/images/learn2fly2.png",
+    "image": "assets/images/learn2fly2.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -1289,7 +1289,7 @@
     "id": "learn2flyidle",
     "title": "Learn 2 Fly Idle",
     "html": "assets/games/learn2flyidle.html",
-    "image": "assets/images/learn2flyidle.png",
+    "image": "assets/images/learn2flyidle.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -1299,7 +1299,7 @@
     "id": "raftwars",
     "title": "Raft Wars",
     "html": "assets/games/raftwars.html",
-    "image": "assets/images/raftwars.png",
+    "image": "assets/images/raftwars.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -1329,7 +1329,7 @@
     "id": "madnesscombatprojectnexus",
     "title": "Madness Combat: Project Nexus",
     "html": "assets/games/madnesscombatprojectnexus.html",
-    "image": "assets/images/madnesscombatprojectnexus.png",
+    "image": "assets/images/madnesscombatprojectnexus.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -1339,7 +1339,7 @@
     "id": "newgroundsrumble",
     "title": "Newgrounds Rumble",
     "html": "assets/games/newgroundsrumble.html",
-    "image": "assets/images/newgroundsrumble.png",
+    "image": "assets/images/newgroundsrumble.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -1359,7 +1359,7 @@
     "id": "mutilateadoll2",
     "title": "Mutilate a Doll 2",
     "html": "assets/games/mutilateadoll2.html",
-    "image": "assets/images/mutilateadoll2.png",
+    "image": "assets/images/mutilateadoll2.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -1369,7 +1369,7 @@
     "id": "brawlsimulator3d",
     "title": "Brawl Simulator 3D",
     "html": "assets/games/brawlsimulator3d.html",
-    "image": "assets/images/brawlsimulator3d.png",
+    "image": "assets/images/brawlsimulator3d.webp",
     "source": "aetheris",
     "tags": [
       "Strategy",
@@ -1380,7 +1380,7 @@
     "id": "adarkroom",
     "title": "A Dark Room",
     "html": "assets/games/ADarkRoom.html",
-    "image": "assets/images/adarkroom.png",
+    "image": "assets/images/adarkroom.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -1401,7 +1401,7 @@
     "id": "allocation",
     "title": "Allocation",
     "html": "assets/games/allocation.html",
-    "image": "assets/images/allocation.png",
+    "image": "assets/images/allocation.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -1421,7 +1421,7 @@
     "id": "angrybirds2",
     "title": "Angry Birds 2",
     "html": "assets/games/angrybirds2.html",
-    "image": "assets/images/angrybirds2.png",
+    "image": "assets/images/angrybirds2.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -1431,7 +1431,7 @@
     "id": "arcadevolley",
     "title": "Arcade Volley",
     "html": "assets/games/arcadevolley.html",
-    "image": "assets/images/arcadevolley.png",
+    "image": "assets/images/arcadevolley.webp",
     "source": "aetheris",
     "tags": [
       "Sports"
@@ -1441,7 +1441,7 @@
     "id": "archesspelago",
     "title": "Archesspelago",
     "html": "assets/games/archesspelago.html",
-    "image": "assets/images/archesspelago.png",
+    "image": "assets/images/archesspelago.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -1451,7 +1451,7 @@
     "id": "minecraft1.5.2",
     "title": "Minecraft 1.5.2",
     "html": "assets/games/minecraft1.5.2.html",
-    "image": "assets/images/minecraft1.5.2.png",
+    "image": "assets/images/minecraft1.5.2.webp",
     "source": "aetheris",
     "tags": [
       "Strategy",
@@ -1463,7 +1463,7 @@
     "id": "minecraft1.12.2",
     "title": "Minecraft 1.12.2",
     "html": "assets/games/minecraft1.12.2.html",
-    "image": "assets/images/minecraft1.12.2.png",
+    "image": "assets/images/minecraft1.12.2.webp",
     "source": "aetheris",
     "tags": [
       "Strategy",
@@ -1475,7 +1475,7 @@
     "id": "minecraft1.8.8",
     "title": "Minecraft 1.8.8",
     "html": "assets/games/minecraft1.8.8.html",
-    "image": "assets/images/minecraft1.8.8.png",
+    "image": "assets/images/minecraft1.8.8.webp",
     "source": "aetheris",
     "tags": [
       "Strategy",
@@ -1487,7 +1487,7 @@
     "id": "minecraft1.21.4",
     "title": "Minecraft 1.21.4",
     "html": "assets/games/minecraft1.21.4.html",
-    "image": "assets/images/minecraft1.21.4.png",
+    "image": "assets/images/minecraft1.21.4.webp",
     "source": "aetheris",
     "tags": [
       "Strategy",
@@ -1499,7 +1499,7 @@
     "id": "minecraftalpha1.2.6",
     "title": "Minecraft Alpha 1.2.6",
     "html": "assets/games/minecraftalpha1.2.6.html",
-    "image": "assets/images/minecraftalpha1.2.6.png",
+    "image": "assets/images/minecraftalpha1.2.6.webp",
     "source": "aetheris",
     "tags": [
       "Strategy",
@@ -1511,7 +1511,7 @@
     "id": "minecraftbeta1.3",
     "title": "Minecraft Beta 1.3",
     "html": "assets/games/minecraftbeta1.3.html",
-    "image": "assets/images/minecraftbeta1.3.png",
+    "image": "assets/images/minecraftbeta1.3.webp",
     "source": "aetheris",
     "tags": [
       "Strategy",
@@ -1523,7 +1523,7 @@
     "id": "minecraft1.7.3",
     "title": "Minecraft Beta 1.7.3",
     "html": "assets/games/minecraft1.7.3.html",
-    "image": "assets/images/minecraft1.7.3.png",
+    "image": "assets/images/minecraft1.7.3.webp",
     "source": "aetheris",
     "tags": [
       "Strategy",
@@ -1535,7 +1535,7 @@
     "id": "minecraftindev",
     "title": "Minecraft Indev",
     "html": "assets/games/minecraftindev.html",
-    "image": "assets/images/minecraftindev.png",
+    "image": "assets/images/minecraftindev.webp",
     "source": "aetheris",
     "tags": [
       "Strategy",
@@ -1547,7 +1547,7 @@
     "id": "minecraft26.2",
     "title": "Minecraft 26.2",
     "html": "assets/games/minecraft26.2.html",
-    "image": "assets/images/minecraft26.2.png",
+    "image": "assets/images/minecraft26.2.webp",
     "source": "aetheris",
     "tags": [
       "Strategy",
@@ -1559,7 +1559,7 @@
     "id": "weaponscale",
     "title": "Weapon Scale",
     "html": "assets/games/weaponscale.html",
-    "image": "assets/images/weaponscale.png",
+    "image": "assets/images/weaponscale.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -1569,7 +1569,7 @@
     "id": "weaponupgraderush",
     "title": "Weapon Upgrade Rush",
     "html": "assets/games/weaponupgraderush.html",
-    "image": "assets/images/weaponupgraderush.png",
+    "image": "assets/images/weaponupgraderush.webp",
     "source": "aetheris",
     "tags": [
       "Racing"
@@ -1641,7 +1641,7 @@
     "id": "hobo5",
     "title": "Hobo 5",
     "html": "assets/games/hobo5.html",
-    "image": "assets/images/hobo5.png",
+    "image": "assets/images/hobo5.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -1661,7 +1661,7 @@
     "id": "colorwatersort3d",
     "title": "Color Water Sort 3D",
     "html": "assets/games/colorwatersort3d.html",
-    "image": "assets/images/colorwatersort3d.png",
+    "image": "assets/images/colorwatersort3d.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -1753,7 +1753,7 @@
     "id": "clothingshop3d",
     "title": "Clothing Shop 3D",
     "html": "assets/games/clothingshop3d.html",
-    "image": "assets/images/clothingshop3d.png",
+    "image": "assets/images/clothingshop3d.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -1763,7 +1763,7 @@
     "id": "carsurvival3d",
     "title": "Car Survival 3D",
     "html": "assets/games/carsurvival3d.html",
-    "image": "assets/images/carsurvival3d.png",
+    "image": "assets/images/carsurvival3d.webp",
     "source": "aetheris",
     "tags": [
       "Racing",
@@ -1804,7 +1804,7 @@
     "id": "crazykitty3d",
     "title": "Crazy Kitty 3D",
     "html": "assets/games/crazykitty3d.html",
-    "image": "assets/images/crazykitty3d.png",
+    "image": "assets/images/crazykitty3d.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -1855,7 +1855,7 @@
     "id": "destinyrun3d",
     "title": "Destiny Run 3D",
     "html": "assets/games/destinyrun3d.html",
-    "image": "assets/images/destinyrun3d.png",
+    "image": "assets/images/destinyrun3d.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -1875,7 +1875,7 @@
     "id": "evolvingbombs3d",
     "title": "Evolving Bombs 3D",
     "html": "assets/games/evolvingbombs3d.html",
-    "image": "assets/images/evolvingbombs3d.png",
+    "image": "assets/images/evolvingbombs3d.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -1975,7 +1975,7 @@
     "id": "pokemonemerald",
     "title": "Pokemon Emerald",
     "html": "assets/games/pokemonemerald.html",
-    "image": "assets/images/pokemonemerald.png",
+    "image": "assets/images/pokemonemerald.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -2015,7 +2015,7 @@
     "id": "commandandconquer",
     "title": "Command and Conquer",
     "html": "assets/games/commandandconquer.html",
-    "image": "assets/images/commandandconquer.png",
+    "image": "assets/images/commandandconquer.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -2025,7 +2025,7 @@
     "id": "ihavenomouthandimustscream",
     "title": "I Have No Mouth and I Must Scream",
     "html": "assets/games/ihavenomouthandimustscream.html",
-    "image": "assets/images/ihavenomouthandimustscream.png",
+    "image": "assets/images/ihavenomouthandimustscream.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -2035,7 +2035,7 @@
     "id": "pokemonfirered",
     "title": "Pokemon Fire Red",
     "html": "assets/games/pokemonfirered.html",
-    "image": "assets/images/pokemonfirered.png",
+    "image": "assets/images/pokemonfirered.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -2045,7 +2045,7 @@
     "id": "tetrisgba",
     "title": "Tetris GBA",
     "html": "assets/games/tetrisgba.html",
-    "image": "assets/images/tetrisgba.png",
+    "image": "assets/images/tetrisgba.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -2087,7 +2087,7 @@
     "id": "12mb",
     "title": "12 MiniBattles",
     "html": "assets/games/12minibattles.html",
-    "image": "assets/images/12minibattles.jpg",
+    "image": "assets/images/12minibattles.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -2097,7 +2097,7 @@
     "id": "nk",
     "title": "Null Kevin",
     "html": "assets/games/nullkevin.html",
-    "image": "assets/images/nullkevin.jpg",
+    "image": "assets/images/nullkevin.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -2107,7 +2107,7 @@
     "id": "10mtd",
     "title": "10 Minutes Till Dawn",
     "html": "assets/games/10minutestildawn.html",
-    "image": "assets/images/10minutestildawn.png",
+    "image": "assets/images/10minutestildawn.webp",
     "source": "aetheris",
     "tags": [
       "Shooting",
@@ -2118,7 +2118,7 @@
     "id": "1",
     "title": "1",
     "html": "assets/games/1.html",
-    "image": "assets/images/1.png",
+    "image": "assets/images/1.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -2128,7 +2128,7 @@
     "id": "2dm",
     "title": "2Doom",
     "html": "assets/games/2doom.html",
-    "image": "assets/images/2doom.jpg",
+    "image": "assets/images/2doom.webp",
     "source": "aetheris",
     "tags": [
       "Shooting"
@@ -2138,7 +2138,7 @@
     "id": "2048c",
     "title": "2048 Cupcakes",
     "html": "assets/games/2048cupcakes.html",
-    "image": "assets/images/2048cupcakes.jpg",
+    "image": "assets/images/2048cupcakes.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -2190,7 +2190,7 @@
     "id": "asc",
     "title": "Ascent",
     "html": "assets/games/ascent.html",
-    "image": "assets/images/ascent.jpg",
+    "image": "assets/images/ascent.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -2210,7 +2210,7 @@
     "id": "add",
     "title": "As Duty Demands",
     "html": "assets/games/asdutydemands.html",
-    "image": "assets/images/asdutydemands.jpg",
+    "image": "assets/images/asdutydemands.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -2220,7 +2220,7 @@
     "id": "ast",
     "title": "Asteroids",
     "html": "assets/games/asteroids.html",
-    "image": "assets/images/asteroids.png",
+    "image": "assets/images/asteroids.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -2230,7 +2230,7 @@
     "id": "avm",
     "title": "Avia Masters",
     "html": "assets/games/aviamasters.html",
-    "image": "assets/images/aviamasters.jpg",
+    "image": "assets/images/aviamasters.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -2240,7 +2240,7 @@
     "id": "avh",
     "title": "Apes vs Helium",
     "html": "assets/games/apesvshelium.html",
-    "image": "assets/images/apesvshelium.jpg",
+    "image": "assets/images/apesvshelium.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -2250,7 +2250,7 @@
     "id": "at",
     "title": "Ant Art Tycoon",
     "html": "assets/games/antarttycoon.html",
-    "image": "assets/images/antarttycoon.jpg",
+    "image": "assets/images/antarttycoon.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -2260,7 +2260,7 @@
     "id": "ad",
     "title": "Antimatter Dimensions",
     "html": "assets/games/antimatterdimensions.html",
-    "image": "assets/images/antimatterdimensions.jpg",
+    "image": "assets/images/antimatterdimensions.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -2280,7 +2280,7 @@
     "id": "amorph",
     "title": "Amorphous",
     "html": "assets/games/amorphous.html",
-    "image": "assets/images/amorphous.jpg",
+    "image": "assets/images/amorphous.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -2290,7 +2290,7 @@
     "id": "fid",
     "title": "Fundamentals In Dating",
     "html": "assets/games/fid.html",
-    "image": "assets/images/fid.png",
+    "image": "assets/images/fid.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -2320,7 +2320,7 @@
     "id": "aito",
     "title": "A Day in the Office",
     "html": "assets/games/adayintheoffice.html",
-    "image": "assets/images/adayintheoffice.jpg",
+    "image": "assets/images/adayintheoffice.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -2330,7 +2330,7 @@
     "id": "awd",
     "title": "A Date with Death",
     "html": "assets/games/adatewithdeath.html",
-    "image": "assets/images/adatewithdeath.jpg",
+    "image": "assets/images/adatewithdeath.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -2340,7 +2340,7 @@
     "id": "badpig",
     "title": "Bad Piggies",
     "html": "assets/games/badpiggies.html",
-    "image": "assets/images/badpiggies.jpg",
+    "image": "assets/images/badpiggies.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -2350,7 +2350,7 @@
     "id": "badpar",
     "title": "Bad Parenting",
     "html": "assets/games/badparenting.html",
-    "image": "assets/images/badparenting.jpg",
+    "image": "assets/images/badparenting.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -2380,7 +2380,7 @@
     "id": "baconmaydie",
     "title": "Bacon May Die",
     "html": "assets/games/baconmaydie.html",
-    "image": "assets/images/baconmaydie.png",
+    "image": "assets/images/baconmaydie.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -2400,7 +2400,7 @@
     "id": "thebackrooms",
     "title": "The Backrooms",
     "html": "assets/games/thebackrooms.html",
-    "image": "assets/images/backrooms.jpg",
+    "image": "assets/images/backrooms.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -2430,7 +2430,7 @@
     "id": "an",
     "title": "Advent NEON",
     "html": "assets/games/adventneon.html",
-    "image": "assets/images/adventneon.jpg",
+    "image": "assets/images/adventneon.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -2440,7 +2440,7 @@
     "id": "ahoysurvival",
     "title": "Ahoy Survival",
     "html": "assets/games/ahoysurvival.html",
-    "image": "assets/images/ahoysurvival.jpg",
+    "image": "assets/images/ahoysurvival.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -2460,7 +2460,7 @@
     "id": "epsteinclicker",
     "title": "Epstein Clicker",
     "html": "assets/games/epsteinclicker.html",
-    "image": "assets/images/epsteinclicker.jpg",
+    "image": "assets/images/epsteinclicker.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -2470,7 +2470,7 @@
     "id": "9007",
     "title": "9007199254740992",
     "html": "assets/games/9007199254740992.html",
-    "image": "assets/images/9007199254740992.png",
+    "image": "assets/images/9007199254740992.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -2480,7 +2480,7 @@
     "id": "4hg",
     "title": "4th and Goal",
     "html": "assets/games/4thandgoal.html",
-    "image": "assets/images/4thandgoal.jpg",
+    "image": "assets/images/4thandgoal.webp",
     "source": "aetheris",
     "tags": [
       "Sports"
@@ -2490,7 +2490,7 @@
     "id": "99b",
     "title": "99 Balls",
     "html": "assets/games/99balls.html",
-    "image": "assets/images/99balls.jpeg",
+    "image": "assets/images/99balls.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -2500,7 +2500,7 @@
     "id": "datewithiraq",
     "title": "Date With Iraq",
     "html": "assets/games/datewithiraq.html",
-    "image": "assets/images/datewithiraq.png",
+    "image": "assets/images/datewithiraq.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -2510,7 +2510,7 @@
     "id": "onlyup",
     "title": "Only Up",
     "html": "assets/games/onlyup.html",
-    "image": "assets/images/onlyup.jpg",
+    "image": "assets/images/onlyup.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -2520,7 +2520,7 @@
     "id": "cozyidlefisher",
     "title": "Cozy Idle Fisher",
     "html": "assets/games/cozyidlefisher.html",
-    "image": "assets/images/cozyidlefisher.jpg",
+    "image": "assets/images/cozyidlefisher.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -2552,7 +2552,7 @@
     "id": "obbybike",
     "title": "Obby On A Bike",
     "html": "assets/games/obbybike.html",
-    "image": "assets/images/obbybike.png",
+    "image": "assets/images/obbybike.webp",
     "source": "aetheris",
     "tags": [
       "Skill",
@@ -2595,7 +2595,7 @@
     "id": "escaperoad",
     "title": "Escape Road",
     "html": "assets/games/er.html",
-    "image": "assets/images/er.png",
+    "image": "assets/images/er.webp",
     "source": "aetheris",
     "tags": [
       "Racing",
@@ -2671,7 +2671,7 @@
     "id": "escaperoadcity2",
     "title": "Escape Road City 2",
     "html": "assets/games/erc2.html",
-    "image": "assets/images/erc2.png",
+    "image": "assets/images/erc2.webp",
     "source": "aetheris",
     "tags": [
       "Racing",
@@ -2725,7 +2725,7 @@
     "id": "trashclashroyale",
     "title": "Trash Clash Royale",
     "html": "assets/games/trashclashroyale.html",
-    "image": "assets/images/trashclashroyale.jpg",
+    "image": "assets/images/trashclashroyale.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -2775,7 +2775,7 @@
     "id": "granny2",
     "title": "Granny 2",
     "html": "assets/games/granny2.html",
-    "image": "assets/images/granny2.jpeg",
+    "image": "assets/images/granny2.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -2795,7 +2795,7 @@
     "id": "epsteinredacted",
     "title": "Epstein Redacted Files",
     "html": "assets/games/redacted.html",
-    "image": "assets/images/redacted.png",
+    "image": "assets/images/redacted.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -2805,7 +2805,7 @@
     "id": "dogeminer",
     "title": "Dogeminer",
     "html": "assets/games/dogeminer.html",
-    "image": "assets/images/dogeminer.png",
+    "image": "assets/images/dogeminer.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -2825,7 +2825,7 @@
     "id": "dandysworldclicker",
     "title": "Dandys World Clicker",
     "html": "assets/games/dandysworldclicker.html",
-    "image": "assets/images/dandysworldclicker.png",
+    "image": "assets/images/dandysworldclicker.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -2835,7 +2835,7 @@
     "id": "asmallworldcup",
     "title": "A Small World Cup",
     "html": "assets/games/asmallworldcup.html",
-    "image": "assets/images/aswc.png",
+    "image": "assets/images/aswc.webp",
     "source": "aetheris",
     "tags": [
       "Sports"
@@ -2855,7 +2855,7 @@
     "id": "csgoclicker",
     "title": "CsGo Clicker",
     "html": "assets/games/csgoclicker.html",
-    "image": "assets/images/csgoclicker.png",
+    "image": "assets/images/csgoclicker.webp",
     "source": "aetheris",
     "tags": [
       "Shooting",
@@ -2866,7 +2866,7 @@
     "id": "baseballbros",
     "title": "Baseball Bros",
     "html": "assets/games/baseballbros.html",
-    "image": "assets/images/baseballbros.png",
+    "image": "assets/images/baseballbros.webp",
     "source": "aetheris",
     "tags": [
       "Sports"
@@ -2876,7 +2876,7 @@
     "id": "babysniperinvietnam",
     "title": "Baby Sniper In Vietnam",
     "html": "assets/games/babysniperinvietnam.html",
-    "image": "assets/images/babysniperinvietnam.png",
+    "image": "assets/images/babysniperinvietnam.webp",
     "source": "aetheris",
     "tags": [
       "Shooting",
@@ -2887,7 +2887,7 @@
     "id": "untitledgoosegame",
     "title": "Untitled goose game",
     "html": "assets/games/ugg.html",
-    "image": "assets/images/ugg.png",
+    "image": "assets/images/ugg.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -2897,7 +2897,7 @@
     "id": "dummiesworldcup",
     "title": "Dummies World Cup",
     "html": "assets/games/dummiesworldcup.html",
-    "image": "assets/images/dwc.png",
+    "image": "assets/images/dwc.webp",
     "source": "aetheris",
     "tags": [
       "Sports"
@@ -2907,7 +2907,7 @@
     "id": "dumbwaystodie",
     "title": "Dumb Ways to Die",
     "html": "assets/games/dumbwaystodie.html",
-    "image": "assets/images/dwtd.jpg",
+    "image": "assets/images/dwtd.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -2917,7 +2917,7 @@
     "id": "blockblast",
     "title": "Block Blast",
     "html": "assets/games/blockblast.html",
-    "image": "assets/images/blockblast.png",
+    "image": "assets/images/blockblast.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -2927,7 +2927,7 @@
     "id": "wbwwb",
     "title": "We Become What We Behold",
     "html": "assets/games/wbwwb.html",
-    "image": "assets/images/wbwwb.png",
+    "image": "assets/images/wbwwb.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -2956,7 +2956,7 @@
     "id": "kindergarten2",
     "title": "Kindergarten 2",
     "html": "assets/games/kindergarten2.html",
-    "image": "assets/images/kindergarten2.png",
+    "image": "assets/images/kindergarten2.webp",
     "tags": [
       "Action"
     ]
@@ -2965,7 +2965,7 @@
     "id": "kindergarten3",
     "title": "Kindergarten 3",
     "html": "assets/games/kindergarten3.html",
-    "image": "assets/images/kindergarten3.png",
+    "image": "assets/images/kindergarten3.webp",
     "tags": [
       "Action"
     ]
@@ -2974,7 +2974,7 @@
     "id": "repo",
     "title": "R.E.P.O",
     "html": "assets/games/repo.html",
-    "image": "assets/images/repo.png",
+    "image": "assets/images/repo.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -2984,7 +2984,7 @@
     "id": "slimerancher",
     "title": "Slime Rancher",
     "html": "assets/games/slimerancher.html",
-    "image": "assets/images/slimerancher.png",
+    "image": "assets/images/slimerancher.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -3023,7 +3023,7 @@
     "id": "fnaf2",
     "title": "Five Nights At Freddy's 2",
     "html": "assets/games/FNAF2.html",
-    "image": "assets/images/fnaf2.png",
+    "image": "assets/images/fnaf2.webp",
     "tags": [
       "Action"
     ]
@@ -3032,7 +3032,7 @@
     "id": "fnaf3",
     "title": "Five Nights At Freddy's 3",
     "html": "assets/games/FNAF3.html",
-    "image": "assets/images/fnaf3.png",
+    "image": "assets/images/fnaf3.webp",
     "tags": [
       "Action"
     ]
@@ -3061,7 +3061,7 @@
     "id": "beeswarmsimulator",
     "title": "Bee Swarm Simulator",
     "html": "assets/games/bss.html",
-    "image": "assets/images/bss.png",
+    "image": "assets/images/bss.webp",
     "source": "aetheris",
     "tags": [
       "Strategy",
@@ -3073,7 +3073,7 @@
     "id": "epsteinbasics",
     "title": "Epsteins Basics",
     "html": "assets/games/epsteinsbasics.html",
-    "image": "assets/images/epsteinsbasics.png",
+    "image": "assets/images/epsteinsbasics.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -3083,7 +3083,7 @@
     "id": "meteor60seconds",
     "title": "Meteor 60 Seconds",
     "html": "assets/games/meteor60seconds.html",
-    "image": "assets/images/meteor60seconds.png",
+    "image": "assets/images/meteor60seconds.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -3093,7 +3093,7 @@
     "id": "switch!",
     "title": "Switch!",
     "html": "assets/games/switch.html",
-    "image": "assets/images/switch.png",
+    "image": "assets/images/switch.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -3142,7 +3142,7 @@
     "id": "stealabrainrot",
     "title": "Steal a Brainrot",
     "html": "assets/games/sab.html",
-    "image": "assets/images/sab.png",
+    "image": "assets/images/sab.webp",
     "source": "aetheris",
     "tags": [
       "Skill",
@@ -3153,7 +3153,7 @@
     "id": "stealabrainrot2",
     "title": "Steal a Brainrot 2",
     "html": "assets/games/sab2.html",
-    "image": "assets/images/sab.png",
+    "image": "assets/images/sab.webp",
     "source": "aetheris",
     "tags": [
       "Skill",
@@ -3164,7 +3164,7 @@
     "id": "crazycattle3d",
     "title": "Crazy Cattle 3D",
     "html": "assets/games/cc3d.html",
-    "image": "assets/images/crazycattle3d.png",
+    "image": "assets/images/crazycattle3d.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -3174,7 +3174,7 @@
     "id": "cookieclicker",
     "title": "Cookie Clicker",
     "html": "assets/games/cookieclicker.html",
-    "image": "assets/images/cookieclicker.png",
+    "image": "assets/images/cookieclicker.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -3184,7 +3184,7 @@
     "id": "thereisnogame",
     "title": "There Is No Game",
     "html": "assets/games/thereisnogame.html",
-    "image": "assets/images/ting.png",
+    "image": "assets/images/ting.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -3194,7 +3194,7 @@
     "id": "mcpe",
     "title": "Minecraft Pocket Edition",
     "html": "assets/games/mcpe.html",
-    "image": "assets/images/mcpe.jpg",
+    "image": "assets/images/mcpe.webp",
     "source": "aetheris",
     "tags": [
       "Strategy",
@@ -3206,7 +3206,7 @@
     "id": "driftboss",
     "title": "Drift Boss",
     "html": "assets/games/driftboss.html",
-    "image": "assets/images/driftboss.png",
+    "image": "assets/images/driftboss.webp",
     "tags": [
       "Racing",
       "Skill"
@@ -3236,7 +3236,7 @@
     "id": "tombofthemask",
     "title": "Tomb of the Mask",
     "html": "assets/games/totm.html",
-    "image": "assets/images/tomb.png",
+    "image": "assets/images/tomb.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -3277,7 +3277,7 @@
     "id": "bigicetowertinysquare",
     "title": "Big Ice Tower Tiny Square",
     "html": "assets/games/bigicetowertinysquare.html",
-    "image": "assets/images/bigicetowertinysquare.jpg",
+    "image": "assets/images/bigicetowertinysquare.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -3297,7 +3297,7 @@
     "id": "bfdibranches",
     "title": "BFDI Branches",
     "html": "assets/games/BFDIBranches.html",
-    "image": "assets/images/BFDIBranches.jpg",
+    "image": "assets/images/BFDIBranches.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -3307,7 +3307,7 @@
     "id": "bfdia5b",
     "title": "BFDIA 5b",
     "html": "assets/games/bfdia5b.html",
-    "image": "assets/images/bfdia5b.jpg",
+    "image": "assets/images/bfdia5b.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -3317,7 +3317,7 @@
     "id": "blazedrifter",
     "title": "Blaze Drifter",
     "html": "assets/games/blazedrifter.html",
-    "image": "assets/images/blazedrifter.jpg",
+    "image": "assets/images/blazedrifter.webp",
     "source": "aetheris",
     "tags": [
       "Racing"
@@ -3327,7 +3327,7 @@
     "id": "blastronaut",
     "title": "Blastronaut",
     "html": "assets/games/blastronaut.html",
-    "image": "assets/images/blastronaut.jpg",
+    "image": "assets/images/blastronaut.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -3337,7 +3337,7 @@
     "id": "bitplanes",
     "title": "Bitplanes",
     "html": "assets/games/bitplanes.html",
-    "image": "assets/images/bitplanes.jpg",
+    "image": "assets/images/bitplanes.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -3347,7 +3347,7 @@
     "id": "bioevil4",
     "title": "Bio Evil 4",
     "html": "assets/games/bioevil4.html",
-    "image": "assets/images/bioevil4.png",
+    "image": "assets/images/bioevil4.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -3357,7 +3357,7 @@
     "id": "btts2",
     "title": "Bad Time Simulator 2",
     "html": "assets/games/btts2.html",
-    "image": "assets/images/btts2.jpg",
+    "image": "assets/images/btts2.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -3367,7 +3367,7 @@
     "id": "btts",
     "title": "Bad Time Simulator",
     "html": "assets/games/btts.html",
-    "image": "assets/images/btts.png",
+    "image": "assets/images/btts.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -3387,7 +3387,7 @@
     "id": "bloodtournament",
     "title": "Blood Tournament",
     "html": "assets/games/bloodtournament.html",
-    "image": "assets/images/bloodtournament.jpg",
+    "image": "assets/images/bloodtournament.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -3397,7 +3397,7 @@
     "id": "blockysnakes",
     "title": "Blocky Snakes",
     "html": "assets/games/blockysnakes.html",
-    "image": "assets/images/blockysnakes.jpg",
+    "image": "assets/images/blockysnakes.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -3407,7 +3407,7 @@
     "id": "blockydemolitionderby",
     "title": "Blocky Demolition Derby",
     "html": "assets/games/blockydemolitionderby.html",
-    "image": "assets/images/blockydemolitionderby.jpg",
+    "image": "assets/images/blockydemolitionderby.webp",
     "source": "aetheris",
     "tags": [
       "Racing",
@@ -3418,7 +3418,7 @@
     "id": "blockthepig",
     "title": "Block the Pig",
     "html": "assets/games/blockthepig.html",
-    "image": "assets/images/blockthepig.jpg",
+    "image": "assets/images/blockthepig.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -3428,7 +3428,7 @@
     "id": "blockpost",
     "title": "Blockpost",
     "html": "assets/games/blockpost.html",
-    "image": "assets/images/blockpost.jpg",
+    "image": "assets/images/blockpost.webp",
     "source": "aetheris",
     "tags": [
       "Shooting",
@@ -3449,7 +3449,7 @@
     "id": "basketbros",
     "title": "Basket Bros",
     "html": "assets/games/basketbros.html",
-    "image": "assets/images/basketbros.jpg",
+    "image": "assets/images/basketbros.webp",
     "source": "aetheris",
     "tags": [
       "Sports"
@@ -3489,7 +3489,7 @@
     "id": "bouncemasters",
     "title": "Bounce Masters",
     "html": "assets/games/bouncemasters.html",
-    "image": "assets/images/bouncemasters.jpg",
+    "image": "assets/images/bouncemasters.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -3499,7 +3499,7 @@
     "id": "bounceback",
     "title": "Bounce Back",
     "html": "assets/games/bounceback.html",
-    "image": "assets/images/bounceback.jpg",
+    "image": "assets/images/bounceback.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -3509,7 +3509,7 @@
     "id": "bouncybasketball",
     "title": "Bouncy Basketball",
     "html": "assets/games/bouncybasketball.html",
-    "image": "assets/images/bouncybasketball.jpg",
+    "image": "assets/images/bouncybasketball.webp",
     "source": "aetheris",
     "tags": [
       "Sports"
@@ -3529,7 +3529,7 @@
     "id": "bountyofone",
     "title": "Bounty of One",
     "html": "assets/games/BountyOfOne.html",
-    "image": "assets/images/BountyOfOne.jpg",
+    "image": "assets/images/BountyOfOne.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -3559,7 +3559,7 @@
     "id": "bottlecracks",
     "title": "Bottle Cracks",
     "html": "assets/games/bottlecracks.html",
-    "image": "assets/images/bottlecracks.jpg",
+    "image": "assets/images/bottlecracks.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -3589,7 +3589,7 @@
     "id": "UvuvwevwevweOnyetenvewveUgwemubwemOssas",
     "title": "UvuvwevwevweOnyetenvewveUgwemubwemOssas",
     "html": "assets/games/UvuvwevwevweOnyetenvewveUgwemubwemOssas.html",
-    "image": "assets/images/UvuvwevwevweOnyetenvewveUgwemubwemOssas.png",
+    "image": "assets/images/UvuvwevwevweOnyetenvewveUgwemubwemOssas.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -3619,7 +3619,7 @@
     "id": "lethalcompany",
     "title": "Lethal Company",
     "html": "assets/games/lethalcompany.html",
-    "image": "assets/images/lethalcompany.jpg",
+    "image": "assets/images/lethalcompany.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -3639,7 +3639,7 @@
     "id": "helltaker",
     "title": "Helltaker",
     "html": "assets/games/wasm-helltaker.html",
-    "image": "assets/images/wasm-helltaker.png",
+    "image": "assets/images/wasm-helltaker.webp",
     "source": "aetheris",
     "tags": [
       "Strategy",
@@ -3660,7 +3660,7 @@
     "id": "soccerrandom",
     "title": "Soccer Random",
     "html": "assets/games/soccerrandom.html",
-    "image": "assets/images/soccerrandom.png",
+    "image": "assets/images/soccerrandom.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -3700,7 +3700,7 @@
     "id": "agesofconflict",
     "title": "Ages of Conflict",
     "html": "assets/games/wasm-aoc.html",
-    "image": "assets/images/wasm-aoc.png",
+    "image": "assets/images/wasm-aoc.webp",
     "source": "aetheris",
     "tags": [
       "Action",
@@ -3711,7 +3711,7 @@
     "id": "tallmanrun",
     "title": "Tall Man Run",
     "html": "assets/games/tallmanrun.html",
-    "image": "assets/images/tallmanrun.png",
+    "image": "assets/images/tallmanrun.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -3721,7 +3721,7 @@
     "id": "supremeduelist",
     "title": "Supreme Duelist",
     "html": "assets/games/supremeduelist.html",
-    "image": "assets/images/supremeduelist.png",
+    "image": "assets/images/supremeduelist.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -3731,7 +3731,7 @@
     "id": "pou",
     "title": "Pou",
     "html": "assets/games/pou.html",
-    "image": "assets/images/pou.png",
+    "image": "assets/images/pou.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -3741,7 +3741,7 @@
     "id": "amaze",
     "title": "Amaze",
     "html": "assets/games/amaze.html",
-    "image": "assets/images/amaze.png",
+    "image": "assets/images/amaze.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -3751,7 +3751,7 @@
     "id": "mobcontrol",
     "title": "Mob Control",
     "html": "assets/games/mobcontrol.html",
-    "image": "assets/images/mobcontrol.png",
+    "image": "assets/images/mobcontrol.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -3761,7 +3761,7 @@
     "id": "turbostars",
     "title": "Turbostars",
     "html": "assets/games/turbostars.html",
-    "image": "assets/images/turbostars.png",
+    "image": "assets/images/turbostars.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -3781,7 +3781,7 @@
     "id": "blumgiracers",
     "title": "Blumgi Racers",
     "html": "assets/games/blumgiracers.html",
-    "image": "assets/images/blumgiracers.jpg",
+    "image": "assets/images/blumgiracers.webp",
     "source": "aetheris",
     "tags": [
       "Racing"
@@ -3791,7 +3791,7 @@
     "id": "blumgirocket",
     "title": "Blumgi Rocket",
     "html": "assets/games/blumgirocket.html",
-    "image": "assets/images/blumgirocket.jpg",
+    "image": "assets/images/blumgirocket.webp",
     "source": "aetheris",
     "tags": [
       "Action",
@@ -3842,7 +3842,7 @@
     "id": "brotato",
     "title": "Brotato",
     "html": "assets/games/brotato.html",
-    "image": "assets/images/brotato.jpg",
+    "image": "assets/images/brotato.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -3862,7 +3862,7 @@
     "id": "bunnyland",
     "title": "Bunny Land",
     "html": "assets/games/bunnyland.html",
-    "image": "assets/images/bunnyland.jpg",
+    "image": "assets/images/bunnyland.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -3872,7 +3872,7 @@
     "id": "burgerandfrights",
     "title": "Burger and Frights",
     "html": "assets/games/burgerandfrights.html",
-    "image": "assets/images/burgerandfrights.jpg",
+    "image": "assets/images/burgerandfrights.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -3901,7 +3901,7 @@
     "id": "basketrandom",
     "title": "Basket Random",
     "html": "assets/games/basketrandom.html",
-    "image": "assets/images/basketrandom.png",
+    "image": "assets/images/basketrandom.webp",
     "source": "aetheris",
     "tags": [
       "Sports"
@@ -3911,7 +3911,7 @@
     "id": "battlekarts",
     "title": "Battle Karts",
     "html": "assets/games/battlekarts.html",
-    "image": "assets/images/battlekarts.jpg",
+    "image": "assets/images/battlekarts.webp",
     "source": "aetheris",
     "tags": [
       "Racing",
@@ -3922,7 +3922,7 @@
     "id": "batterup",
     "title": "Batter Up",
     "html": "assets/games/batterup.html",
-    "image": "assets/images/batterup.jpg",
+    "image": "assets/images/batterup.webp",
     "source": "aetheris",
     "tags": [
       "Sports"
@@ -3932,7 +3932,7 @@
     "id": "basketballsuperstars",
     "title": "Basketball Superstars",
     "html": "assets/games/basketballsuperstars.html",
-    "image": "assets/images/basketballsuperstars.jpg",
+    "image": "assets/images/basketballsuperstars.webp",
     "source": "aetheris",
     "tags": [
       "Sports"
@@ -3952,7 +3952,7 @@
     "id": "baldidecomp",
     "title": "Baldi Decomp",
     "html": "assets/games/baldidecomp.html",
-    "image": "assets/images/baldidecomp.jpg",
+    "image": "assets/images/baldidecomp.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -3984,7 +3984,7 @@
     "id": "carrampvspolicechase",
     "title": "Car Ramp vs Police Chase",
     "html": "assets/games/carrampvspolicechase.html",
-    "image": "assets/images/carrampvspolicechase.jpg",
+    "image": "assets/images/carrampvspolicechase.webp",
     "source": "aetheris",
     "tags": [
       "Racing"
@@ -4004,7 +4004,7 @@
     "id": "cardrawing",
     "title": "Car Drawing",
     "html": "assets/games/cardrawing.html",
-    "image": "assets/images/cardrawing.jpg",
+    "image": "assets/images/cardrawing.webp",
     "source": "aetheris",
     "tags": [
       "Racing"
@@ -4014,7 +4014,7 @@
     "id": "capybaraclicker",
     "title": "Capybara Clicker",
     "html": "assets/games/capybaraclicker.html",
-    "image": "assets/images/capybaraclicker.jpg",
+    "image": "assets/images/capybaraclicker.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -4034,7 +4034,7 @@
     "id": "cannonballs3d",
     "title": "Cannon Balls 3D",
     "html": "assets/games/cannonballs3d.html",
-    "image": "assets/images/cannonballs3d.png",
+    "image": "assets/images/cannonballs3d.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -4044,7 +4044,7 @@
     "id": "candybox1",
     "title": "Candy Box 1",
     "html": "assets/games/candybox1.html",
-    "image": "assets/images/candybox1.png",
+    "image": "assets/images/candybox1.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -4054,7 +4054,7 @@
     "id": "callofbattle",
     "title": "Call of Battle",
     "html": "assets/games/callofbattle.html",
-    "image": "assets/images/callofbattle.jpg",
+    "image": "assets/images/callofbattle.webp",
     "source": "aetheris",
     "tags": [
       "Shooting",
@@ -4075,7 +4075,7 @@
     "id": "icefishing",
     "title": "Ice Fishing",
     "html": "assets/games/icefishing.html",
-    "image": "assets/images/icefishing.png",
+    "image": "assets/images/icefishing.webp",
     "source": "aetheris",
     "tags": [
       "Sports"
@@ -4085,7 +4085,7 @@
     "id": "icypurplehead",
     "title": "Icy Purple Head",
     "html": "assets/games/icypurplehead.html",
-    "image": "assets/images/icypurplehead.jpg",
+    "image": "assets/images/icypurplehead.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -4105,7 +4105,7 @@
     "id": "idledice",
     "title": "Idle Dice",
     "html": "assets/games/idledice.html",
-    "image": "assets/images/idledice.png",
+    "image": "assets/images/idledice.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -4115,7 +4115,7 @@
     "id": "idlefootballmanager",
     "title": "Idle Football Manager",
     "html": "assets/games/idlefootballmanager.html",
-    "image": "assets/images/idlefootballmanager.jpg",
+    "image": "assets/images/idlefootballmanager.webp",
     "source": "aetheris",
     "tags": [
       "Strategy",
@@ -4136,7 +4136,7 @@
     "id": "infinitecraft",
     "title": "Infinite Craft",
     "html": "assets/games/infinitecraft.html",
-    "image": "assets/images/infinitecraft.png",
+    "image": "assets/images/infinitecraft.webp",
     "source": "aetheris",
     "tags": [
       "Strategy",
@@ -4147,7 +4147,7 @@
     "id": "johnnytrigger",
     "title": "Johnny Trigger",
     "html": "assets/games/johnnytrigger.html",
-    "image": "assets/images/johnnytrigger.jpg",
+    "image": "assets/images/johnnytrigger.webp",
     "source": "aetheris",
     "tags": [
       "Shooting",
@@ -4158,7 +4158,7 @@
     "id": "journeydownhill",
     "title": "Journey Downhill",
     "html": "assets/games/journeydownhill.html",
-    "image": "assets/images/journeydownhill.png",
+    "image": "assets/images/journeydownhill.webp",
     "source": "aetheris",
     "tags": [
       "Racing"
@@ -4168,7 +4168,7 @@
     "id": "jumpingshell",
     "title": "Jumping Shell",
     "html": "assets/games/jumpingshell.html",
-    "image": "assets/images/jumpingshell.png",
+    "image": "assets/images/jumpingshell.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -4188,7 +4188,7 @@
     "id": "justfalllol",
     "title": "Just Fall LOL",
     "html": "assets/games/justfalllol.html",
-    "image": "assets/images/justfalllol.jpg",
+    "image": "assets/images/justfalllol.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -4198,7 +4198,7 @@
     "id": "justhitthebutton",
     "title": "Just Hit The Button",
     "html": "assets/games/justhitthebutton.html",
-    "image": "assets/images/justhitthebutton.png",
+    "image": "assets/images/justhitthebutton.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -4218,7 +4218,7 @@
     "id": "jazzjackrabbit",
     "title": "Jazz Jackrabbit",
     "html": "assets/games/jazzjackrabbit.html",
-    "image": "assets/images/jazzjackrabbit.jpg",
+    "image": "assets/images/jazzjackrabbit.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -4228,7 +4228,7 @@
     "id": "jazzjackrabbit2",
     "title": "Jazz Jackrabbit 2",
     "html": "assets/games/jazzjackrabbit2.html",
-    "image": "assets/images/jazzjackrabbit2.jpg",
+    "image": "assets/images/jazzjackrabbit2.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -4268,7 +4268,7 @@
     "id": "klifur",
     "title": "Klifur",
     "html": "assets/games/klifur.html",
-    "image": "assets/images/klifur.png",
+    "image": "assets/images/klifur.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -4329,7 +4329,7 @@
     "id": "karatebros",
     "title": "Karate Bros",
     "html": "assets/games/karatebros.html",
-    "image": "assets/images/karatebros.jpg",
+    "image": "assets/images/karatebros.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -4339,7 +4339,7 @@
     "id": "kanyezone",
     "title": "Kanye Zone",
     "html": "assets/games/kanyezone.html",
-    "image": "assets/images/kanyezone.jpg",
+    "image": "assets/images/kanyezone.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -4349,7 +4349,7 @@
     "id": "kalikan",
     "title": "Kalikan",
     "html": "assets/games/kalikan.html",
-    "image": "assets/images/kalikan.png",
+    "image": "assets/images/kalikan.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -4369,7 +4369,7 @@
     "id": "jefflings",
     "title": "Jefflings",
     "html": "assets/games/jefflings.html",
-    "image": "assets/images/jefflings.png",
+    "image": "assets/images/jefflings.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -4379,7 +4379,7 @@
     "id": "jellymario",
     "title": "Jelly Mario",
     "html": "assets/games/jellymario.html",
-    "image": "assets/images/jellymario.jpg",
+    "image": "assets/images/jellymario.webp",
     "source": "aetheris",
     "tags": [
       "Io",
@@ -4411,7 +4411,7 @@
     "id": "jailbreakobby",
     "title": "Jailbreak Obby",
     "html": "assets/games/jailbreakobby.html",
-    "image": "assets/images/jailbreakobby.jpg",
+    "image": "assets/images/jailbreakobby.webp",
     "source": "aetheris",
     "tags": [
       "Skill",
@@ -4422,7 +4422,7 @@
     "id": "halflife",
     "title": "Half Life",
     "html": "assets/games/halflife.html",
-    "image": "assets/images/halflife.jpg",
+    "image": "assets/images/halflife.webp",
     "source": "aetheris",
     "tags": [
       "Shooting",
@@ -4433,7 +4433,7 @@
     "id": "hardwaretycoon",
     "title": "Hardware Tycoon",
     "html": "assets/games/hardwaretycoon.html",
-    "image": "assets/images/hardwaretycoon.png",
+    "image": "assets/images/hardwaretycoon.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -4443,7 +4443,7 @@
     "id": "haroldsbadday",
     "title": "Harolds Bad Day",
     "html": "assets/games/Haroldsbadday.html",
-    "image": "assets/images/Haroldsbadday.png",
+    "image": "assets/images/Haroldsbadday.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -4463,7 +4463,7 @@
     "id": "helpnobrakes",
     "title": "Help No Brakes",
     "html": "assets/games/helpnobrakes.html",
-    "image": "assets/images/helpnobrakes.jpg",
+    "image": "assets/images/helpnobrakes.webp",
     "source": "aetheris",
     "tags": [
       "Racing"
@@ -4473,7 +4473,7 @@
     "id": "hero3flyingrobot",
     "title": "Hero 3 Flying Robot",
     "html": "assets/games/hero3flyingrobot.html",
-    "image": "assets/images/hero3flyingrobot.jpeg",
+    "image": "assets/images/hero3flyingrobot.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -4483,7 +4483,7 @@
     "id": "highstakes",
     "title": "High Stakes",
     "html": "assets/games/highstakes.html",
-    "image": "assets/images/highstakes.jpg",
+    "image": "assets/images/highstakes.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -4513,7 +4513,7 @@
     "id": "hitstunfly",
     "title": "Hitstun Fly",
     "html": "assets/games/hitstunfly.html",
-    "image": "assets/images/hitstunfly.png",
+    "image": "assets/images/hitstunfly.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -4523,7 +4523,7 @@
     "id": "holebattle",
     "title": "Hole Battle",
     "html": "assets/games/holebattle.html",
-    "image": "assets/images/holebattle.jpg",
+    "image": "assets/images/holebattle.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -4533,7 +4533,7 @@
     "id": "houseofhazards",
     "title": "House of Hazards",
     "html": "assets/games/houseofhazards.html",
-    "image": "assets/images/houseofhazards.png",
+    "image": "assets/images/houseofhazards.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -4543,7 +4543,7 @@
     "id": "hoverracerdrive",
     "title": "Hover Racer Drive",
     "html": "assets/games/hoverracerdrive.html",
-    "image": "assets/images/hoverracerdrive.jpg",
+    "image": "assets/images/hoverracerdrive.webp",
     "source": "aetheris",
     "tags": [
       "Racing"
@@ -4583,7 +4583,7 @@
     "id": "cavecrawler",
     "title": "Cave Crawler",
     "html": "assets/games/cavecrawler.html",
-    "image": "assets/images/cavecrawler.jpg",
+    "image": "assets/images/cavecrawler.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -4593,7 +4593,7 @@
     "id": "catslovecake2",
     "title": "Cats Love Cake 2",
     "html": "assets/games/catslovecake2.html",
-    "image": "assets/images/catslovecake2.jpg",
+    "image": "assets/images/catslovecake2.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -4603,7 +4603,7 @@
     "id": "catmario",
     "title": "Cat Mario",
     "html": "assets/games/catmario.html",
-    "image": "assets/images/catmario.png",
+    "image": "assets/images/catmario.webp",
     "source": "aetheris",
     "tags": [
       "Io",
@@ -4614,7 +4614,7 @@
     "id": "castlewarsmodern",
     "title": "Castle Wars Modern",
     "html": "assets/games/castlewarsmodern.html",
-    "image": "assets/images/castlewarsmodern.jpg",
+    "image": "assets/images/castlewarsmodern.webp",
     "source": "aetheris",
     "tags": [
       "Strategy",
@@ -4625,7 +4625,7 @@
     "id": "cartoonnetworktabletennisultimatetournament",
     "title": "Cartoon Network Table Tennis Ultimate Tournament",
     "html": "assets/games/CartoonNetworkTableTennisUltimateTournament.html",
-    "image": "assets/images/CartoonNetworkTableTennisUltimateTournament.jpg",
+    "image": "assets/images/CartoonNetworkTableTennisUltimateTournament.webp",
     "source": "aetheris",
     "tags": [
       "Sports"
@@ -4635,7 +4635,7 @@
     "id": "waterpoolio",
     "title": "Waterpool.io",
     "html": "assets/games/waterpoolio.html",
-    "image": "assets/images/waterpoolio.jpg",
+    "image": "assets/images/waterpoolio.webp",
     "source": "aetheris",
     "tags": [
       "Io"
@@ -4655,7 +4655,7 @@
     "id": "waluigitacostand",
     "title": "Waluigi Taco Stand",
     "html": "assets/games/waluigitacostand.html",
-    "image": "assets/images/waluigitacostand.jpg",
+    "image": "assets/images/waluigitacostand.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -4665,7 +4665,7 @@
     "id": "wrestlebros",
     "title": "Wrestle Bros",
     "html": "assets/games/wrestlebros.html",
-    "image": "assets/images/wrestlebros.jpeg",
+    "image": "assets/images/wrestlebros.webp",
     "source": "aetheris",
     "tags": [
       "Sports"
@@ -4675,7 +4675,7 @@
     "id": "wrassling",
     "title": "Wrassling",
     "html": "assets/games/wrassling.html",
-    "image": "assets/images/wrassling.jpg",
+    "image": "assets/images/wrassling.webp",
     "source": "aetheris",
     "tags": [
       "Sports"
@@ -4695,7 +4695,7 @@
     "id": "witchcrafttd",
     "title": "Witchcraft TD",
     "html": "assets/games/witchcrafttd.html",
-    "image": "assets/images/witchcrafttd.png",
+    "image": "assets/images/witchcrafttd.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -4705,7 +4705,7 @@
     "id": "winterfalling",
     "title": "Winter Falling",
     "html": "assets/games/winterfalling.html",
-    "image": "assets/images/winterfalling.jpg",
+    "image": "assets/images/winterfalling.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -4715,7 +4715,7 @@
     "id": "webfishing",
     "title": "Webfishing",
     "html": "assets/games/webfishing.html",
-    "image": "assets/images/webfishing.jpg",
+    "image": "assets/images/webfishing.webp",
     "source": "aetheris",
     "tags": [
       "Sports"
@@ -4725,7 +4725,7 @@
     "id": "vex3",
     "title": "Vex 3",
     "html": "assets/games/vex3.html",
-    "image": "assets/images/vex3.png",
+    "image": "assets/images/vex3.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -4735,7 +4735,7 @@
     "id": "vex3xmas",
     "title": "Vex 3 Xmas",
     "html": "assets/games/vex3xmas.html",
-    "image": "assets/images/vex3xmas.jpg",
+    "image": "assets/images/vex3xmas.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -4755,7 +4755,7 @@
     "id": "vex7",
     "title": "Vex 7",
     "html": "assets/games/vex7.html",
-    "image": "assets/images/vex7.jpg",
+    "image": "assets/images/vex7.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -4765,7 +4765,7 @@
     "id": "vex6",
     "title": "Vex 6",
     "html": "assets/games/vex6.html",
-    "image": "assets/images/vex6.jpg",
+    "image": "assets/images/vex6.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -4775,7 +4775,7 @@
     "id": "vex5",
     "title": "Vex 5",
     "html": "assets/games/vex5.html",
-    "image": "assets/images/vex5.png",
+    "image": "assets/images/vex5.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -4785,7 +4785,7 @@
     "id": "vex4",
     "title": "Vex 4",
     "html": "assets/games/vex4.html",
-    "image": "assets/images/vex4.jpg",
+    "image": "assets/images/vex4.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -4795,7 +4795,7 @@
     "id": "cheshireinachatroom",
     "title": "Cheshire in a Chatroom",
     "html": "assets/games/cheshireinachatroom.html",
-    "image": "assets/images/cheshireinachatroom.jpg",
+    "image": "assets/images/cheshireinachatroom.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -4816,7 +4816,7 @@
     "id": "cheeserolling",
     "title": "Cheese Rolling",
     "html": "assets/games/wasm-cheese-rolling.html",
-    "image": "assets/images/wasm-cheese-rolling.png",
+    "image": "assets/images/wasm-cheese-rolling.webp",
     "source": "aetheris",
     "tags": [
       "Skill",
@@ -4827,7 +4827,7 @@
     "id": "cheeseisthereason",
     "title": "Cheese is the Reason",
     "html": "assets/games/cheeseisthereason.html",
-    "image": "assets/images/cheeseisthereason.png",
+    "image": "assets/images/cheeseisthereason.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -4837,7 +4837,7 @@
     "id": "chaosfaction2",
     "title": "Chaos Faction 2",
     "html": "assets/games/chaosfaction2.html",
-    "image": "assets/images/chaosfaction2.jpg",
+    "image": "assets/images/chaosfaction2.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -4847,7 +4847,7 @@
     "id": "celltosingularity",
     "title": "Cell To Singularity",
     "html": "assets/games/CellToSingularity.html",
-    "image": "assets/images/CellToSingularity.jpg",
+    "image": "assets/images/CellToSingularity.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -4887,7 +4887,7 @@
     "id": "crazyplanelanding",
     "title": "Crazy Plane Landing",
     "html": "assets/games/crazyplanelanding.html",
-    "image": "assets/images/crazyplanelanding.jpg",
+    "image": "assets/images/crazyplanelanding.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -4908,7 +4908,7 @@
     "id": "customersupport",
     "title": "Customer Support",
     "html": "assets/games/customersupport.html",
-    "image": "assets/images/customersupport.jpg",
+    "image": "assets/images/customersupport.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -4918,7 +4918,7 @@
     "id": "curseofthelichking",
     "title": "Curse of the Lich King",
     "html": "assets/games/curseofthelichking.html",
-    "image": "assets/images/curseofthelichking.png",
+    "image": "assets/images/curseofthelichking.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -4938,7 +4938,7 @@
     "id": "coreball",
     "title": "Core Ball",
     "html": "assets/games/coreball.html",
-    "image": "assets/images/coreball.jpg",
+    "image": "assets/images/coreball.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -4958,7 +4958,7 @@
     "id": "crankit",
     "title": "Crank It!",
     "html": "assets/games/crankit!.html",
-    "image": "assets/images/crankit!.png",
+    "image": "assets/images/crankit!.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -4968,7 +4968,7 @@
     "id": "crazycars",
     "title": "Crazy Cars",
     "html": "assets/games/crazycars.html",
-    "image": "assets/images/crazycars.jpg",
+    "image": "assets/images/crazycars.webp",
     "source": "aetheris",
     "tags": [
       "Racing"
@@ -4978,7 +4978,7 @@
     "id": "crazychicken3d",
     "title": "Crazy Chicken 3D",
     "html": "assets/games/crazychicken3D.html",
-    "image": "assets/images/crazychicken3D.png",
+    "image": "assets/images/crazychicken3D.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -5008,7 +5008,7 @@
     "id": "clusterrush",
     "title": "Cluster Rush",
     "html": "assets/games/clusterrush.html",
-    "image": "assets/images/clusterrush.jpg",
+    "image": "assets/images/clusterrush.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -5028,7 +5028,7 @@
     "id": "ultrakill",
     "title": "Ultrakill",
     "html": "assets/games/ultrakill.html",
-    "image": "assets/images/ultrakill.jpg",
+    "image": "assets/images/ultrakill.webp",
     "source": "aetheris",
     "tags": [
       "Shooting",
@@ -5059,7 +5059,7 @@
     "id": "unitresdreams",
     "title": "Unitres Dreams",
     "html": "assets/games/unitresdreams.html",
-    "image": "assets/images/unitresdreams.jpg",
+    "image": "assets/images/unitresdreams.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -5069,7 +5069,7 @@
     "id": "unicyclehero",
     "title": "Unicycle Hero",
     "html": "assets/games/unicyclehero.html",
-    "image": "assets/images/unicyclehero.png",
+    "image": "assets/images/unicyclehero.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -5079,7 +5079,7 @@
     "id": "unfairundyne",
     "title": "Unfair Undyne",
     "html": "assets/games/unfairundyne.html",
-    "image": "assets/images/unfairundyne.jpg",
+    "image": "assets/images/unfairundyne.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -5089,7 +5089,7 @@
     "id": "undertale",
     "title": "Undertale",
     "html": "assets/games/undertale.html",
-    "image": "assets/images/undertale.png",
+    "image": "assets/images/undertale.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -5099,7 +5099,7 @@
     "id": "undertaleyellow",
     "title": "Undertale Yellow",
     "html": "assets/games/undertaleyellow.html",
-    "image": "assets/images/undertaleyellow.png",
+    "image": "assets/images/undertaleyellow.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -5109,7 +5109,7 @@
     "id": "undertalelastbreath",
     "title": "Undertale Last Breath",
     "html": "assets/games/undertalelastbreath.html",
-    "image": "assets/images/undertalelastbreath.jpg",
+    "image": "assets/images/undertalelastbreath.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -5139,7 +5139,7 @@
     "id": "uno",
     "title": "Uno",
     "html": "assets/games/uno.html",
-    "image": "assets/images/uno.png",
+    "image": "assets/images/uno.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -5149,7 +5149,7 @@
     "id": "coalllcdemo",
     "title": "Coal LLC Demo",
     "html": "assets/games/coalllcdemo.html",
-    "image": "assets/images/coalllcdemo.jpg",
+    "image": "assets/images/coalllcdemo.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -5169,7 +5169,7 @@
     "id": "combopool",
     "title": "Combo Pool",
     "html": "assets/games/combopool.html",
-    "image": "assets/images/combopool.png",
+    "image": "assets/images/combopool.webp",
     "source": "aetheris",
     "tags": [
       "Sports"
@@ -5179,7 +5179,7 @@
     "id": "cleanupio",
     "title": "Clean Up I/O",
     "html": "assets/games/cleanupio.html",
-    "image": "assets/images/cleanupio.png",
+    "image": "assets/images/cleanupio.webp",
     "source": "aetheris",
     "tags": [
       "Io"
@@ -5189,7 +5189,7 @@
     "id": "Balatro",
     "title": "Balatro",
     "html": "assets/games/balatro.html",
-    "image": "assets/images/balatro.jpg",
+    "image": "assets/images/balatro.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -5199,7 +5199,7 @@
     "id": "dieinthedungeon",
     "title": "Die in the Dungeon",
     "html": "assets/games/dieinthedungeon.html",
-    "image": "assets/images/dieinthedungeon.jpg",
+    "image": "assets/images/dieinthedungeon.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -5209,7 +5209,7 @@
     "id": "demonbluff",
     "title": "Demon Bluff",
     "html": "assets/games/demonbluff.html",
-    "image": "assets/images/demonbluff.jpg",
+    "image": "assets/images/demonbluff.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -5259,7 +5259,7 @@
     "id": "attackhole",
     "title": "Attack Hole",
     "html": "assets/games/attackhole.html",
-    "image": "assets/images/attackhole.png",
+    "image": "assets/images/attackhole.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -5269,7 +5269,7 @@
     "id": "bendyandtheinkmachine",
     "title": "Bendy and the Ink Machine",
     "html": "assets/games/wasm-batim.html",
-    "image": "assets/images/wasm-batim.png",
+    "image": "assets/images/wasm-batim.webp",
     "source": "aetheris",
     "tags": [
       "Skill",
@@ -5280,7 +5280,7 @@
     "id": "bergentruck201x",
     "title": "Bergentruck 201x",
     "html": "assets/games/BERGENTRUCK 201x.html",
-    "image": "assets/images/bergentruck201x.png",
+    "image": "assets/images/bergentruck201x.webp",
     "source": "aetheris",
     "tags": [
       "Racing"
@@ -5290,7 +5290,7 @@
     "id": "caseohsbasicsineatingandfastfood",
     "title": "Caseoh's Basics in Eating and Fast Food",
     "html": "assets/games/caseohsbasicsineatingandfastfood.html",
-    "image": "assets/images/caseohsbasicsineatingandfastfood.png",
+    "image": "assets/images/caseohsbasicsineatingandfastfood.webp",
     "source": "aetheris",
     "tags": [
       "Shooting"
@@ -5350,7 +5350,7 @@
     "id": "eggycar",
     "title": "Eggy Car",
     "html": "assets/games/eggycar.html",
-    "image": "assets/images/eggycar.png",
+    "image": "assets/images/eggycar.webp",
     "source": "aetheris",
     "tags": [
       "Racing",
@@ -5401,7 +5401,7 @@
     "id": "evilglitch",
     "title": "Evil Glitch",
     "html": "assets/games/evilglitch.html",
-    "image": "assets/images/evilglitch.jpg",
+    "image": "assets/images/evilglitch.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -5411,7 +5411,7 @@
     "id": "eurovisionsim",
     "title": "Eurovision Sim",
     "html": "assets/games/eurovisionsim.html",
-    "image": "assets/images/eurovisionsim.png",
+    "image": "assets/images/eurovisionsim.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -5432,7 +5432,7 @@
     "id": "escalatingduel",
     "title": "Escalating Duel",
     "html": "assets/games/escalatingduel.html",
-    "image": "assets/images/escalatingduel.png",
+    "image": "assets/images/escalatingduel.webp",
     "source": "aetheris",
     "tags": []
   },
@@ -5450,7 +5450,7 @@
     "id": "scratchinc",
     "title": "Scratch Inc",
     "html": "assets/games/scratchinc.html",
-    "image": "assets/images/scratchinc.jpg",
+    "image": "assets/images/scratchinc.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -5460,7 +5460,7 @@
     "id": "stardewvalley",
     "title": "Stardew Valley",
     "html": "assets/games/wasm-stardewvalley.html",
-    "image": "assets/images/wasm-stardewvalley.jpg",
+    "image": "assets/images/wasm-stardewvalley.webp",
     "source": "aetheris",
     "tags": [
       "Skill",
@@ -5522,7 +5522,7 @@
     "id": "fireboyandwatergirl2",
     "title": "Fireboy and Watergirl 2",
     "html": "assets/games/fireboyandwatergirl2.html",
-    "image": "assets/images/fireboyandwatergirl2.jpg",
+    "image": "assets/images/fireboyandwatergirl2.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -5552,7 +5552,7 @@
     "id": "fivenightsatbaldisredone",
     "title": "Five Nights at Baldis Redone",
     "html": "assets/games/fivenightsatbaldisredone.html",
-    "image": "assets/images/fivenightsatbaldisredone.jpg",
+    "image": "assets/images/fivenightsatbaldisredone.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -5572,7 +5572,7 @@
     "id": "fivenightsatwinstons",
     "title": "Five Nights at Winstons",
     "html": "assets/games/fivenightsatwinstons.html",
-    "image": "assets/images/fivenightsatwinstons.jpg",
+    "image": "assets/images/fivenightsatwinstons.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -5582,7 +5582,7 @@
     "id": "fivenightsatyoshis",
     "title": "Five Nights at Yoshis",
     "html": "assets/games/fivenightsatyoshis.html",
-    "image": "assets/images/fivenightsatyoshis.jpg",
+    "image": "assets/images/fivenightsatyoshis.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -5612,7 +5612,7 @@
     "id": "fnaf3remastered",
     "title": "Five Nights At Freddys 3 Remastered",
     "html": "assets/games/fnaf3remastered.html",
-    "image": "assets/images/fnaf3remastered.jpg",
+    "image": "assets/images/fnaf3remastered.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -5622,7 +5622,7 @@
     "id": "fnaf4halloween",
     "title": "Five Nights At Freddys 4 Halloween",
     "html": "assets/games/fnaf4halloween.html",
-    "image": "assets/images/fnaf4halloween.jpg",
+    "image": "assets/images/fnaf4halloween.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -5632,7 +5632,7 @@
     "id": "fnafps",
     "title": "Five Nights At Freddys PS",
     "html": "assets/games/fnafps.html",
-    "image": "assets/images/fnafps.jpg",
+    "image": "assets/images/fnafps.webp",
     "source": "aetheris",
     "tags": [
       "Shooting",
@@ -5674,7 +5674,7 @@
     "id": "footballlegends",
     "title": "Football Legends",
     "html": "assets/games/footballlegends.html",
-    "image": "assets/images/footballlegends.jpg",
+    "image": "assets/images/footballlegends.webp",
     "source": "aetheris",
     "tags": [
       "Sports"
@@ -5684,7 +5684,7 @@
     "id": "forknsausage",
     "title": "Fork N Sausage",
     "html": "assets/games/forknsausage.html",
-    "image": "assets/images/forknsausage.png",
+    "image": "assets/images/forknsausage.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -5726,7 +5726,7 @@
     "id": "gotobed",
     "title": "Go To Bed",
     "html": "assets/games/gotobed.html",
-    "image": "assets/images/gotobed.png",
+    "image": "assets/images/gotobed.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -5766,7 +5766,7 @@
     "id": "terraria",
     "title": "Terraria",
     "html": "assets/games/terraria.html",
-    "image": "assets/images/terraria.png",
+    "image": "assets/images/terraria.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -5776,7 +5776,7 @@
     "id": "thedeadseat",
     "title": "The Dead Seat",
     "html": "assets/games/thedeadseat.html",
-    "image": "assets/images/thedeadseat.png",
+    "image": "assets/images/thedeadseat.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -5786,7 +5786,7 @@
     "id": "themaninthewindow",
     "title": "The Man in the Window",
     "html": "assets/games/themaninthewindow.html",
-    "image": "assets/images/themaninthewindow.png",
+    "image": "assets/images/themaninthewindow.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -5796,7 +5796,7 @@
     "id": "touhoumother",
     "title": "Touhou Mother",
     "html": "assets/games/touhoumother.html",
-    "image": "assets/images/touhoumother.png",
+    "image": "assets/images/touhoumother.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -5806,7 +5806,7 @@
     "id": "twerkrace3d",
     "title": "Twerk Race 3D",
     "html": "assets/games/twerkrace3d.html",
-    "image": "assets/images/twerkrace3d.png",
+    "image": "assets/images/twerkrace3d.webp",
     "source": "aetheris",
     "tags": [
       "Racing"
@@ -5816,7 +5816,7 @@
     "id": "ultrapool",
     "title": "Ultra Pool",
     "html": "assets/games/ultrapool.html",
-    "image": "assets/images/ultrapool.png",
+    "image": "assets/images/ultrapool.webp",
     "source": "aetheris",
     "tags": [
       "Sports"
@@ -5847,7 +5847,7 @@
     "id": "veckio",
     "title": "Veck.io",
     "html": "assets/games/veckio/index.html",
-    "image": "assets/images/veckio.jpg",
+    "image": "assets/images/veckio.webp",
     "source": "aetheris",
     "tags": [
       "Io",
@@ -5873,7 +5873,7 @@
     "id": "growdenio",
     "title": "Growden.io",
     "html": "assets/games/growdenio/index.html",
-    "image": "assets/images/growden.jpg",
+    "image": "assets/images/growden.webp",
     "source": "aetheris",
     "tags": [
       "Io",
@@ -5897,7 +5897,7 @@
     "id": "stealnowio",
     "title": "StealNow.io",
     "html": "assets/games/stealnowio/index.html",
-    "image": "assets/images/stealnowio.jpg",
+    "image": "assets/images/stealnowio.webp",
     "source": "aetheris",
     "tags": [
       "Io",
@@ -5910,7 +5910,7 @@
     "id": "tsunamisio",
     "title": "Tsunamis io",
     "html": "assets/games/tsunamisio/index.html",
-    "image": "assets/images/tsunamisio.png",
+    "image": "assets/images/tsunamisio.webp",
     "source": "aetheris",
     "tags": [
       "Io",
@@ -5943,7 +5943,7 @@
     "id": "sonicexe",
     "title": "Sonic.EXE",
     "html": "assets/games/sonicexe.html",
-    "image": "assets/images/sonicexe.png",
+    "image": "assets/images/sonicexe.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -5953,7 +5953,7 @@
     "id": "schoolboyrunaway",
     "title": "Schoolboy Runaway",
     "html": "assets/games/schoolboyrunaway.html",
-    "image": "assets/images/schoolboyrunaway.png",
+    "image": "assets/images/schoolboyrunaway.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -5973,7 +5973,7 @@
     "id": "soniccd",
     "title": "Sonic CD",
     "html": "assets/games/soniccd.html",
-    "image": "assets/images/soniccd.png",
+    "image": "assets/images/soniccd.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -5983,7 +5983,7 @@
     "id": "stickwithit",
     "title": "Stick With It",
     "html": "assets/games/stickwithit.html",
-    "image": "assets/images/stickwithit.png",
+    "image": "assets/images/stickwithit.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -5993,7 +5993,7 @@
     "id": "slenderthe8pages",
     "title": "Slender: The 8 Pages",
     "html": "assets/games/slenderthe8pages.html",
-    "image": "assets/images/slenderthe8pages.png",
+    "image": "assets/images/slenderthe8pages.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -6013,7 +6013,7 @@
     "id": "fih",
     "title": "Fih",
     "html": "assets/games/fih.html",
-    "image": "assets/images/fih.png",
+    "image": "assets/images/fih.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -6073,7 +6073,7 @@
     "id": "hungrylamu2",
     "title": "Hungry Lamu 2",
     "html": "assets/games/hungrylamu2.html",
-    "image": "assets/images/hungrylamu2.png",
+    "image": "assets/images/hungrylamu2.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -6103,7 +6103,7 @@
     "id": "run2",
     "title": "Run 2",
     "html": "assets/games/run2.html",
-    "image": "assets/images/run2.png",
+    "image": "assets/images/run2.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -6175,7 +6175,7 @@
     "id": "peopleplayground",
     "title": "People Playground",
     "html": "assets/games/peopleplayground.html",
-    "image": "assets/images/peopleplayground.png",
+    "image": "assets/images/peopleplayground.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -6195,7 +6195,7 @@
     "id": "run1",
     "title": "Run 1",
     "html": "assets/games/run1.html",
-    "image": "assets/images/run1.png",
+    "image": "assets/images/run1.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -6265,7 +6265,7 @@
     "id": "minesweeperplus",
     "title": "Minesweeper Plus",
     "html": "assets/games/minesweeperplus.html",
-    "image": "assets/images/minesweeperplus.png",
+    "image": "assets/images/minesweeperplus.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -6305,7 +6305,7 @@
     "id": "ovo3dimensions",
     "title": "OVO 3 Dimensions",
     "html": "assets/games/ovo3dimensions.html",
-    "image": "assets/images/ovo3dimensions.png",
+    "image": "assets/images/ovo3dimensions.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -6315,7 +6315,7 @@
     "id": "ovo2",
     "title": "OVO 2",
     "html": "assets/games/ovo2.html",
-    "image": "assets/images/ovo2.png",
+    "image": "assets/images/ovo2.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -6386,7 +6386,7 @@
     "id": "jumbomario",
     "title": "Jumbo Mario",
     "html": "assets/games/jumbomario.html",
-    "image": "assets/images/jumbomario.png",
+    "image": "assets/images/jumbomario.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -6406,7 +6406,7 @@
     "id": "fused240",
     "title": "Fused 240",
     "html": "assets/games/fused240.html",
-    "image": "assets/images/fused240.png",
+    "image": "assets/images/fused240.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -6416,7 +6416,7 @@
     "id": "fundamentalpapernovel",
     "title": "Fundamental Paper Novel",
     "html": "assets/games/fundamentalpapernovel.html",
-    "image": "assets/images/fundamentalpapernovel.png",
+    "image": "assets/images/fundamentalpapernovel.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -6518,7 +6518,7 @@
     "id": "fivenightsatlastbreath",
     "title": "Five Nights at Last Breath",
     "html": "assets/games/fivenightsatlastbreath.html",
-    "image": "assets/images/fivenightsatlastbreath.png",
+    "image": "assets/images/fivenightsatlastbreath.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -6528,7 +6528,7 @@
     "id": "diceamillion",
     "title": "Dice a Million",
     "html": "assets/games/wasm-diceamillion.html",
-    "image": "assets/images/wasm-diceamillion.png",
+    "image": "assets/images/wasm-diceamillion.webp",
     "source": "aetheris",
     "tags": [
       "Skill",
@@ -6569,7 +6569,7 @@
     "id": "deltatraveler",
     "title": "Delta Traveler",
     "html": "assets/games/deltatraveler.html",
-    "image": "assets/images/deltatraveler.png",
+    "image": "assets/images/deltatraveler.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -6579,7 +6579,7 @@
     "id": "cuphead",
     "title": "Cuphead",
     "html": "assets/games/wasm-cuphead.html",
-    "image": "assets/images/wasm-cuphead.png",
+    "image": "assets/images/wasm-cuphead.webp",
     "source": "aetheris",
     "tags": [
       "Action",
@@ -6620,7 +6620,7 @@
     "id": "donottakethiscathome",
     "title": "Do Not Take This Cat Home",
     "html": "assets/games/donottakethiscathome.html",
-    "image": "assets/images/donottakethiscathome.png",
+    "image": "assets/images/donottakethiscathome.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -6630,7 +6630,7 @@
     "id": "golfsunday",
     "title": "Golf Sunday",
     "html": "assets/games/golfsunday.html",
-    "image": "assets/images/golfsunday.png",
+    "image": "assets/images/golfsunday.webp",
     "source": "aetheris",
     "tags": [
       "Sports"
@@ -6710,7 +6710,7 @@
     "id": "getontop",
     "title": "Get On Top",
     "html": "assets/games/getontop.html",
-    "image": "assets/images/getontop.png",
+    "image": "assets/images/getontop.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -6720,7 +6720,7 @@
     "id": "getawayshootout",
     "title": "Getaway Shootout",
     "html": "assets/games/getawayshootout.html",
-    "image": "assets/images/getawayshootout.png",
+    "image": "assets/images/getawayshootout.webp",
     "source": "aetheris",
     "tags": [
       "Shooting",
@@ -6741,7 +6741,7 @@
     "id": "geometryvibes",
     "title": "Geometry Vibes",
     "html": "assets/games/geometryvibes.html",
-    "image": "assets/images/geometryvibes.png",
+    "image": "assets/images/geometryvibes.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -6761,7 +6761,7 @@
     "id": "guncho",
     "title": "Guncho",
     "html": "assets/games/guncho.html",
-    "image": "assets/images/guncho.png",
+    "image": "assets/images/guncho.webp",
     "source": "aetheris",
     "tags": [
       "Shooting",
@@ -6782,7 +6782,7 @@
     "id": "growyourgarden",
     "title": "Grow Your Garden",
     "html": "assets/games/growyourgarden.html",
-    "image": "assets/images/growyourgarden.jpg",
+    "image": "assets/images/growyourgarden.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -6792,7 +6792,7 @@
     "id": "growmi",
     "title": "Growmi",
     "html": "assets/games/growmi.html",
-    "image": "assets/images/growmi.png",
+    "image": "assets/images/growmi.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -6813,7 +6813,7 @@
     "id": "grn",
     "title": "GRN",
     "html": "assets/games/grn.html",
-    "image": "assets/images/grn.png",
+    "image": "assets/images/grn.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -6834,7 +6834,7 @@
     "id": "grey-box-testing",
     "title": "Grey Box Testing",
     "html": "assets/games/grey-box-testing.html",
-    "image": "assets/images/grey-box-testing.png",
+    "image": "assets/images/grey-box-testing.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -6844,7 +6844,7 @@
     "id": "grannynightmare",
     "title": "Granny Nightmare",
     "html": "assets/games/grannynightmare.html",
-    "image": "assets/images/grannynightmare.jpg",
+    "image": "assets/images/grannynightmare.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -6864,7 +6864,7 @@
     "id": "dta6",
     "title": "DTA 6",
     "html": "assets/games/dta6.html",
-    "image": "assets/images/dta6.jpg",
+    "image": "assets/images/dta6.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -6874,7 +6874,7 @@
     "id": "drawtheline",
     "title": "Draw the Line",
     "html": "assets/games/drawtheline.html",
-    "image": "assets/images/drawtheline.jpg",
+    "image": "assets/images/drawtheline.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -6904,7 +6904,7 @@
     "id": "driverussia",
     "title": "Drive Russia",
     "html": "assets/games/driverussia.html",
-    "image": "assets/images/driverussia.jpg",
+    "image": "assets/images/driverussia.webp",
     "source": "aetheris",
     "tags": [
       "Racing"
@@ -6924,7 +6924,7 @@
     "id": "dreadheadparkour",
     "title": "Dreadhead Parkour",
     "html": "assets/games/dreadheadparkour.html",
-    "image": "assets/images/dreadheadparkour.png",
+    "image": "assets/images/dreadheadparkour.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -6954,7 +6954,7 @@
     "id": "dud",
     "title": "DUD",
     "html": "assets/games/dud.html",
-    "image": "assets/images/dud.png",
+    "image": "assets/images/dud.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -6964,7 +6964,7 @@
     "id": "ducklingsio",
     "title": "Ducklings.io",
     "html": "assets/games/ducklingsio.html",
-    "image": "assets/images/ducklingsio.jpg",
+    "image": "assets/images/ducklingsio.webp",
     "source": "aetheris",
     "tags": [
       "Io"
@@ -6974,7 +6974,7 @@
     "id": "ducklifebattle",
     "title": "Duck Life Battle",
     "html": "assets/games/ducklifebattle.html",
-    "image": "assets/images/ducklifebattle.png",
+    "image": "assets/images/ducklifebattle.webp",
     "source": "aetheris",
     "tags": [
       "Sports",
@@ -7006,7 +7006,7 @@
     "id": "dyingdreams",
     "title": "Dying Dreams",
     "html": "assets/games/dyingdreams.html",
-    "image": "assets/images/dyingdreams.png",
+    "image": "assets/images/dyingdreams.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -7026,7 +7026,7 @@
     "id": "dunkshot",
     "title": "Dunk Shot",
     "html": "assets/games/dunkshot.html",
-    "image": "assets/images/dunkshot.png",
+    "image": "assets/images/dunkshot.webp",
     "source": "aetheris",
     "tags": [
       "Sports"
@@ -7036,7 +7036,7 @@
     "id": "dungeonsanddegenerategamblers",
     "title": "Dungeons and Degenerate Gamblers",
     "html": "assets/games/dungeonsanddegenerategamblers.html",
-    "image": "assets/images/dungeonsanddegenerategamblers.jpg",
+    "image": "assets/images/dungeonsanddegenerategamblers.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -7046,7 +7046,7 @@
     "id": "deathrun",
     "title": "Death Run",
     "html": "assets/games/deathrun.html",
-    "image": "assets/images/deathrun.jpg",
+    "image": "assets/images/deathrun.webp",
     "source": "aetheris",
     "tags": [
       "Skill",
@@ -7067,7 +7067,7 @@
     "id": "deadseat",
     "title": "Deadseat",
     "html": "assets/games/deadseat.html",
-    "image": "assets/images/deadseat.jpg",
+    "image": "assets/images/deadseat.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -7077,7 +7077,7 @@
     "id": "cowboysafari",
     "title": "Cowboy Safari",
     "html": "assets/games/cowboysafari.html",
-    "image": "assets/images/cowboysafari.png",
+    "image": "assets/images/cowboysafari.webp",
     "source": "aetheris",
     "tags": [
       "Skill",
@@ -7132,7 +7132,7 @@
     "id": "golfhit",
     "title": "Golf Hit",
     "html": "assets/games/golfhit.html",
-    "image": "assets/images/golfhit.png",
+    "image": "assets/images/golfhit.webp",
     "source": "aetheris",
     "tags": [
       "Skill",
@@ -7173,7 +7173,7 @@
     "id": "dadish",
     "title": "Dadish",
     "html": "assets/games/dadish.html",
-    "image": "assets/images/dadish.jpg",
+    "image": "assets/images/dadish.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -7203,7 +7203,7 @@
     "id": "circloo2",
     "title": "Circloo 2",
     "html": "assets/games/CircloO2.html",
-    "image": "assets/images/CircloO2.jpg",
+    "image": "assets/images/CircloO2.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -7213,7 +7213,7 @@
     "id": "choppyorc",
     "title": "Choppy Orc",
     "html": "assets/games/choppyorc.html",
-    "image": "assets/images/choppyorc.jpg",
+    "image": "assets/images/choppyorc.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -7233,7 +7233,7 @@
     "id": "chickenscream",
     "title": "Chicken Scream",
     "html": "assets/games/chickenscream.html",
-    "image": "assets/images/chickenscream.jpg",
+    "image": "assets/images/chickenscream.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -7264,7 +7264,7 @@
     "id": "zombierush",
     "title": "Zombie Rush",
     "html": "assets/games/zombierush.html",
-    "image": "assets/images/zombierush.png",
+    "image": "assets/images/zombierush.webp",
     "source": "aetheris",
     "tags": [
       "Racing",
@@ -7275,7 +7275,7 @@
     "id": "zombotronreboot",
     "title": "Zombotron Reboot",
     "html": "assets/games/zombotronreboot.html",
-    "image": "assets/images/zombotronreboot.jpg",
+    "image": "assets/images/zombotronreboot.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -7285,7 +7285,7 @@
     "id": "yanderesimulator",
     "title": "Yandere Simulator",
     "html": "assets/games/yanderesimulator.html",
-    "image": "assets/images/yanderesimulator.jpg",
+    "image": "assets/images/yanderesimulator.webp",
     "source": "aetheris",
     "tags": [
       "Strategy",
@@ -7296,7 +7296,7 @@
     "id": "yourturntodie",
     "title": "Your Turn To Die",
     "html": "assets/games/yourturntodie.html",
-    "image": "assets/images/yourturntodie.jpg",
+    "image": "assets/images/yourturntodie.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -7306,7 +7306,7 @@
     "id": "youvs100skibidi",
     "title": "You vs 100 Skibidi",
     "html": "assets/games/youvs100skibidi.html",
-    "image": "assets/images/youvs100skibidi.jpg",
+    "image": "assets/images/youvs100skibidi.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -7316,7 +7316,7 @@
     "id": "yumenikki",
     "title": "Yume Nikki",
     "html": "assets/games/yumenikki.html",
-    "image": "assets/images/yumenikki.jpg",
+    "image": "assets/images/yumenikki.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -7336,7 +7336,7 @@
     "id": "ballblast",
     "title": "Ball Blast",
     "html": "assets/games/ballblast.html",
-    "image": "assets/images/ballblast.jpg",
+    "image": "assets/images/ballblast.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -7346,7 +7346,7 @@
     "id": "bsbg",
     "title": "Balls and Bricks Good",
     "html": "assets/games/ballsandbricksgood.html",
-    "image": "assets/images/ballsandbricksgood.png",
+    "image": "assets/images/ballsandbricksgood.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -7356,7 +7356,7 @@
     "id": "ballistic",
     "title": "Ballistic",
     "html": "assets/games/ballistic.html",
-    "image": "assets/images/ballistic.jpg",
+    "image": "assets/images/ballistic.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -7366,7 +7366,7 @@
     "id": "bfsu",
     "title": "Baldi's Fun New School Ultimate",
     "html": "assets/games/baldisfunnewschoolultimate.html",
-    "image": "assets/images/baldisfunnewschoolultimate.jpg",
+    "image": "assets/images/baldisfunnewschoolultimate.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -7376,7 +7376,7 @@
     "id": "baldisbasics",
     "title": "Baldis Basics",
     "html": "assets/games/baldisbasics.html",
-    "image": "assets/images/bb.png",
+    "image": "assets/images/bb.webp",
     "tags": [
       "Shooting"
     ]
@@ -7385,7 +7385,7 @@
     "id": "papaburgers",
     "title": "Papa's Burgeria",
     "html": "assets/games/papasburgeria.html",
-    "image": "assets/images/burgeria.png",
+    "image": "assets/images/burgeria.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -7404,7 +7404,7 @@
     "id": "plantsvszombies",
     "title": "Plants Versus Zombies",
     "html": "assets/games/pvz.html",
-    "image": "assets/images/pvz.png",
+    "image": "assets/images/pvz.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -7414,7 +7414,7 @@
     "id": "fnf",
     "title": "Friday Night Funkin",
     "html": "assets/games/fridaynightfunkin.html",
-    "image": "assets/images/fnf.png",
+    "image": "assets/images/fnf.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -7424,7 +7424,7 @@
     "id": "paperio",
     "title": "Paper.io",
     "html": "assets/games/paperio.html",
-    "image": "assets/images/paperio2.png",
+    "image": "assets/images/paperio2.webp",
     "source": "aetheris",
     "tags": [
       "Io"
@@ -7434,7 +7434,7 @@
     "id": "impossiblequiz",
     "title": "The Impossible Quiz",
     "html": "assets/games/impossiblequiz.html",
-    "image": "assets/images/tiq.png",
+    "image": "assets/images/tiq.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -7444,7 +7444,7 @@
     "id": "impossiblequiz2",
     "title": "The Impossible Quiz 2",
     "html": "assets/games/impossiblequiz2.html",
-    "image": "assets/images/tiq2.jpg",
+    "image": "assets/images/tiq2.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -7454,7 +7454,7 @@
     "id": "littlealchemy2",
     "title": "Little Alchemy 2",
     "html": "assets/games/littlealchemy2.html",
-    "image": "assets/images/la2.png",
+    "image": "assets/images/la2.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -7464,7 +7464,7 @@
     "id": "littlealchemy",
     "title": "Little Alchemy",
     "html": "assets/games/littlealchemy/index.html",
-    "image": "assets/images/la.png",
+    "image": "assets/images/la.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -7494,7 +7494,7 @@
     "id": "sm64",
     "title": "Super Mario 64",
     "html": "assets/games/sm64.html",
-    "image": "assets/images/sm64.png",
+    "image": "assets/images/sm64.webp",
     "tags": [
       "Action"
     ]
@@ -7503,7 +7503,7 @@
     "id": "escapeprison",
     "title": "Henry Stickmin: Escaping the Prison",
     "html": "assets/games/escapingtheprison.html",
-    "image": "assets/images/etp.png",
+    "image": "assets/images/etp.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -7513,7 +7513,7 @@
     "id": "fleeingthecomplex",
     "title": "Henry Stickmin: Fleeing the Complex",
     "html": "assets/games/fleecomplex.html",
-    "image": "assets/images/ftc.png",
+    "image": "assets/images/ftc.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -7523,7 +7523,7 @@
     "id": "spacewaves",
     "title": "Space Waves",
     "html": "assets/games/spacewaves.html",
-    "image": "assets/images/spacewaves.png",
+    "image": "assets/images/spacewaves.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -7543,7 +7543,7 @@
     "id": "breakingthebank",
     "title": "Henry Stickmin: Breaking the Bank",
     "html": "assets/games/btb.html",
-    "image": "assets/images/btb.png",
+    "image": "assets/images/btb.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -7563,7 +7563,7 @@
     "id": "slope",
     "title": "Slope",
     "html": "assets/games/slope.html",
-    "image": "assets/images/slope.png",
+    "image": "assets/images/slope.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -7573,7 +7573,7 @@
     "id": "slope2",
     "title": "Slope 2",
     "html": "assets/games/slope2.html",
-    "image": "assets/images/slope2.jpg",
+    "image": "assets/images/slope2.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -7593,7 +7593,7 @@
     "id": "crossyroad",
     "title": "Crossy Road",
     "html": "assets/games/crossyroad.html",
-    "image": "assets/images/crossyroad.png",
+    "image": "assets/images/crossyroad.webp",
     "source": "aetheris",
     "tags": [
       "Racing"
@@ -7603,7 +7603,7 @@
     "id": "drivemad",
     "title": "Drive Mad",
     "html": "assets/games/drivemad.html",
-    "image": "assets/images/drivemad.jpg",
+    "image": "assets/images/drivemad.webp",
     "source": "aetheris",
     "tags": [
       "Racing"
@@ -7633,7 +7633,7 @@
     "id": "solarsmash",
     "title": "Solar Smash",
     "html": "assets/games/solarsmash.html",
-    "image": "assets/images/solarsmash.jpg",
+    "image": "assets/images/solarsmash.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -7643,7 +7643,7 @@
     "id": "sandtris",
     "title": "Sandtris",
     "html": "assets/games/sandtris.html",
-    "image": "assets/images/sandtris.jpg",
+    "image": "assets/images/sandtris.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -7663,7 +7663,7 @@
     "id": "robbyblocks",
     "title": "Robby Blocks",
     "html": "assets/games/robbyblocks.html",
-    "image": "assets/images/robbyblocks.jpg",
+    "image": "assets/images/robbyblocks.webp",
     "source": "aetheris",
     "tags": [
       "Skill",
@@ -7674,7 +7674,7 @@
     "id": "funnybattle2",
     "title": "Funny Battle 2",
     "html": "assets/games/funnybattle2.html",
-    "image": "assets/images/funnybattle2.jpg",
+    "image": "assets/images/funnybattle2.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -7684,7 +7684,7 @@
     "id": "funnybattle",
     "title": "Funny Battle",
     "html": "assets/games/funnybattle.html",
-    "image": "assets/images/funnybattle.jpg",
+    "image": "assets/images/funnybattle.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -7704,7 +7704,7 @@
     "id": "icedodo",
     "title": "Icedodo",
     "html": "assets/games/icedodo.html",
-    "image": "assets/images/icedodo.jpg",
+    "image": "assets/images/icedodo.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -7724,7 +7724,7 @@
     "id": "suikapico",
     "title": "Suika Pico",
     "html": "assets/games/suikapico.html",
-    "image": "assets/images/suikapico.png",
+    "image": "assets/images/suikapico.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -7794,7 +7794,7 @@
     "id": "doodlejumpgoober",
     "title": "Doodle Jump Goober",
     "html": "assets/games/doodlejumpgoober.html",
-    "image": "assets/images/doodlejump.png",
+    "image": "assets/images/doodlejump.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -7844,7 +7844,7 @@
     "id": "subwaysurfersbarcelona",
     "title": "Subway Surfers Barcelona",
     "html": "assets/games/subwaysurfersbarcelona.html",
-    "image": "assets/images/subwaysurfersbarcelona.jpg",
+    "image": "assets/images/subwaysurfersbarcelona.webp",
     "source": "aetheris"
   },
   {
@@ -7873,7 +7873,7 @@
     "id": "subwaysurferssakuratokyomodded",
     "title": "Subway Surfers Sakuratown Tokyo Modded",
     "html": "assets/games/subwaysurferssakuratokyomodded/index.html",
-    "image": "assets/images/subwaysurferssakuratokyomodded.jpg",
+    "image": "assets/images/subwaysurferssakuratokyomodded.webp",
     "source": "aetheris",
     "tags": [
       "Subway-Surfers",
@@ -7884,7 +7884,7 @@
     "id": "subwaysurfersbuenosaires",
     "title": "Subway Surfers Buenos Aires",
     "html": "assets/games/subwaysurfersbuenosaires.html",
-    "image": "assets/images/subwaysurfersbuenosaires.jpg",
+    "image": "assets/images/subwaysurfersbuenosaires.webp",
     "source": "aetheris",
     "tags": [
       "Subway-Surfers",
@@ -7917,7 +7917,7 @@
     "id": "subwaysurfersiceland",
     "title": "Subway Surfers Iceland",
     "html": "assets/games/subwaysurfersiceland.html",
-    "image": "assets/images/subwaysurfersiceland.jpg",
+    "image": "assets/images/subwaysurfersiceland.webp",
     "source": "aetheris",
     "tags": [
       "Subway-Surfers",
@@ -7950,7 +7950,7 @@
     "id": "subwaysurfersmiami",
     "title": "Subway Surfers Miami",
     "html": "assets/games/subwaysurfersmiami.html",
-    "image": "assets/images/subwaysurfersmiami.jpg",
+    "image": "assets/images/subwaysurfersmiami.webp",
     "source": "aetheris",
     "tags": [
       "Subway-Surfers",
@@ -8016,7 +8016,7 @@
     "id": "subwaysurferszurich",
     "title": "Subway Surfers Zurich",
     "html": "assets/games/subwaysurferszurich.html",
-    "image": "assets/images/subwaysurferszurich.png",
+    "image": "assets/images/subwaysurferszurich.webp",
     "source": "aetheris",
     "tags": [
       "Subway-Surfers",
@@ -8027,7 +8027,7 @@
     "id": "geometrydash",
     "title": "Geometry Dash",
     "html": "assets/games/gdlite.html",
-    "image": "assets/images/gd.png",
+    "image": "assets/images/gd.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -8057,7 +8057,7 @@
     "id": "bloxorz",
     "title": "Bloxorz",
     "html": "assets/games/bloxorz.html",
-    "image": "assets/images/bloxorz.png",
+    "image": "assets/images/bloxorz.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -8067,7 +8067,7 @@
     "id": "basketballstars",
     "title": "Basketball Stars",
     "html": "assets/games/basketballstars.html",
-    "image": "assets/images/bbstars.png",
+    "image": "assets/images/bbstars.webp",
     "source": "aetheris",
     "tags": [
       "Sports"
@@ -8077,7 +8077,7 @@
     "id": "curveball3d",
     "title": "Curve Ball 3D",
     "html": "assets/games/curveball.html",
-    "image": "assets/images/curveball.png",
+    "image": "assets/images/curveball.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -8087,7 +8087,7 @@
     "id": "bitlife",
     "title": "Bitlife",
     "html": "assets/games/bitlife.html",
-    "image": "assets/images/bitlife.png",
+    "image": "assets/images/bitlife.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -8097,7 +8097,7 @@
     "id": "btd",
     "title": "Bloons TD",
     "html": "assets/games/bloonsTD1.html",
-    "image": "assets/images/bloonstd.png",
+    "image": "assets/images/bloonstd.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -8117,7 +8117,7 @@
     "id": "btd3",
     "title": "Bloons TD 3",
     "html": "assets/games/bloonsTD3.html",
-    "image": "assets/images/btd3.png",
+    "image": "assets/images/btd3.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -8127,7 +8127,7 @@
     "id": "btd4",
     "title": "Bloons TD 4",
     "html": "assets/games/bloonsTD4.html",
-    "image": "assets/images/btd4.png",
+    "image": "assets/images/btd4.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -8137,7 +8137,7 @@
     "id": "btd5",
     "title": "Bloons TD 5",
     "html": "assets/games/btd5.html",
-    "image": "assets/images/bloonstd5.png",
+    "image": "assets/images/bloonstd5.webp",
     "source": "aetheris",
     "tags": [
       "Strategy"
@@ -8147,7 +8147,7 @@
     "id": "2048",
     "title": "2048",
     "html": "assets/games/2048.html",
-    "image": "assets/images/2048.png",
+    "image": "assets/images/2048.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -8167,7 +8167,7 @@
     "id": "brawlguys",
     "title": "Brawl Guys",
     "html": "assets/games/brawlguys.html",
-    "image": "assets/images/brawlguys.png",
+    "image": "assets/images/brawlguys.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -8177,7 +8177,7 @@
     "id": "fnafworld",
     "title": "FNAF World",
     "html": "assets/games/fnafworld.html",
-    "image": "assets/images/fnafworld.png",
+    "image": "assets/images/fnafworld.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -8187,7 +8187,7 @@
     "id": "gtag",
     "title": "Gorilla Tag",
     "html": "assets/games/gtag.html",
-    "image": "assets/images/gtag.png",
+    "image": "assets/images/gtag.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -8207,7 +8207,7 @@
     "id": "99nightsitf",
     "title": "99 Nights In The Forest",
     "html": "assets/games/99nightsitf.html",
-    "image": "assets/images/99n.png",
+    "image": "assets/images/99n.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -8217,7 +8217,7 @@
     "id": "adventurecapatalist",
     "title": "Adventure Capatalist",
     "html": "assets/games/adventurecapatalist.html",
-    "image": "assets/images/ac.png",
+    "image": "assets/images/ac.webp",
     "source": "aetheris",
     "tags": [
       "Action"
@@ -8227,7 +8227,7 @@
     "id": "agariolite",
     "title": "Agar Io",
     "html": "assets/games/agariolite.html",
-    "image": "assets/images/agar.png",
+    "image": "assets/images/agar.webp",
     "source": "aetheris",
     "tags": [
       "Io"
@@ -8237,7 +8237,7 @@
     "id": "angrybirdsonline",
     "title": "Angry Birds Online",
     "html": "assets/games/angrybirdsonline.html",
-    "image": "assets/images/angrybirdsonline.png",
+    "image": "assets/images/angrybirdsonline.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -8247,7 +8247,7 @@
     "id": "angrybirdsshowdown",
     "title": "Angry Birds Showdown",
     "html": "assets/games/angrybirdsshowdown.html",
-    "image": "assets/images/angrybirdsshowdown.png",
+    "image": "assets/images/angrybirdsshowdown.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -8257,7 +8257,7 @@
     "id": "run3",
     "title": "Run 3",
     "html": "assets/games/run3.html",
-    "image": "assets/images/run3.png",
+    "image": "assets/images/run3.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -8267,7 +8267,7 @@
     "id": "endacopia",
     "title": "Endacopia",
     "html": "assets/games/endacopia.html",
-    "image": "assets/images/endacopia.png",
+    "image": "assets/images/endacopia.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -8277,7 +8277,7 @@
     "id": "ddlc",
     "title": "Doki Doki Literature Club",
     "url": "assets/games/ddlc.html",
-    "image": "assets/images/ddlc.png",
+    "image": "assets/images/ddlc.webp",
     "source": "aetheris",
     "tags": [
       "Skill"
@@ -8287,7 +8287,7 @@
     "id": "wasm-clustertruck",
     "title": "ClusterTruck",
     "html": "assets/games/wasm-clustertruck.html",
-    "image": "assets/images/wasm-clustertruck.png",
+    "image": "assets/images/wasm-clustertruck.webp",
     "source": "aetheris",
     "tags": [
       "WASM"
@@ -8297,7 +8297,7 @@
     "id": "wasm-fez",
     "title": "Fez",
     "html": "assets/games/wasm-fez.html",
-    "image": "assets/images/wasm-fez.png",
+    "image": "assets/images/wasm-fez.webp",
     "source": "aetheris",
     "tags": [
       "WASM"
@@ -8307,7 +8307,7 @@
     "id": "wasm-howtofish",
     "title": "HowToFish",
     "html": "assets/games/wasm-howtofish.html",
-    "image": "assets/images/wasm-howtofish.png",
+    "image": "assets/images/wasm-howtofish.webp",
     "source": "aetheris",
     "tags": [
       "WASM"
@@ -8327,7 +8327,7 @@
     "id": "wasm-tmfds",
     "title": "The Message From Deep space",
     "html": "assets/games/wasm-tmfds.html",
-    "image": "assets/images/wasm-tmfds.jpg",
+    "image": "assets/images/wasm-tmfds.webp",
     "source": "aetheris",
     "tags": [
       "WASM"
@@ -8337,7 +8337,7 @@
     "id": "wasm-boilnoodles",
     "title": "Boil Noodles at Night",
     "html": "assets/games/wasm-boilnoodles.html",
-    "image": "assets/images/wasm-boilnoodles.png",
+    "image": "assets/images/wasm-boilnoodles.webp",
     "source": "aetheris",
     "tags": [
       "WASM"
@@ -8347,7 +8347,7 @@
     "id": "wasm-cc",
     "title": "Crashout Crew",
     "html": "assets/games/wasm-cc.html",
-    "image": "assets/images/wasm-cc.jpg",
+    "image": "assets/images/wasm-cc.webp",
     "source": "aetheris",
     "tags": [
       "WASM"
@@ -8357,7 +8357,7 @@
     "id": "wasm-dudestop",
     "title": "Dude, Stop",
     "html": "assets/games/wasm-dudestop.html",
-    "image": "assets/images/wasm-dudestop.webp",
+    "image": "assets/images/wasm-dudestop.avif",
     "source": "aetheris",
     "tags": [
       "WASM"
@@ -8367,7 +8367,7 @@
     "id": "wasm-granny",
     "title": "Granny 3 (Mirror)",
     "html": "assets/games/wasm-granny.html",
-    "image": "assets/images/wasm-granny.png",
+    "image": "assets/images/wasm-granny.webp",
     "source": "aetheris",
     "tags": [
       "WASM"
@@ -8377,7 +8377,7 @@
     "id": "wasm-gta3",
     "title": "GTA 3",
     "html": "assets/games/wasm-gta3.html",
-    "image": "assets/images/wasm-gta3.png",
+    "image": "assets/images/wasm-gta3.webp",
     "source": "aetheris",
     "tags": [
       "WASM"
@@ -8387,7 +8387,7 @@
     "id": "wasm-happy-room",
     "title": "Happy Room",
     "html": "assets/games/wasm-happy-room.html",
-    "image": "assets/images/wasm-happy-room.png",
+    "image": "assets/images/wasm-happy-room.webp",
     "source": "aetheris",
     "tags": [
       "WASM"
@@ -8397,7 +8397,7 @@
     "id": "wasm-inscryption",
     "title": "Inscryption",
     "html": "assets/games/wasm-inscryption.html",
-    "image": "assets/images/wasm-inscryption.png",
+    "image": "assets/images/wasm-inscryption.webp",
     "source": "aetheris",
     "tags": [
       "WASM"
@@ -8407,7 +8407,7 @@
     "id": "wasm-lethal",
     "title": "Lethal Company (Mirror)",
     "html": "assets/games/wasm-lethal.html",
-    "image": "assets/images/wasm-lethal.jpg",
+    "image": "assets/images/wasm-lethal.webp",
     "source": "aetheris",
     "tags": [
       "WASM"
@@ -8417,7 +8417,7 @@
     "id": "wasm-lob-corp",
     "title": "Lobotomy Corporation",
     "html": "assets/games/wasm-lob-corp.html",
-    "image": "assets/images/wasm-lob-corp.png",
+    "image": "assets/images/wasm-lob-corp.webp",
     "source": "aetheris",
     "tags": [
       "WASM"
@@ -8427,7 +8427,7 @@
     "id": "wasm-miside",
     "title": "MiSide",
     "html": "assets/games/wasm-miside.html",
-    "image": "assets/images/wasm-miside.jpg",
+    "image": "assets/images/wasm-miside.webp",
     "source": "aetheris",
     "tags": [
       "WASM"
@@ -8447,7 +8447,7 @@
     "id": "wasm-peak",
     "title": "PEAK",
     "html": "assets/games/wasm-peak.html",
-    "image": "assets/images/wasm-peak.png",
+    "image": "assets/images/wasm-peak.webp",
     "source": "aetheris",
     "tags": [
       "WASM"
@@ -8477,7 +8477,7 @@
     "id": "wasm-scp",
     "title": "SCP: Containment Breach",
     "html": "assets/games/wasm-scp.html",
-    "image": "assets/images/wasm-scp.png",
+    "image": "assets/images/wasm-scp.webp",
     "source": "aetheris",
     "tags": [
       "WASM"
@@ -8487,7 +8487,7 @@
     "id": "wasm-sirkicksalot",
     "title": "The Adventures of Sir Kicksalot",
     "html": "assets/games/wasm-sirkicksalot.html",
-    "image": "assets/images/wasm-sirkicksalot.png",
+    "image": "assets/images/wasm-sirkicksalot.webp",
     "source": "aetheris",
     "tags": [
       "WASM"
@@ -8497,7 +8497,7 @@
     "id": "wasm-wtl",
     "title": "While True: Learn()",
     "html": "assets/games/wasm-wtl.html",
-    "image": "assets/images/wasm-wtl.png",
+    "image": "assets/images/wasm-wtl.webp",
     "source": "aetheris",
     "tags": [
       "WASM"
@@ -8507,7 +8507,7 @@
     "id": "wasm-bpac",
     "title": "Brotato Paws n' Claws",
     "html": "assets/games/wasm-bpac.html",
-    "image": "assets/images/wasm-bpac.png",
+    "image": "assets/images/wasm-bpac.webp",
     "source": "aetheris",
     "tags": [
       "WASM"
@@ -8526,7 +8526,7 @@
     "id": "wasm-azahar",
     "title": "Azahar",
     "html": "assets/games/wasm-azahar.html",
-    "image": "assets/images/wasm-azahar.png",
+    "image": "assets/images/wasm-azahar.webp",
     "source": "aetheris",
     "tags": [
       "WASM"
