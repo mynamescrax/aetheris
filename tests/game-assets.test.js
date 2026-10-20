@@ -361,6 +361,48 @@ test("a refused relay path is still a CORS response", async () => {
   } finally { await app.close(); }
 });
 
+test("a cached game page is never older than the current version", async () => {
+  // The game pages are served with a week of stale-while-revalidate. A
+  // fixed cache key would keep handing out the copy the browser cached a
+  // week ago, so a visitor never sees the fix that was deployed since.
+  const source = readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
+  const from = source.indexOf("var GAMEPAGE_VERSION");
+  const to = source.indexOf("// --- proxy ad/tracker blocking ---");
+  assert.ok(from !== -1 && to > from, "the game page cache is where we expect it");
+  const fetched = [];
+  const context = {
+    URL,
+    Request,
+    Headers,
+    Response,
+    fetch: async (url) => {
+      fetched.push(String(url));
+      return new Response("<html></html>", {
+        headers: { "content-type": "text/html" },
+      });
+    },
+    caches: {
+      open: async () => ({
+        match: async () => undefined,
+        put: async () => {},
+        keys: async () => [],
+      }),
+    },
+  };
+  vm.runInNewContext(
+    source.slice(from, to) + "\nthis.gamepageresponse = gamepageresponse;",
+    context,
+  );
+  const request = new Request("https://aetheris.win/assets/games/fallguys.html");
+  const result = await context.gamepageresponse(request);
+  assert.equal(result.status, 200);
+  assert.equal(fetched.length, 1);
+  assert.ok(
+    /[?&]v=/.test(fetched[0]),
+    "the page is fetched under a versioned URL: " + fetched[0],
+  );
+});
+
 test("the worker puts the CORS header back on a failed relay answer", async () => {
   // Cloudflare replaces a 5xx from the origin with its own error page, and
   // that page has no CORS header: the browser would report a CORS error

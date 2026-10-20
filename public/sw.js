@@ -75,31 +75,45 @@ var spoofrestored = new Promise(function (resolve) {
 // One game page is 34MB and Cloudflare does not cache HTML, so every visit
 // pulled the whole thing from the origin again. Keep a copy here: the page
 // goes out from the cache and a fresh one is fetched in the background.
-var GAMEPAGE_CACHE = "aetheris-gamepages";
+// The version is part of the URL the page is fetched and stored under. The
+// pages are served with a week of stale-while-revalidate, so a fixed URL
+// keeps handing out the copy the browser cached a week ago - a visitor whose
+// page is a week old never sees the fix that was deployed since. A new
+// version is a new cache key and a new HTTP cache entry, so the first visit
+// after a change always gets the current page.
+var GAMEPAGE_VERSION = "2";
+var GAMEPAGE_CACHE = "aetheris-gamepages-v" + GAMEPAGE_VERSION;
 // A handful of games is plenty; the cache is dropped when it grows past this.
 var GAMEPAGE_MAX_ENTRIES = 16;
 // Anything bigger is not worth the storage.
 var GAMEPAGE_MAX_BYTES = 48 * 1024 * 1024;
 
+function gamepageurl(request) {
+  var url = new URL(request.url);
+  url.searchParams.set("v", GAMEPAGE_VERSION);
+  return url.href;
+}
+
 function gamepageresponse(request) {
   // Only a GET may be answered from the cache: a HEAD has to report the
   // headers of the file that is on the server, not a stored body.
   if (request.method !== "GET") return fetch(request);
+  var target = gamepageurl(request);
   return caches.open(GAMEPAGE_CACHE).then(function (cache) {
-    return cache.match(request).then(function (cached) {
+    return cache.match(target).then(function (cached) {
       if (cached) {
         // A fresh copy is fetched in the background for the next visit. Its
         // body goes straight into the cache, so nothing is read twice.
-        fetch(request)
+        fetch(target)
           .then(function (response) {
-            if (response && response.ok) storegamepage(cache, request, response);
+            if (response && response.ok) storegamepage(cache, target, response);
           })
           .catch(function () {});
         return cached;
       }
-      return fetch(request)
+      return fetch(target)
         .then(function (response) {
-          if (response && response.ok) storegamepage(cache, request, response, true);
+          if (response && response.ok) storegamepage(cache, target, response, true);
           return response;
         })
         .catch(function () {
@@ -112,7 +126,7 @@ function gamepageresponse(request) {
   });
 }
 
-function storegamepage(cache, request, response, clone) {
+function storegamepage(cache, key, response, clone) {
   var length = Number(response.headers.get("content-length") || 0);
   if (length && length > GAMEPAGE_MAX_BYTES) {
     if (response.body) response.body.cancel().catch(function () {});
@@ -126,7 +140,7 @@ function storegamepage(cache, request, response, clone) {
   if (!response.body) return;
   var stored = clone ? response.clone().body : response.body;
   cache
-    .put(request, new Response(stored, { status: 200, headers: headers }))
+    .put(key, new Response(stored, { status: 200, headers: headers }))
     .then(function () {
       return cache.keys();
     })
@@ -134,8 +148,8 @@ function storegamepage(cache, request, response, clone) {
       if (keys.length <= GAMEPAGE_MAX_ENTRIES) return;
       var excess = keys.slice(0, keys.length - GAMEPAGE_MAX_ENTRIES);
       return Promise.all(
-        excess.map(function (key) {
-          return cache.delete(key);
+        excess.map(function (entry) {
+          return cache.delete(entry);
         }),
       );
     })
@@ -1300,7 +1314,28 @@ self.addEventListener("install", function (event) {
 });
 
 self.addEventListener("activate", function (event) {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches
+      .keys()
+      .then(function (names) {
+        // The game page cache is versioned. The older ones are never read
+        // again, and they hold tens of megabytes, so they go.
+        return Promise.all(
+          names.map(function (name) {
+            if (
+              name.indexOf("aetheris-gamepages") === 0 &&
+              name !== GAMEPAGE_CACHE
+            ) {
+              return caches.delete(name);
+            }
+            return null;
+          }),
+        );
+      })
+      .then(function () {
+        return self.clients.claim();
+      }),
+  );
 });
 
 self.addEventListener("message", function (event) {
