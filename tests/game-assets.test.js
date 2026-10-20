@@ -361,6 +361,37 @@ test("a refused relay path is still a CORS response", async () => {
   } finally { await app.close(); }
 });
 
+test("the worker puts the CORS header back on a failed relay answer", async () => {
+  // Cloudflare replaces a 5xx from the origin with its own error page, and
+  // that page has no CORS header: the browser would report a CORS error
+  // instead of the status. The worker is the last place to add it.
+  const source = readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
+  const from = source.indexOf("function isrelaypath(");
+  const to = source.indexOf("function shouldbypass(");
+  assert.ok(from !== -1 && to > from, "the relay helper is where we expect it");
+  const context = {
+    Headers,
+    Response,
+    fetch: async () => new Response("error code: 502", { status: 502 }),
+  };
+  vm.runInNewContext(
+    source.slice(from, to) + "\nthis.relayresponse = relayresponse;",
+    context,
+  );
+  const request = new Request("https://aetheris.win/s/token/x.js", {
+    headers: { Origin: "null" },
+  });
+  const failed = await context.relayresponse(request);
+  assert.equal(failed.status, 502);
+  assert.equal(failed.headers.get("access-control-allow-origin"), "null");
+  assert.equal(failed.headers.get("vary"), "Origin");
+  // a good answer is handed over untouched
+  context.fetch = async () => new Response("ok", { status: 200 });
+  const good = await context.relayresponse(request);
+  assert.equal(good.status, 200);
+  assert.equal(good.headers.get("access-control-allow-origin"), null);
+});
+
 test("the worker's redirect to the relay passes the CORS check on its own", () => {
   const source = readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
   const from = source.indexOf("function mirrorredirectresponse(");

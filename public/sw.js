@@ -985,6 +985,52 @@ function mirrorredirectresponse(location) {
   });
 }
 
+// The relay answers a failed asset with a 5xx. Cloudflare replaces a 5xx from
+// the origin with its own error page, and that page carries no CORS header:
+// the browser then refuses it and reports "blocked by CORS policy", so the real
+// status never reaches the game. The worker sees the answer before the
+// browser does and puts the header back, which turns the CORS error into the
+// status it always was.
+function isrelaypath(pathname) {
+  return (
+    pathname.indexOf("/s/") === 0 || pathname.indexOf("/game-assets/") === 0
+  );
+}
+
+function relayresponse(request) {
+  return fetch(request).then(
+    function (response) {
+      if (response && response.status < 500) return response;
+      var headers = new Headers(response.headers);
+      headers.set(
+        "Access-Control-Allow-Origin",
+        request.headers.get("Origin") || "*",
+      );
+      headers.set("Vary", "Origin");
+      // The body is handed over unchanged, so the length may no longer be
+      // the one of the error page.
+      headers.delete("content-length");
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: headers,
+      });
+    },
+    function () {
+      return new Response("Game CDN temporarily unavailable; retry shortly.", {
+        status: 502,
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Access-Control-Allow-Origin":
+            request.headers.get("Origin") || "*",
+          "Cache-Control": "no-store",
+          "Retry-After": "10",
+        },
+      });
+    },
+  );
+}
+
 function shouldbypass(url) {
   if (
     url.indexOf("data:") === 0 ||
@@ -1121,6 +1167,15 @@ self.addEventListener("fetch", function (event) {
       event.respondWith(mirrorredirectresponse(mirrorurl));
       return;
     }
+  }
+
+  // The relay answers are CORS-checked by the game. A failed asset would
+  // arrive without a CORS header (Cloudflare replaces a 5xx with its own
+  // error page), so the browser reports a CORS error instead of the status.
+  // The worker is the last place where the header can be put back.
+  if (!proxied && parsed && parsed.origin === SITE_ORIGIN && isrelaypath(parsed.pathname)) {
+    event.respondWith(relayresponse(event.request));
+    return;
   }
 
   if (shouldbypass(url)) return;
