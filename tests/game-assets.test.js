@@ -876,3 +876,165 @@ test("jsDelivr package-size 403 falls back to the GitHub raw mirror", async () =
     assert.equal(urls.at(-1), "https://raw.githubusercontent.com/bubblfan/fnaf/main/4/resources.zip.part10");
   } finally { await app.close(); }
 });
+
+test("every relay answer varies on Origin, and one without an Origin still passes a CORS check", async () => {
+  // A <script> tag sends no Origin and a fetch() does. A cache that keeps the
+  // first answer under the bare URL would hand it to the second, which is
+  // CORS-checked. Pinned builds live for a year, so this must hold everywhere.
+  const app = fixture({ fetchimpl: async (url, options) => {
+    if (options.method === "HEAD") {
+      return new Response(null, { headers: { "content-length": "15" } });
+    }
+    return new Response("console.log(1);");
+  }});
+  try {
+    const token = "/s/" + assetToken("jsdelivr", "gh/bubbls/x@main");
+    const cases = [
+      { url: `${token}/ok.js` },
+      { url: `${token}/ok.js`, method: "HEAD" },
+      { url: "/s/not-base64!!/x.js" },
+      { url: "/game-assets/m/nosuchmirror/x.js" },
+      { url: "/s?x=1" },
+    ];
+    for (const item of cases) {
+      const label = `${item.method || "GET"} ${item.url}`;
+      const bare = await app.inject({ method: "GET", ...item });
+      assert.equal(bare.headers.vary, "Origin", `${label}: no Origin`);
+      assert.equal(bare.headers["access-control-allow-origin"], "*", `${label}: no Origin`);
+      const origin = await app.inject({ method: "GET", ...item, headers: { origin: "null" } });
+      assert.equal(origin.headers.vary, "Origin", `${label}: Origin`);
+      assert.equal(origin.headers["access-control-allow-origin"], "null", `${label}: Origin`);
+      assert.match(
+        String(origin.headers["access-control-expose-headers"]),
+        /Content-Range/,
+        `${label}: a loader that resumes a download has to read Content-Range`,
+      );
+    }
+  } finally { await app.close(); }
+});
+
+test("a failed write to the disk cache costs the cache entry, not the download", { timeout: 15000 }, async () => {
+  // A full disk or a revoked permission used to leave the tee waiting for a
+  // drain that never came, and the visitor's download hung with it.
+  const size = 6 * 1024 * 1024;
+  const chunk = 65536;
+  const dir = mkdtempSync(join(tmpdir(), "aetheris-assets-"));
+  const app = Fastify();
+  registerGameAssets(app, { cacheDir: dir, fetchimpl: async () => {
+    const body = new ReadableStream({
+      start(controller) {
+        for (let i = 0; i < size / chunk; i++) controller.enqueue(new Uint8Array(chunk));
+        controller.close();
+      },
+    });
+    return new Response(body, { headers: { "content-length": String(size) } });
+  }});
+  // Every write into the cache directory now fails.
+  rmSync(dir, { recursive: true, force: true });
+  try {
+    const result = await app.inject("/game-assets/m/jsdelivr/gh/bubblfan/fnaf@main/1/resources.zip.part1");
+    assert.equal(result.statusCode, 200);
+    assert.equal((await bodyOf(result)).length, size, "the whole build still reaches the visitor");
+  } finally {
+    await app.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a build that ends short of its announced length is never cached", async () => {
+  // It would be served from disk for a day with the year-long Cache-Control
+  // of a pinned path.
+  const announced = 6 * 1024 * 1024;
+  const sent = 5 * 1024 * 1024;
+  const chunk = 65536;
+  const dir = mkdtempSync(join(tmpdir(), "aetheris-assets-"));
+  const app = Fastify();
+  let calls = 0;
+  registerGameAssets(app, { cacheDir: dir, fetchimpl: async () => {
+    calls++;
+    const body = new ReadableStream({
+      start(controller) {
+        for (let i = 0; i < sent / chunk; i++) controller.enqueue(new Uint8Array(chunk));
+        controller.close();
+      },
+    });
+    return new Response(body, { headers: { "content-length": String(announced) } });
+  }});
+  try {
+    const url = "/game-assets/m/jsdelivr/gh/bubblfan/fnaf@main/1/resources.zip.part1";
+    await bodyOf(await app.inject(url));
+    await new Promise(resolve => setTimeout(resolve, 100));
+    assert.deepEqual(
+      readdirSync(dir).filter(name => name.endsWith(".bin")),
+      [],
+      "a cut build is not a cache entry",
+    );
+    await bodyOf(await app.inject(url));
+    assert.equal(calls, 2, "the next visitor asks upstream again");
+  } finally {
+    await app.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("the worker strips the Cloudflare beacon as the page streams, wherever a chunk ends", async () => {
+  // The page is up to 34MB: it may not be read whole, and a chunk boundary
+  // that lands inside the tag may not let any of it through.
+  const source = readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
+  const from = source.indexOf("var CF_BEACON_HOST");
+  const to = source.indexOf("// past this many bytes without <head>/<html>");
+  assert.ok(from !== -1 && to > from, "the beacon filter is where we expect it");
+  const context = { Headers, Response, ReadableStream, TextDecoder, TextEncoder };
+  vm.runInNewContext(source.slice(from, to) + "\nthis.stripbeacon = stripbeacon;", context);
+
+  const beacon =
+    '<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" ' +
+    'data-cf-beacon=\'{"rayId":"x","version":"2025.9.1"}\' crossorigin="anonymous"></script>';
+  const page = [
+    "<!doctype html><html><head><title>é 🎮</title>",
+    '<script>var a = "<script>";</script>',
+    "<SCRIPT SRC=\"/js/keep.js\"></SCRIPT>",
+    beacon,
+    "</head><body><p>ok</p>",
+    "<script>" + "x".repeat(9000) + "</script>",
+    beacon.replace("defer", "async"),
+    "</body></html>",
+  ].join("\n");
+  const expected = page.split(beacon).join("").replace(beacon.replace("defer", "async"), "");
+  assert.ok(!expected.includes("cloudflareinsights"), "the fixture removes both beacons");
+
+  const bytes = new TextEncoder().encode(page);
+  async function run(parts) {
+    const body = new ReadableStream({
+      start(controller) {
+        for (const part of parts) controller.enqueue(part);
+        controller.close();
+      },
+    });
+    const response = await context.stripbeacon(new Response(body, {
+      headers: { "content-type": "text/html", "content-length": String(bytes.length) },
+    }));
+    assert.equal(response.headers.get("content-length"), null);
+    return await response.text();
+  }
+
+  assert.equal(await run([bytes]), expected, "one chunk");
+  for (let cut = 1; cut < bytes.length; cut += 1) {
+    const out = await run([bytes.subarray(0, cut), bytes.subarray(cut)]);
+    if (out !== expected) assert.fail(`a chunk boundary at byte ${cut} changed the page`);
+  }
+  const single = Array.from(bytes.subarray(0, 4000), (b) => new Uint8Array([b]));
+  const rest = bytes.subarray(4000);
+  assert.equal(await run([...single, rest]), expected, "byte by byte");
+
+  // a page without the beacon goes through untouched
+  const clean = new TextEncoder().encode("<html><script>1</script><script src=x></script></html>");
+  const body = new ReadableStream({
+    start(controller) { controller.enqueue(clean.subarray(0, 9)); controller.enqueue(clean.subarray(9)); controller.close(); },
+  });
+  const untouched = await context.stripbeacon(new Response(body, { headers: { "content-type": "text/html" } }));
+  assert.equal(await untouched.text(), new TextDecoder().decode(clean));
+  // anything that is not a page is handed over as it came
+  const css = new Response("a{}", { headers: { "content-type": "text/css" } });
+  assert.equal(await context.stripbeacon(css), css);
+});

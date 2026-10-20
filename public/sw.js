@@ -692,22 +692,100 @@ var cookieenabledshim =
 // every game that ships the beacon logs a CORS error that has nothing to do
 // with the game itself. The site has its own analytics, so the beacon is
 // dropped from the game pages.
+var CF_BEACON_HOST = "static.cloudflareinsights.com";
 var CF_BEACON_TAG =
   /<script[^>]*static\.cloudflareinsights\.com[^>]*>[\s\S]*?<\/script>/gi;
 
+// A game page is up to 34MB. Reading it whole to look for a 300 byte tag held
+// the page back until the last byte had arrived and put two copies of it in
+// memory, which an iPad does not have to spare. The page is filtered as it
+// streams instead. Only a tag that a chunk boundary may have cut in two is
+// held back until the next chunk completes it.
+var BEACON_HOLD_LIMIT = 4096;
+
+// Where the part of `text` that is not safe to emit yet begins; the whole
+// length when all of it is.
+function beaconholdfrom(text) {
+  var hold = text.length;
+  // "<scr" at the very end may still turn into "<script"
+  var lt = text.lastIndexOf("<");
+  if (
+    lt !== -1 &&
+    text.length - lt < 7 &&
+    "<script".indexOf(text.slice(lt).toLowerCase()) === 0
+  ) {
+    hold = lt;
+  }
+  // the last script tag in the window, when it is not complete yet
+  var re = /<script/gi;
+  re.lastIndex = Math.max(0, text.length - BEACON_HOLD_LIMIT);
+  var last = -1;
+  var match;
+  while ((match = re.exec(text))) last = match.index;
+  if (last !== -1 && last < hold) {
+    var tail = text.slice(last);
+    if (!/<\/script\s*>/i.test(tail)) {
+      var open = tail.indexOf(">");
+      // the opening tag is cut, or it is the beacon and its end is missing
+      if (open === -1 || tail.slice(0, open).indexOf(CF_BEACON_HOST) !== -1) {
+        hold = last;
+      }
+    }
+  }
+  return hold;
+}
+
+function stripbeaconstream(body) {
+  var reader = body.getReader();
+  var decoder = new TextDecoder("utf-8");
+  var encoder = new TextEncoder();
+  var carry = "";
+
+  function clean(text) {
+    return text.indexOf(CF_BEACON_HOST) === -1
+      ? text
+      : text.replace(CF_BEACON_TAG, "");
+  }
+
+  // Reads until something can be emitted: a pull that enqueues nothing is not
+  // repeated by every engine.
+  function step(controller) {
+    return reader.read().then(function (result) {
+      if (result.done) {
+        var rest = carry + decoder.decode();
+        carry = "";
+        if (rest) controller.enqueue(encoder.encode(clean(rest)));
+        controller.close();
+        return;
+      }
+      var text = carry + decoder.decode(result.value, { stream: true });
+      var cut = beaconholdfrom(text);
+      carry = text.slice(cut);
+      var out = clean(text.slice(0, cut));
+      if (!out) return step(controller);
+      controller.enqueue(encoder.encode(out));
+    });
+  }
+
+  return new ReadableStream({
+    pull: step,
+    cancel: function (reason) {
+      return reader.cancel(reason);
+    },
+  });
+}
+
 async function stripbeacon(response) {
-  if (!response || response.status !== 200) return response;
+  if (!response || response.status !== 200 || !response.body) return response;
   var ct = (response.headers.get("content-type") || "").toLowerCase();
   if (ct.indexOf("text/html") === -1) return response;
   try {
-    var text = await response.clone().text();
-    if (text.indexOf("static.cloudflareinsights.com") === -1) return response;
     var headers = new Headers(response.headers);
-    // The body is plain text now: the length and the encoding of the
+    // The body is re-encoded text: the length and the encoding of the
     // original body no longer describe it.
     headers.delete("content-length");
     headers.delete("content-encoding");
-    return new Response(text.replace(CF_BEACON_TAG, ""), {
+    return new Response(stripbeaconstream(response.body), {
       status: response.status,
       statusText: response.statusText,
       headers: headers,
