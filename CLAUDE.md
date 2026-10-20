@@ -271,6 +271,14 @@ instead of the CDN.
 - The stall guard gives up after `GAME_ASSET_STALL_MS` (default 20s) without
   a byte. It used to be 45s, which left the visitor staring at a frozen
   progress bar.
+- A streamed build is sent with the `Content-Length` the upstream gave, but
+  only when the upstream body was not compressed. The Unity loader warns
+  "Response is served without Content-Length header" and shows a progress bar
+  that never moves without it. A compressed body was decoded on the way in, so
+  its length describes the compressed bytes: sending it would cut the build
+  short.
+- A visitor that walks away mid-build leaves no temp file behind; the cache
+  holds finished builds only, and stale temp files are swept on startup.
 - A path that pins a commit (`@<40-hex>`) gets
   `Cache-Control: public, max-age=31536000, immutable`; a moving ref
   (`@main`) keeps `max-age=300`. The pinned builds are the big ones, so the

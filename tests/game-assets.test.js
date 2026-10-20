@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import vm from "node:vm";
-import { readFileSync, mkdtempSync, rmSync } from "node:fs";
+import { readFileSync, mkdtempSync, rmSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Fastify from "fastify";
@@ -419,7 +419,11 @@ test("large assets stream instead of being buffered whole", async () => {
   try {
     const result = await app.inject("/game-assets/m/jsdelivr/gh/bubblfan/fnaf@main/1/resources.zip.part1");
     assert.equal(result.statusCode, 200);
-    assert.equal(result.headers["content-length"], undefined, "streamed bodies are chunked, not length-framed");
+    assert.equal(
+      result.headers["content-length"],
+      String(size),
+      "the size of the build is passed on, or the Unity loader shows no progress at all",
+    );
     assert.equal((await bodyOf(result)).length, size);
     assert.ok(streamed);
     // The build is on disk now, so the second visitor gets it from there
@@ -430,6 +434,58 @@ test("large assets stream instead of being buffered whole", async () => {
     assert.equal(again.headers["content-length"], String(size), "a cached build is served from disk");
     assert.equal(again.headers["accept-ranges"], "bytes");
   } finally { await app.close(); }
+});
+
+test("a build whose length cannot be trusted is served without one", async () => {
+  // A compressed body was decoded on the way in, so the length in the header
+  // describes the compressed bytes. Sending it would cut the build short.
+  const size = 20 * 1024 * 1024;
+  const app = fixture({ fetchimpl: async () => {
+    const body = new ReadableStream({
+      start(controller) {
+        for (let i = 0; i < size / 65536; i++) controller.enqueue(new Uint8Array(65536));
+        controller.close();
+      },
+    });
+    return new Response(body, {
+      headers: { "content-length": String(size / 2), "content-encoding": "br" },
+    });
+  }});
+  try {
+    const result = await app.inject("/game-assets/m/jsdelivr/gh/bubblfan/fnaf@main/1/resources.zip.part1");
+    assert.equal(result.statusCode, 200);
+    assert.equal(result.headers["content-length"], undefined, "a length we cannot trust is not sent");
+    assert.equal((await bodyOf(result)).length, size);
+  } finally { await app.close(); }
+});
+
+test("a visitor that walks away leaves no half-written build behind", async () => {
+  const size = 20 * 1024 * 1024;
+  const dir = mkdtempSync(join(tmpdir(), "aetheris-assets-"));
+  const app = Fastify();
+  registerGameAssets(app, { cacheDir: dir, fetchimpl: async () => {
+    const body = new ReadableStream({
+      start(controller) {
+        for (let i = 0; i < size / 65536; i++) controller.enqueue(new Uint8Array(65536));
+        controller.close();
+      },
+    });
+    return new Response(body, { headers: { "content-length": String(size) } });
+  }});
+  try {
+    // The client goes away after the first chunk.
+    await app.inject({
+      url: "/game-assets/m/jsdelivr/gh/bubblfan/fnaf@main/1/resources.zip.part1",
+      payload: undefined,
+      simulate: { end: true, split: true },
+    });
+    await new Promise(resolve => setTimeout(resolve, 50));
+    const leftovers = readdirSync(dir).filter(name => name.endsWith(".tmp"));
+    assert.deepEqual(leftovers, [], "an abandoned transfer leaves no temp file");
+  } finally {
+    await app.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("an upstream that stops halfway continues on the next mirror", async () => {
