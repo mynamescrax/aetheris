@@ -424,6 +424,11 @@ test("large assets stream instead of being buffered whole", async () => {
       String(size),
       "the size of the build is passed on, or the Unity loader shows no progress at all",
     );
+    assert.equal(
+      result.headers["cache-control"],
+      "public, max-age=300",
+      "a build that is still on its way may not sit in the browser for a year",
+    );
     assert.equal((await bodyOf(result)).length, size);
     assert.ok(streamed);
     // The build is on disk now, so the second visitor gets it from there
@@ -432,6 +437,11 @@ test("large assets stream instead of being buffered whole", async () => {
     assert.equal(again.statusCode, 200);
     assert.equal((await bodyOf(again)).length, size);
     assert.equal(again.headers["content-length"], String(size), "a cached build is served from disk");
+    assert.equal(
+      again.headers["cache-control"],
+      "public, max-age=300",
+      "a build on a moving ref keeps the short life, a pinned one may be kept for a year",
+    );
     assert.equal(again.headers["accept-ranges"], "bytes");
   } finally { await app.close(); }
 });
