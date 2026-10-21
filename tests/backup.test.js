@@ -6,7 +6,7 @@ import vm from "node:vm";
 // Loads the browser backup helper in a minimal VM context. Only the pure
 // prepare/encode/decode paths are exercised; DOM and IndexedDB access happens
 // inside functions the tests never call.
-function loadBackup() {
+function loadBackup(overrides = {}) {
   const context = {
     Buffer,
     Blob,
@@ -23,7 +23,9 @@ function loadBackup() {
       httpUrl: (value) =>
         typeof value === "string" && /^https?:\/\//.test(value) ? value : null,
       readList: () => [],
+      storage: { getItem: () => null, setItem() {}, removeItem() {} },
     },
+    ...overrides,
   };
   context.window = context;
   context.window.addEventListener = () => {};
@@ -82,4 +84,63 @@ test("backup values round-trip supported structured types", async () => {
   assert.equal(decoded.map.get("a"), 1);
   assert.deepEqual(Array.from(decoded.bytes), [1, 2, 3]);
   assert.equal(decoded.big, 10n);
+});
+
+test("export always probes the game save databases, even without a browser list", async () => {
+  // A browser that does not implement indexedDB.databases() (older Firefox,
+  // Safari) used to export an empty "indexedDB" section, so a backup silently
+  // contained no game saves. The known save databases must always be probed.
+  const context = loadBackup({
+    indexedDB: {
+      open: () => {
+        throw new Error("not implemented");
+      },
+    },
+  });
+  const names = await context.AetherisBackup.list();
+  assert.ok(names.includes("/idbfs"), "must probe /idbfs");
+  assert.ok(names.includes("/userfs"), "must probe /userfs");
+  assert.ok(names.includes("localforage"), "must probe localforage");
+});
+
+test("export probes the game save databases when the browser reports none", async () => {
+  // A browser can list zero databases (opaque origin, partitioned storage)
+  // even though the saves exist. The known list must still be probed.
+  const context = loadBackup({
+    indexedDB: {
+      databases: async () => [],
+    },
+  });
+  const names = await context.AetherisBackup.list();
+  assert.ok(names.includes("/idbfs"), "must probe /idbfs");
+  assert.ok(names.includes("/userfs"), "must probe /userfs");
+});
+
+test("export keeps the databases the browser reports", async () => {
+  const context = loadBackup({
+    indexedDB: {
+      databases: async () => [{ name: "/idbfs" }, { name: "mygame" }],
+    },
+  });
+  const names = await context.AetherisBackup.list();
+  assert.ok(names.includes("mygame"), "must keep browser-reported databases");
+  assert.ok(names.includes("/idbfs"), "must probe /idbfs");
+});
+
+test("export never includes download caches in the database list", async () => {
+  const context = loadBackup({
+    indexedDB: {
+      databases: async () => [
+        { name: "UnityCache" },
+        { name: "aetheris-games-cache" },
+        { name: "somegamecache" },
+        { name: "/idbfs" },
+      ],
+    },
+  });
+  const names = await context.AetherisBackup.list();
+  assert.ok(!names.includes("UnityCache"), "must skip UnityCache");
+  assert.ok(!names.includes("aetheris-games-cache"), "must skip the site cache");
+  assert.ok(!names.includes("somegamecache"), "must skip cache-named databases");
+  assert.ok(names.includes("/idbfs"), "must keep /idbfs");
 });

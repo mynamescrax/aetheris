@@ -275,18 +275,56 @@
     });
   }
 
+  // Databases that hold game saves. Always probed, because the browser's
+  // own list is not reliable: indexedDB.databases() is missing in older
+  // Firefox and Safari, and a page running in an opaque origin can see an
+  // empty list even though the saves exist. Without this fallback an
+  // export can silently end up with an empty "indexedDB" section, and the
+  // backup then restores no game progress at all.
+  var KNOWN_SAVE_DATABASES = [
+    "/idbfs",
+    "/idbfs-test",
+    "/userfs",
+    "/sandbox",
+    "/data",
+    "/data/saves",
+    "/_savedata",
+    "/home/webuser/game",
+    "/home/webuser/minecraft",
+    "emscripten_filesystem",
+    "localforage",
+  ];
+  // Remember the databases that exist, so a later export still finds them
+  // if the browser stops listing databases. Local hint only, never exported.
+  function rememberDatabaseNames(names) {
+    try {
+      var known = Aetheris.readList("idbNames");
+      var merged = Array.from(new Set(known.concat(names)));
+      Aetheris.storage.setItem("idbNames", JSON.stringify(merged));
+    } catch (_) {}
+  }
   async function listDatabases() {
     var known = Aetheris.readList("idbNames");
-    var names;
+    var names = [];
     try {
-      names = (await indexedDB.databases()).map(function (db) {
-        return db.name;
-      });
+      if (typeof indexedDB.databases === "function") {
+        names = (await indexedDB.databases()).map(function (db) {
+          return db.name;
+        });
+      }
     } catch (_) {
-      names = known.concat(["/idbfs", "/userfs", "localforage", "gameFilesDB"]);
+      names = [];
     }
-    return Array.from(new Set(known.concat(names))).filter(function (name) {
-      return name && !isDownloadCacheDb(name);
+    var all = new Set(
+      names
+        .concat(known)
+        .concat(KNOWN_SAVE_DATABASES)
+        .filter(function (name) {
+          return typeof name === "string" && name;
+        }),
+    );
+    return Array.from(all).filter(function (name) {
+      return !isDownloadCacheDb(name);
     });
   }
 
@@ -483,16 +521,25 @@
       var parts = [headerJson.slice(0, -1) + ',"indexedDB":{'];
       var budget = { bytes: 0, skipped: 0 };
       var first = true;
+      var exported = [];
+      var saveRecords = 0;
       for (var name of await listDatabases()) {
         status("Exporting " + name + "…");
         var dump = await dumpDatabase(name, budget);
         if (!dump) continue;
+        exported.push(name);
+        for (var storeName of Object.keys(dump.stores)) {
+          saveRecords += dump.stores[storeName].keys.length;
+        }
         parts.push(
           (first ? "" : ",") + JSON.stringify(name) + ":" + JSON.stringify(dump),
         );
         first = false;
         dump = null;
       }
+      // Remember the names that exist, so a later export still finds them
+      // even if the browser stops listing databases.
+      rememberDatabaseNames(exported);
       parts.push("}}");
       var blob = new Blob(parts, { type: "application/json" });
       parts = null;
@@ -508,7 +555,11 @@
       link.textContent =
         "Download backup (" + (blob.size / 1024 / 1024).toFixed(2) + " MB)";
       status(
-        "Backup ready. " +
+        "Backup ready (" +
+          exported.length +
+          " databases, " +
+          saveRecords +
+          " saved records). " +
           (budget.skipped
             ? "Skipped " +
               budget.skipped +
@@ -516,7 +567,11 @@
               (budget.skipped === 1 ? "" : "s") +
               " (not saves). "
             : "") +
+          (saveRecords
+            ? ""
+            : "No game saves were found - this browser could not read its game databases. ") +
           "On iPad, tap the link or touch and hold to save it to Files. Keep backups private.",
+        saveRecords ? false : true,
       );
       document.getElementById("data-status").appendChild(link);
       if (
@@ -774,6 +829,13 @@
     try {
       status("Validating backup…");
       var data = prepareBackup(JSON.parse(await file.text()));
+      var backupRecords = 0;
+      for (var dbName of Object.keys(data.databases)) {
+        var dbStores = data.databases[dbName].stores;
+        for (var storeName of Object.keys(dbStores)) {
+          backupRecords += dbStores[storeName].values.length;
+        }
+      }
       if (
         !confirm(
           "Restore this backup? It will merge the backup into your game databases (matching saves are overwritten by the backup; other saves are kept) and merge saved settings. Close other Aetheris/game tabs first. Chat sign-ins will not be imported.",
@@ -803,7 +865,10 @@
       status(
         "Import complete (" +
           restored +
-          " databases). Reload the page to apply settings.",
+          " databases, " +
+          backupRecords +
+          " saved records). Reload the page to apply settings.",
+        backupRecords ? false : true,
       );
     } catch (error) {
       status(
@@ -830,5 +895,6 @@
     prepare: prepareBackup,
     dump: dumpDatabase,
     restore: restoreDatabase,
+    list: listDatabases,
   };
 })();
