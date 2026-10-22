@@ -299,6 +299,12 @@ instead of the CDN.
     background.
 - A Cloudflare cache rule for `/assets/games/*` would fix the first visit too.
   That needs the dashboard; the code cannot do it.
+- The "Game clock" setting (`gameClockOffsetMs` in localStorage) shifts `Date`
+  inside `/assets/games/*` pages by up to ten years so day-based timers (daily
+  rewards, streaks) can be claimed again. `sw.js` injects the shim at the top
+  of `<head>` after the page caches, so no cache version bump is needed. It
+  re-reads the offset about once a second, so an open game follows a change
+  made in another tab. Proxy pages are not patched and keep the real clock.
 
 ## Production access
 

@@ -55,6 +55,17 @@ html, body {
   margin: 0;
 }
 
+/* The clock amount is short and the unit select sits beside it. */
+.clock-row input {
+  flex: 0 1 150px;
+  min-width: 110px;
+}
+
+.clock-row select {
+  width: auto;
+  flex: 0 0 auto;
+}
+
 .center-container button.secondary,
 .center-container a.button.secondary {
   display: inline-flex;

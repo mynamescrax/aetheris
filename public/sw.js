@@ -685,6 +685,50 @@ var cookieenabledshim =
   "})();" +
   "<\/script>";
 
+// Moves the clock forward inside game pages so day-based timers (daily
+// rewards, streaks) can be claimed again. Unity/Emscripten read wall-clock
+// time through Date, so that is where the offset goes. The offset lives in
+// localStorage and is re-read about once a second, so changing it in Settings
+// reaches an already open game without a reload. Only game pages get this;
+// proxy pages keep the real clock.
+var GAMECLOCK_KEY = "gameClockOffsetMs";
+var gameclockshim =
+  "<script>" +
+  "(function(){" +
+  "  if (window.__aetherisGameClockInstalled) return;" +
+  "  window.__aetherisGameClockInstalled = true;" +
+  "  var KEY = '" +
+  GAMECLOCK_KEY +
+  "';" +
+  "  var RealDate = window.Date;" +
+  "  var realnow = RealDate.now;" +
+  "  var offset = 0;" +
+  "  var checked = -1e15;" +
+  "  function read(){" +
+  "    try {" +
+  "      var value = Number(localStorage.getItem(KEY)) || 0;" +
+  "      return isFinite(value) && value > 0 ? value : 0;" +
+  "    } catch(e){ return 0; }" +
+  "  }" +
+  "  offset = read();" +
+  "  function now(){" +
+  "    var time = realnow.call(RealDate);" +
+  "    if (time - checked > 1000) { checked = time; offset = read(); }" +
+  "    return time + offset;" +
+  "  }" +
+  "  function FakeDate(){" +
+  "    if (!(this instanceof FakeDate)) return new RealDate(now()).toString();" +
+  "    if (arguments.length === 0) return new RealDate(now());" +
+  "    return Reflect.construct(RealDate, arguments, RealDate);" +
+  "  }" +
+  "  FakeDate.prototype = RealDate.prototype;" +
+  "  FakeDate.now = now;" +
+  "  FakeDate.parse = RealDate.parse;" +
+  "  FakeDate.UTC = RealDate.UTC;" +
+  "  window.Date = FakeDate;" +
+  "})();" +
+  "<\/script>";
+
 // Cloudflare's Web Analytics beacon was saved into the game pages when they
 // were copied from a browser. The beacon posts to a root-relative
 // "/cdn-cgi/rum", and the games carry a <base href="https://cdn.jsdelivr.net/...">
@@ -910,6 +954,7 @@ function injecthtmlshims(response, options) {
     if (ct.indexOf("text/html") === -1) return response;
 
     var shims =
+      (options.gameclock ? gameclockshim : "") +
       cookieenabledshim +
       panicshim +
       (options.desktopua ? desktopuashim : "") +
@@ -1266,7 +1311,10 @@ self.addEventListener("fetch", function (event) {
         .then(function () {
           return gamepageresponse(event.request).then(function (r) {
             return stripbeacon(r).then(function (clean) {
-              return injecthtmlshims(clean, { desktopua: spoofdesktopua });
+              return injecthtmlshims(clean, {
+                desktopua: spoofdesktopua,
+                gameclock: true,
+              });
             });
           });
         })

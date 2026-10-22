@@ -14,12 +14,12 @@
     <link rel="stylesheet" href="./css/cards.css?v=20260907.1" />
     <link rel="stylesheet" href="./css/themes.css?v=20261011.5" />
     <link rel="stylesheet" href="./css/nav.css?v=20260907.1" />
-    <link rel="stylesheet" href="./css/settings.css?v=20261011.3" />
+    <link rel="stylesheet" href="./css/settings.css?v=20261022.1" />
     <script src="./js/theme.js?v=20261011.2"></script>
 
     <script src="register-sw.js?v=20260907.1" defer></script>
     <script defer src="./js/preload.js?v=20261008.1"></script>
-    <script defer src="./js/settings.js?v=20261011.3"></script>
+    <script defer src="./js/settings.js?v=20261022.1"></script>
     <script defer src="./js/data-transfer.js?v=20261020.1"></script>
     <script defer src="./js/cache-reset.js?v=20261005.1"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -73,6 +73,9 @@
         </button>
         <button class="settings-tab" onclick="showsection('connection')">
           Connection
+        </button>
+        <button class="settings-tab" onclick="showsection('games')">
+          Games
         </button>
         <button class="settings-tab" onclick="showsection('data')">Data</button>
       </div>
@@ -399,6 +402,46 @@
         </div>
       </div>
 
+      <div class="settings-section" id="section-games">
+        <h2>Game clock</h2>
+        <h4>
+          Moves the clock forward inside the built-in games so daily rewards,
+          streaks and other timers reset early. Only games that read the clock
+          on this device are affected; online games still use their server's
+          time. Open game tabs pick this up within a second, but reload a game
+          if its timer doesn't move.
+        </h4>
+
+        <div class="form-row clock-row">
+          <input
+            type="number"
+            id="clock-offset"
+            min="0"
+            step="any"
+            inputmode="decimal"
+            placeholder="Amount"
+            aria-label="Clock offset amount"
+          />
+          <select id="clock-unit" aria-label="Clock offset unit">
+            <option value="hours">hours</option>
+            <option value="days">days</option>
+          </select>
+          <button onclick="setgameclock()" class="secondary">Set clock</button>
+        </div>
+
+        <div class="form-row">
+          <button onclick="bumpgameclock(1)" class="secondary">+1 day</button>
+          <button onclick="bumpgameclock(7)" class="secondary">+1 week</button>
+          <button onclick="resetgameclock()" class="secondary">Reset clock</button>
+        </div>
+
+        <div
+          id="clock-status"
+          role="status"
+          style="margin-top: 10px; font-size: 0.92em; opacity: 0.75"
+        ></div>
+      </div>
+
       <div class="settings-section" id="section-tutorial">
         <h2>Tutorial</h2>
         <h4>Replay the quick tour from your first visit.</h4>
@@ -579,7 +622,7 @@
           el.classList.toggle("active", el.id === "section-" + name);
         });
         document.querySelectorAll(".settings-tab").forEach(function (btn, i) {
-          var tabs = ["appearance", "cloaking", "connection", "data"];
+          var tabs = ["appearance", "cloaking", "connection", "games", "data"];
           btn.classList.toggle("active", tabs[i] === name);
         });
         Aetheris.storage.setItem("settingsTab", name);

@@ -220,6 +220,95 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
+  // --- game clock ---
+  // Game pages read this from localStorage (see gameclockshim in sw.js).
+  // Shifting Date forward is what lets a daily reward be claimed again.
+
+  var CLOCK_KEY = "gameClockOffsetMs";
+  var CLOCK_MAX = 3650 * 24 * 60 * 60 * 1000; // ten years
+  var clockinput = document.getElementById("clock-offset");
+  var clockunit = document.getElementById("clock-unit");
+  var clockstatus = document.getElementById("clock-status");
+
+  function clockoffset() {
+    var value = Number(store.getItem(CLOCK_KEY));
+    return isFinite(value) && value > 0 ? Math.min(value, CLOCK_MAX) : 0;
+  }
+
+  function formatoffset(ms) {
+    if (ms < 3600000) {
+      var minutes = Math.max(1, Math.round(ms / 60000));
+      return minutes + (minutes === 1 ? " minute" : " minutes");
+    }
+    var hours = Math.round((ms / 3600000) * 100) / 100;
+    if (hours < 24) return hours + (hours === 1 ? " hour" : " hours");
+    var days = Math.round((ms / 86400000) * 100) / 100;
+    return days + (days === 1 ? " day" : " days");
+  }
+
+  function showclockinput(ms) {
+    if (!clockinput || !clockunit) return;
+    if (!ms) {
+      clockinput.value = "";
+      return;
+    }
+    if (ms % 86400000 === 0) {
+      clockinput.value = String(ms / 86400000);
+      clockunit.value = "days";
+    } else {
+      clockinput.value = String(Math.round((ms / 3600000) * 100) / 100);
+      clockunit.value = "hours";
+    }
+  }
+
+  function refreshclock() {
+    if (!clockstatus) return;
+    var offset = clockoffset();
+    clockstatus.textContent = offset
+      ? "Games are " +
+        formatoffset(offset) +
+        " ahead. They see " +
+        new Date(Date.now() + offset).toLocaleString() +
+        "."
+      : "Games are using the normal clock.";
+  }
+
+  function writeclock(ms) {
+    if (!isFinite(ms)) ms = 0;
+    ms = Math.max(0, Math.min(CLOCK_MAX, Math.round(ms)));
+    if (ms) store.setItem(CLOCK_KEY, String(ms));
+    else store.removeItem(CLOCK_KEY);
+    showclockinput(ms);
+    refreshclock();
+  }
+
+  window.setgameclock = function () {
+    var amount = Number(clockinput && clockinput.value);
+    if (!isFinite(amount) || amount < 0) {
+      alert("Enter a number of hours or days.");
+      return;
+    }
+    var ms = amount * (clockunit && clockunit.value === "days" ? 86400000 : 3600000);
+    if (ms > CLOCK_MAX) {
+      alert("That is too far ahead. The clock can move up to ten years.");
+      return;
+    }
+    writeclock(ms);
+  };
+
+  window.bumpgameclock = function (days) {
+    writeclock(clockoffset() + days * 86400000);
+  };
+
+  window.resetgameclock = function () {
+    writeclock(0);
+  };
+
+  if (clockinput) {
+    showclockinput(clockoffset());
+    refreshclock();
+  }
+
   // --- custom background ---
 
   (function () {

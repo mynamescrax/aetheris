@@ -236,6 +236,33 @@ test("desktop UA spoof follows the real Chrome major and keeps hints consistent"
   assert.equal(hints.uaFullVersion, fallback + ".0.0.0");
 });
 
+test("game clock shim shifts Date and follows the stored offset", () => {
+  const sw = loadswRuntime("Mozilla/5.0 Chrome/150.0.0.0 Safari/537.36");
+  const body = sw.gameclockshim
+    .replace(/^<script>/, "")
+    .replace(/<\/script>$/, "");
+  const stored = { gameClockOffsetMs: String(2 * 86400000 + 3600000) };
+  const window = { Date };
+  vm.runInNewContext(body, {
+    window,
+    localStorage: { getItem: (key) => stored[key] ?? null },
+    console: { log() {}, warn() {}, error() {} },
+  });
+
+  const FakeDate = window.Date;
+  assert.ok(FakeDate);
+  assert.ok(new FakeDate() instanceof FakeDate);
+  assert.ok(new FakeDate() instanceof Date);
+  assert.equal(new FakeDate(2020, 0, 1).getFullYear(), 2020);
+  assert.equal(typeof FakeDate(), "string");
+
+  const real = Date.now();
+  const shift = FakeDate.now() - real;
+  assert.ok(Math.abs(shift - (2 * 86400000 + 3600000)) < 5000);
+  const instanceShift = new FakeDate().getTime() - Date.now();
+  assert.ok(Math.abs(instanceShift - (2 * 86400000 + 3600000)) < 5000);
+});
+
 test("html shim injection streams and inserts at the same point", async () => {
   const adspoofSource = "(function(){window.__adSpoofInstalled=true})();";
   const sw = loadswRuntime(
@@ -326,6 +353,20 @@ test("html shim injection streams and inserts at the same point", async () => {
   out = await res.text();
   assert.ok(!out.includes("__aetherisDesktopUASpoofInstalled"));
 
+  // Game pages get the clock shim before the other shims; proxied pages
+  // and pages without the option do not.
+  res = sw.injecthtmlshims(
+    html("<html><head></head><body></body></html>"),
+    { gameclock: true },
+  );
+  out = await res.text();
+  assert.ok(out.includes("__aetherisGameClockInstalled"));
+  assert.ok(out.includes("gameClockOffsetMs"));
+  assert.ok(
+    out.indexOf("__aetherisGameClockInstalled") <
+      out.indexOf("__aetherisPanicInstalled"),
+  );
+
   // Once the ad-spoof source has warmed it is inlined instead of loaded from
   // /js/ad-spoof.js, so proxied pages have no local <script src> to trip
   // scramjet's URL getters over.
@@ -335,6 +376,7 @@ test("html shim injection streams and inserts at the same point", async () => {
     {},
   );
   out = await res.text();
+  assert.ok(!out.includes("__aetherisGameClockInstalled"));
   assert.ok(out.includes("__adSpoofInstalled"));
   assert.ok(!out.includes("/js/ad-spoof.js"));
 });
