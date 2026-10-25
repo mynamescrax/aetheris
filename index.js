@@ -2805,7 +2805,9 @@ const MAX_LISTEN_ATTEMPTS = 3;
 async function start() {
   for (let attempt = 1; attempt <= MAX_LISTEN_ATTEMPTS; attempt++) {
     try {
-      await fastify.listen({ port, host: process.env.HOST || "::" });
+      // Loopback by default: Caddy is the only public entrypoint. Set HOST to
+      // bind a wider interface on purpose.
+      await fastify.listen({ port, host: process.env.HOST || "127.0.0.1" });
       return;
     } catch (err) {
       if (err?.code !== "EADDRINUSE") {
@@ -2841,7 +2843,7 @@ async function start() {
       }
 
       console.error(
-        `STARTUP FAILED: ${process.env.HOST || "::"}:${port} is in use by ${owner ? describeProcess(owner) : "an unknown process (could not read /proc)"}. No eligible duplicate recovery is enabled; the existing process will not be terminated.`,
+        `STARTUP FAILED: ${process.env.HOST || "127.0.0.1"}:${port} is in use by ${owner ? describeProcess(owner) : "an unknown process (could not read /proc)"}. No eligible duplicate recovery is enabled; the existing process will not be terminated.`,
       );
       if (attempt < MAX_LISTEN_ATTEMPTS) {
         console.error(

@@ -7,6 +7,9 @@
 }
 
 http://127.0.0.1:9999 {
+	# A site address host is a matcher, not a bind address, so without this the
+	# internal TLS ask endpoint would listen on every interface.
+	bind 127.0.0.1
 	# Browsers never send an IP as SNI; scanners do. Let's Encrypt rejects IP
 	# identifiers, so denying these asks stops the every-minute retry spam.
 	# Query matcher values are exact (no `*` wildcards), so list literal forms.
