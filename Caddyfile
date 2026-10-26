@@ -81,6 +81,13 @@ http://127.0.0.1:9999 {
 	}
 }
 
+# Cloudflare's published edge ranges. Cf-Connecting-Ip is only trustworthy when
+# the request actually arrived from one of these; a request sent straight to the
+# origin can put any value in the header.
+(cf_edge_only) {
+	@not_cf_edge not remote_ip 173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22 2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32
+}
+
 https:// {
 	tls {
 		on_demand
@@ -155,6 +162,13 @@ https:// {
 	# gpt.crax.lol: crax-gpt (OpenAI-compatible proxy + chat UI)
 	@craxgpt host gpt.crax.lol
 	handle @craxgpt {
+		# The app's getClientIp() trusts Cf-Connecting-Ip whenever the direct peer
+		# is loopback, which is exactly Caddy. Cloudflare strips any client-supplied
+		# copy, but a request sent straight to the origin can set it to anything and
+		# be believed -- enough to walk a blocklisted IP back in or rotate per-IP
+		# limits. Drop the header from anything that is not a Cloudflare edge.
+		import cf_edge_only
+		request_header @not_cf_edge -Cf-Connecting-Ip
 		reverse_proxy http://127.0.0.1:3002
 	}
 
