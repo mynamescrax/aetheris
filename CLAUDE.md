@@ -22,6 +22,12 @@ PM2; Caddy uses the repo's `Caddyfile` as `/etc/caddy/Caddyfile`.
 - Preserve unrelated working-tree changes.
 - Use `apply_patch` for manual file edits.
 - After code changes run `pnpm lint`, `pnpm test` and `git diff --check`.
+- Stamped `/css/` and `/js/` URLs (`?v=`) are cached for a year
+  (`immutable`). After changing anything in `public/css/` or `public/js/`,
+  run `pnpm stamp` instead of editing stamps by hand: it gives each changed
+  file a new stamp everywhere it's loaded (pages, `sw.js`, `movie-relay.js`)
+  and records its hash in `tests/asset-stamps.json`. `pnpm test` fails until
+  you do.
 - Validate Caddy changes before deploying:
 
   ```sh

@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <script src="./js/site.js?v=20261011.1"></script>
-    <script defer src="./js/tutorial.js?v=20261011.3"></script>
+    <script src="./js/site.js?v=20261101.1"></script>
+    <script defer src="./js/tutorial.js?v=20261102.1"></script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Aetheris</title>
@@ -43,7 +43,6 @@
         dark: "#0f0f0f",
         "charcoal-gold": "#0f0f0f",
         "dark-blue": "#020617",
-        halloween: "#0d0715",
       };
       Aetheris.isTheme = function (theme) {
         return Object.prototype.hasOwnProperty.call(
@@ -65,7 +64,7 @@
           );
           Aetheris.storage.removeItem("theme");
         }
-        var t = Aetheris.storage.getItem(THEME_KEY) || "halloween";
+        var t = Aetheris.storage.getItem(THEME_KEY) || "dark";
         if (t === "dark blue") {
           t = "dark-blue";
           Aetheris.storage.setItem(THEME_KEY, t);
@@ -75,7 +74,7 @@
           Aetheris.storage.setItem(THEME_KEY, t);
         }
         if (!Aetheris.isTheme(t)) {
-          t = "halloween";
+          t = "dark";
           Aetheris.storage.setItem(THEME_KEY, t);
         }
 
@@ -109,14 +108,8 @@
       })();
     </script>
 
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&display=swap"
-    />
     <link rel="stylesheet" href="./css/cards.css?v=20260907.1" />
-    <link rel="stylesheet" href="./css/themes.css?v=20261011.5" />
+    <link rel="stylesheet" href="./css/themes.css?v=20261101.1" />
     <link rel="stylesheet" href="./css/nav.css?v=20260907.4" />
     <link rel="stylesheet" href="./css/main.css?v=20261011.2" />
     <script src="register-sw.js?v=20260907.1" defer></script>
@@ -486,7 +479,6 @@
         frameborder="0"
         referrerpolicy="no-referrer"
         title="content"
-        src="home.html"
       ></iframe>
     </div>
 
@@ -540,7 +532,7 @@
 
       var navigationTimer = null;
       var fadeTimer = null;
-      var requestedUrl = mainframe.getAttribute("src");
+      var requestedUrl = null;
       var navigating = false;
       var navLoading = document.getElementById("nav-loading");
 
@@ -637,7 +629,29 @@
           document.body.classList.remove("backup-open");
         } catch (_) {}
       });
+      // The frame has no src in the markup, so a deep link like /#games loads
+      // only that page instead of fetching home.html first.
+      var initialRoute =
+        Aetheris.parseRoute(location.hash.slice(1) || "home") ||
+        Aetheris.parseRoute("home");
+      requestedUrl = initialRoute.url;
+      mainframe.src = initialRoute.url;
       gopage(location.hash.slice(1) || "home", true);
+
+      // gtag.js only runs in this shell (see site.js). The shell's own
+      // page_view covers the first page; report the ones opened after it.
+      var framepages = 0;
+      mainframe.addEventListener("load", function () {
+        try {
+          var doc = mainframe.contentDocument;
+          if (!doc || !Aetheris.routeForUrl(doc.location.href)) return;
+          if (framepages++ === 0 || typeof window.gtag !== "function") return;
+          window.gtag("event", "page_view", {
+            page_location: doc.location.href,
+            page_title: doc.title,
+          });
+        } catch (_) {}
+      });
 
       document.querySelectorAll(".navitem a, .logo a").forEach(function (el) {
         el.href = "#" + el.getAttribute("data-page");
@@ -650,8 +664,8 @@
 
       function applytheme(theme) {
         var t =
-          theme || Aetheris.storage.getItem("aetheris-theme") || "halloween";
-        if (!Aetheris.isTheme(t)) t = "halloween";
+          theme || Aetheris.storage.getItem("aetheris-theme") || "dark";
+        if (!Aetheris.isTheme(t)) t = "dark";
         document.documentElement.setAttribute("theme", t);
         if (document.body && document.body.getAttribute("theme") !== t) {
           document.body.setAttribute("theme", t);
@@ -742,6 +756,8 @@
 
       (function () {
         async function checkunread() {
+          // Hidden tabs skip the poll; visibilitychange catches up on return.
+          if (document.hidden) return;
           var token = Aetheris.getToken();
           if (!token) {
             chatbadge(0);
@@ -766,6 +782,9 @@
 
         checkunread();
         setInterval(checkunread, 15000);
+        document.addEventListener("visibilitychange", function () {
+          if (!document.hidden) checkunread();
+        });
       })();
 
       (function () {

@@ -11,7 +11,8 @@ test("popular games wrap using the shared responsive card grid", () => {
   assert.match(cardsCss, /\.card-container\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*repeat\(auto-fill,/);
   assert.doesNotMatch(gamesCss, /#populargames[^}]*grid-auto-flow:\s*column/);
   assert.doesNotMatch(gamesCss, /#populargames[^}]*overflow-x:\s*(?:auto|scroll)/);
-  assert.match(html, /games\.css\?v=20261015\.3/);
+  // the stamp itself is checked against the file by asset-stamps.test.js
+  assert.match(html, /games\.css\?v=\d{8}\.\d+/);
 });
 
 function helpers(initial = {}, blocked = false) {

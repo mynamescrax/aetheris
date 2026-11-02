@@ -2360,9 +2360,17 @@ fastify.addHook("onSend", async (req, reply, payload) => {
   ) {
     reply.header("Cache-Control", "no-cache");
   } else if (path.startsWith("/css/") || path.startsWith("/js/")) {
+    // A ?v= stamp changes whenever its file does (`pnpm stamp`, checked by
+    // tests/asset-stamps.test.js), so a stamped URL never has to be asked
+    // for again. Unstamped and failed requests keep the short cache.
+    const stamped =
+      /[?&]v=/.test(req.url) &&
+      (reply.statusCode === 200 || reply.statusCode === 304);
     reply.header(
       "Cache-Control",
-      "public, max-age=600, stale-while-revalidate=604800",
+      stamped
+        ? "public, max-age=31536000, immutable"
+        : "public, max-age=600, stale-while-revalidate=604800",
     );
   } else if (path.startsWith("/assets/data/")) {
     reply.header(

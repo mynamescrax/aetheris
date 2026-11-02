@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <script src="./js/site.js?v=20261011.1"></script>
+    <script src="./js/site.js?v=20261101.1"></script>
 
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -14,8 +14,8 @@
 
     <link rel="stylesheet" href="./css/main.css?v=20261011.2" />
     <link rel="stylesheet" href="./css/cards.css?v=20260907.1" />
-    <link rel="stylesheet" href="./css/themes.css?v=20261011.5" />
-    <link rel="stylesheet" href="./css/nav.css?v=20260907.1" />
+    <link rel="stylesheet" href="./css/themes.css?v=20261101.1" />
+    <link rel="stylesheet" href="./css/nav.css?v=20260907.4" />
 
     <meta name="theme-color" content="#0f0f0f" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -24,7 +24,7 @@
     <script defer src="./js/preload.js?v=20261008.1"></script>
     <script src="./js/dm-shared.js?v=20261007.1"></script>
 
-    <script src="./js/theme.js?v=20261011.2"></script>
+    <script src="./js/theme.js?v=20261101.1"></script>
     <script src="./js/navigation.js?v=20260907.1"></script>
     <link rel="stylesheet" href="./css/usability.css?v=20260928.1" />
   </head>
@@ -454,8 +454,7 @@
 
       // The tutorial lives in the parent shell (index.html) and sits on top of
       // this iframe, so the notice waits until it's closed (tutorial.js posts
-      // tutorial-open / tutorial-closed to child frames). It shows for
-      // everyone, first-time visitors included, once the tutorial is gone.
+      // tutorial-open / tutorial-closed to child frames).
       function tutorialbusy() {
         try {
           var t = window.parent !== window && window.parent.AetherisTutorial;
@@ -463,6 +462,19 @@
         } catch (_) {
           return false;
         }
+      }
+
+      // Everything is new on a first visit, so first-time visitors skip the
+      // notice: it's marked as read and they only get the next one. Anyone who
+      // has been here before has tutorialDone (the old tutorial set it on first
+      // launch; the new one sets it once it's opened or its button is hidden,
+      // and keeps the button hidden until this page has loaded) or an
+      // updateDismissed from an earlier notice.
+      function firstvisit() {
+        return (
+          Aetheris.storage.getItem("tutorialDone") === null &&
+          Aetheris.storage.getItem("updateDismissed") === null
+        );
       }
 
       function showupdatemodal() {
@@ -473,6 +485,10 @@
           Aetheris.storage.getItem("updateDismissed") === UPDATE_VERSION
         )
           return;
+        if (firstvisit()) {
+          Aetheris.storage.setItem("updateDismissed", UPDATE_VERSION);
+          return;
+        }
 
         var dismissed = false;
         function open() {

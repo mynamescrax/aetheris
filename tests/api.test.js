@@ -949,3 +949,20 @@ test("group chats: create, message, unread, add, leave and account deletion", as
     false,
   );
 });
+
+test("stamped css/js are cached for a year, everything else briefly", async () => {
+  const cache = async (path) => {
+    const res = await fetch(base + path);
+    await res.arrayBuffer();
+    return [res.status, res.headers.get("cache-control")];
+  };
+  const year = "public, max-age=31536000, immutable";
+  const short = "public, max-age=600, stale-while-revalidate=604800";
+  assert.deepEqual(await cache("/js/site.js?v=20261101.1"), [200, year]);
+  assert.deepEqual(await cache("/css/themes.css?v=1"), [200, year]);
+  assert.deepEqual(await cache("/js/site.js"), [200, short]);
+  // a 404 must not stick for a year if the file shows up later
+  const [status, missing] = await cache("/js/no-such-file.js?v=1");
+  assert.equal(status, 404);
+  assert.notEqual(missing, year);
+});

@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <script src="./js/site.js?v=20261011.1"></script>
+    <script src="./js/site.js?v=20261101.1"></script>
     <meta charset="utf-8" />
     <link
       rel="shortcut icon"
@@ -12,16 +12,16 @@
 
     <link rel="stylesheet" href="./css/main.css?v=20261011.2" />
     <link rel="stylesheet" href="./css/cards.css?v=20260907.1" />
-    <link rel="stylesheet" href="./css/themes.css?v=20261011.5" />
-    <link rel="stylesheet" href="./css/nav.css?v=20260907.1" />
+    <link rel="stylesheet" href="./css/themes.css?v=20261101.1" />
+    <link rel="stylesheet" href="./css/nav.css?v=20260907.4" />
     <link rel="stylesheet" href="./css/settings.css?v=20261022.1" />
-    <script src="./js/theme.js?v=20261011.2"></script>
+    <script src="./js/theme.js?v=20261101.1"></script>
 
     <script src="register-sw.js?v=20260907.1" defer></script>
     <script defer src="./js/preload.js?v=20261008.1"></script>
     <script defer src="./js/settings.js?v=20261022.1"></script>
     <script defer src="./js/data-transfer.js?v=20261020.1"></script>
-    <script defer src="./js/cache-reset.js?v=20261005.1"></script>
+    <script defer src="./js/cache-reset.js?v=20260924.1"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <script src="./js/navigation.js?v=20260907.1"></script>
@@ -48,7 +48,7 @@
           var saved =
             Aetheris.storage.getItem("aetheris-theme") ||
             document.documentElement.getAttribute("theme") ||
-            "halloween";
+            "dark";
           document
             .querySelectorAll(".theme-card[data-theme]")
             .forEach(function (c) {
@@ -121,28 +121,12 @@
             ></span>
             <span class="theme-label">Charcoal Gold</span>
           </button>
-          <button
-            class="theme-card"
-            data-theme="halloween"
-            onclick="selectthemecard('halloween')"
-          >
-            <span
-              class="theme-swatch"
-              style="
-                background:
-                  radial-gradient(circle at 72% 28%, #ffe3b0 0 9%, transparent 10%),
-                  linear-gradient(135deg, #ff7a18 0%, #5b21b6 55%, #140a20 100%);
-              "
-            ></span>
-            <span class="theme-label">Halloween</span>
-          </button>
         </div>
 
         <select id="theme-select" style="display: none">
           <option value="dark">Charcoal</option>
           <option value="dark-blue">Dark Blue</option>
           <option value="charcoal-gold">Charcoal Gold</option>
-          <option value="halloween">Halloween</option>
         </select>
 
         <h2>On-screen keyboard</h2>

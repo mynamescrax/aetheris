@@ -1,10 +1,11 @@
-// First-load tutorial for the shell (index.html). Shows once, then can be
-// replayed from settings (settings posts { type: "show-tutorial" }).
+// Tutorial for the shell (index.html). It no longer opens by itself: new
+// visitors get a "Tutorial" button in the top-right corner of the home page,
+// and settings can replay it anytime (settings posts { type: "show-tutorial" }).
 (function () {
   var DONE_KEY = "tutorialDone";
-  // Bump to show the tour once more to everyone (including people who already
-  // finished an older version). It's marked done as soon as it opens, so
-  // reloading or leaving mid-tour never brings it back.
+  // Bump to offer the tour once more to everyone (including people who already
+  // finished an older version). It's marked done as soon as it opens or the
+  // button is closed, so reloading or leaving mid-tour never brings it back.
   var TUTORIAL_VERSION = "2";
   var LINKS_DOC =
     "https://docs.google.com/document/d/1z5KIqm8KPfS-ghA2L14XwcoRG0IOOCfNMGj_JgO8-kU/edit?usp=sharing";
@@ -105,11 +106,21 @@
     "#tut-nav{display:flex;gap:8px;align-items:center}" +
     "#tut-nav .tut-skip{background:none;border-color:transparent;opacity:.7;margin-right:auto}" +
     "#tut-nav .tut-next{background:#fff;color:#111827;border-color:#fff}" +
-    "#tut-nav .tut-next:hover{background:#e5e7eb}";
+    "#tut-nav .tut-next:hover{background:#e5e7eb}" +
+    // The first-launch button matches the menu button in the opposite corner.
+    "#tut-prompt{position:fixed;top:max(13px,env(safe-area-inset-top));right:max(13px,env(safe-area-inset-right));z-index:9000;display:flex;height:44px;border-radius:14px;background:var(--sidebar-handle-bg,rgba(18,18,22,.97));border:1px solid rgba(255,255,255,.09);box-shadow:0 4px 16px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.06);font-family:var(--font-sans,system-ui,sans-serif)}" +
+    "#tut-prompt[hidden],.immersive-mode #tut-prompt,body.backup-open #tut-prompt{display:none}" +
+    "#tut-prompt button{font:inherit;margin:0;border:0;background:none;color:var(--sidebar-handle-color,#d1d5db);cursor:pointer}" +
+    "#tut-prompt button:hover{background:rgba(255,255,255,.06)}" +
+    "#tut-prompt button:focus-visible{outline:2px solid rgba(255,255,255,.45)!important;outline-offset:-2px;box-shadow:none}" +
+    "#tut-prompt .tut-prompt-open{padding:0 10px 0 16px;font-size:.9375rem;font-weight:600;border-radius:13px 0 0 13px}" +
+    "#tut-prompt .tut-prompt-close{width:34px;padding:0 4px 0 0;font-size:1.25rem;line-height:1;opacity:.6;border-radius:0 13px 13px 0}" +
+    "#tut-prompt .tut-prompt-close:hover{opacity:1}";
 
   var root = null;
   var index = 0;
   var capturing = null;
+  var promptbox = null;
 
   function el(tag, attrs, text) {
     var n = document.createElement(tag);
@@ -119,6 +130,13 @@
       });
     if (text) n.textContent = text;
     return n;
+  }
+
+  function addstyle() {
+    if (document.getElementById("tut-style")) return;
+    var style = el("style", { id: "tut-style" });
+    style.textContent = css;
+    document.head.appendChild(style);
   }
 
   function stopcapture() {
@@ -225,11 +243,9 @@
 
   function start() {
     if (root) return;
-    if (!document.getElementById("tut-style")) {
-      var style = el("style", { id: "tut-style" });
-      style.textContent = css;
-      document.head.appendChild(style);
-    }
+    store.setItem(DONE_KEY, TUTORIAL_VERSION);
+    removeprompt();
+    addstyle();
     index = 0;
     root = el("div", {
       id: "tut-backdrop",
@@ -264,6 +280,70 @@
     tellframes("tutorial-open");
   }
 
+  // The button only shows while the frame is on the home page, so it never
+  // sits on top of a game or another page's controls. It waits until the page
+  // has loaded: home.html checks for a first visit as it loads (new visitors
+  // skip "What's new"), and opening the tutorial before that would make a new
+  // visitor look like a returning one.
+  function onhome() {
+    try {
+      var frame = document.getElementById("mainframe");
+      if (frame.contentDocument.readyState !== "complete") return false;
+      var route = Aetheris.routeForUrl(frame.contentWindow.location.href);
+      return !!route && route.name === "home";
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function placeprompt() {
+    if (promptbox) promptbox.hidden = !onhome();
+  }
+
+  function removeprompt() {
+    if (promptbox && promptbox.parentNode)
+      promptbox.parentNode.removeChild(promptbox);
+    promptbox = null;
+  }
+
+  function showprompt() {
+    if (promptbox || root) return;
+    addstyle();
+    promptbox = el("div", {
+      id: "tut-prompt",
+      role: "group",
+      "aria-label": "Tutorial",
+    });
+    var open = el(
+      "button",
+      { type: "button", class: "tut-prompt-open" },
+      "Tutorial",
+    );
+    var hide = el(
+      "button",
+      {
+        type: "button",
+        class: "tut-prompt-close",
+        title: "Hide",
+        "aria-label": "Hide the tutorial button",
+      },
+      "×",
+    );
+    open.addEventListener("click", function () {
+      start();
+    });
+    hide.addEventListener("click", function () {
+      store.setItem(DONE_KEY, TUTORIAL_VERSION);
+      removeprompt();
+    });
+    promptbox.appendChild(open);
+    promptbox.appendChild(hide);
+    placeprompt();
+    document.body.appendChild(promptbox);
+    var frame = document.getElementById("mainframe");
+    if (frame) frame.addEventListener("load", placeprompt);
+  }
+
   window.AetherisTutorial = {
     start: start,
     active: function () {
@@ -277,9 +357,7 @@
   });
 
   function auto() {
-    if (store.getItem(DONE_KEY) === TUTORIAL_VERSION) return;
-    store.setItem(DONE_KEY, TUTORIAL_VERSION);
-    start();
+    if (store.getItem(DONE_KEY) !== TUTORIAL_VERSION) showprompt();
   }
   if (document.readyState === "loading")
     document.addEventListener("DOMContentLoaded", auto, { once: true });

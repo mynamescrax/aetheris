@@ -4,13 +4,31 @@
   // Google Analytics 4 – single injector for every page (site.js loads first
   // on all main pages). Keeps the Measurement ID in one place instead of
   // pasting the gtag snippet into 14 HTML files.
+  //
+  // Only the outermost Aetheris window loads gtag. Pages shown inside the
+  // shell's frame skip it and the shell (index.html) reports them instead,
+  // so ~530KB of gtag.js doesn't run again on every tab switch and a visit
+  // isn't counted twice (shell + first page).
+  function ancestorhasga() {
+    try {
+      var w = window;
+      while (w !== w.parent) {
+        w = w.parent;
+        if (w._aetherisGaLoaded) return true;
+      }
+    } catch (_) {
+      // cross-origin parent: not ours, load gtag here
+    }
+    return false;
+  }
   try {
     var GA_ID = "G-VLF4220GP2";
     if (
       GA_ID &&
       !window._aetherisGaLoaded &&
       typeof document !== "undefined" &&
-      document.head
+      document.head &&
+      !ancestorhasga()
     ) {
       window._aetherisGaLoaded = true;
       window.dataLayer = window.dataLayer || [];

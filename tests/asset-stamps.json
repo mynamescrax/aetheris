@@ -1,0 +1,138 @@
+{
+  "css/ai.css": {
+    "stamp": "20261007.1",
+    "hash": "9b7d587e77725d97"
+  },
+  "css/cards.css": {
+    "stamp": "20260907.1",
+    "hash": "6498489c18adf80a"
+  },
+  "css/chat-extras.css": {
+    "stamp": "20261011.1",
+    "hash": "60b57335c6745866"
+  },
+  "css/chat.css": {
+    "stamp": "20260907.1",
+    "hash": "236ab19ec1c1aefb"
+  },
+  "css/games.css": {
+    "stamp": "20261101.1",
+    "hash": "a3fa25d75cfaf5a7"
+  },
+  "css/load.css": {
+    "stamp": "20261011.2",
+    "hash": "247d0ed094da4146"
+  },
+  "css/main.css": {
+    "stamp": "20261011.2",
+    "hash": "6ead21e5479581fa"
+  },
+  "css/movies.css": {
+    "stamp": "20261011.3",
+    "hash": "4912a8411c93f01e"
+  },
+  "css/nav.css": {
+    "stamp": "20260907.4",
+    "hash": "e91a0fa715890631"
+  },
+  "css/settings.css": {
+    "stamp": "20261022.1",
+    "hash": "35e9490f82ddba1c"
+  },
+  "css/themes.css": {
+    "stamp": "20261101.1",
+    "hash": "6ab5d58f6274e886"
+  },
+  "css/usability.css": {
+    "stamp": "20260928.1",
+    "hash": "602cc9ab102bb50a"
+  },
+  "js/ad-spoof.js": {
+    "stamp": "20260928.3",
+    "hash": "af94e97a4329df10"
+  },
+  "js/ai.js": {
+    "stamp": "20261011.3",
+    "hash": "6ef35be2eebbaff2"
+  },
+  "js/apps.js": {
+    "stamp": "20260917.2",
+    "hash": "919c3fd1a9d30a08"
+  },
+  "js/cache-reset.js": {
+    "stamp": "20260924.1",
+    "hash": "beeeb18672bd83d0"
+  },
+  "js/chat.js": {
+    "stamp": "20261007.1",
+    "hash": "cf534bb9cebb94ef"
+  },
+  "js/data-transfer.js": {
+    "stamp": "20261020.1",
+    "hash": "e4c05c5119957722"
+  },
+  "js/dm-shared.js": {
+    "stamp": "20261007.1",
+    "hash": "1a05e3e86b7d92c5"
+  },
+  "js/dm-ui.js": {
+    "stamp": "20261011.3",
+    "hash": "f463fb597693bd41"
+  },
+  "js/games.js": {
+    "stamp": "20260928.2",
+    "hash": "531ea4825b0b3a7d"
+  },
+  "js/load.js": {
+    "stamp": "20261011.1",
+    "hash": "831371338aeda341"
+  },
+  "js/movie-proxy-client.js": {
+    "stamp": "20261015.1",
+    "hash": "72ed6138255ce1a1"
+  },
+  "js/movie-sources.js": {
+    "stamp": "20261015.1",
+    "hash": "b1af98629bba1322"
+  },
+  "js/movies-ui.js": {
+    "stamp": "20261015.1",
+    "hash": "b52f8c3aef72d893"
+  },
+  "js/navigation.js": {
+    "stamp": "20260907.1",
+    "hash": "977a45488dafadbe"
+  },
+  "js/player-data.js": {
+    "stamp": "20260928.2",
+    "hash": "c70d3c671851e218"
+  },
+  "js/preload.js": {
+    "stamp": "20261008.1",
+    "hash": "08164c8a2099d2db"
+  },
+  "js/scramjet-init.js": {
+    "stamp": "20261016.1",
+    "hash": "8460b234e917a788"
+  },
+  "js/settings.js": {
+    "stamp": "20261022.1",
+    "hash": "fbae66a786e5ac33"
+  },
+  "js/site.js": {
+    "stamp": "20261101.1",
+    "hash": "5c9c761c9a7b7f47"
+  },
+  "js/theme.js": {
+    "stamp": "20261101.1",
+    "hash": "7bd11be6201c7418"
+  },
+  "js/tutorial.js": {
+    "stamp": "20261102.1",
+    "hash": "eb94de1b3eb59c9a"
+  },
+  "js/vendor/hls.min.js": {
+    "stamp": "1.5.13",
+    "hash": "e5753b10fc65eae3"
+  }
+}

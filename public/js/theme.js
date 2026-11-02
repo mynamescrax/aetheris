@@ -37,17 +37,11 @@
       bgc: "#020617",
       color: "#e5e7eb",
     },
-    halloween: {
-      bg:
-        "radial-gradient(ellipse at 50% 120%, rgba(255, 106, 0, 0.12) 0, transparent 55%), " +
-        "linear-gradient(180deg, #120b18 0%, #0d0812 55%, #080509 100%)",
-      bgc: "#0d0715",
-      color: "#f6ecdf",
-    },
   };
 
-  // people who never picked a theme get Halloween
-  var defaulttheme = "halloween";
+  // people who never picked a theme, or whose saved theme no longer exists
+  // (the seasonal "halloween" one), get Dark
+  var defaulttheme = "dark";
 
   function isvalid(theme) {
     return Object.prototype.hasOwnProperty.call(themes, theme);
