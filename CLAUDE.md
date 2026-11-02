@@ -222,13 +222,17 @@ header change fixes it.
 
 **2026-11-02**
 
-- Added `vidy.st` as a source (`vidy`). Its docs describe a drop-in iframe
-  player: `/movie/{tmdbId}` and `/tv/{tmdbId}/{season}/{episode}`. The page is
+- Evaluated `vidy.st`. Its docs describe a drop-in iframe player:
+  `/movie/{tmdbId}` and `/tv/{tmdbId}/{season}/{episode}`. The page is
   Next.js and the player probes ~18 provider servers (`miami`, `boise`,
   `chicago`, ...) through `api.wecollege.net`; `movy.sx` is the catalog
-  frontend for the same backend (its footer API link points at `vidy.st`), so
-  it is not added as a second independent source.
-- Two relay bugs stopped Vidy from playing through `/movie-proxy`:
+  frontend for the same backend (its footer API link points at `vidy.st`).
+  It is **not** listed as a source: `api.wecollege.net/seed` answers the VPS
+  with a Cloudflare "Attention Required" `403` (`server: cloudflare`), while
+  a residential connection plays fine. If the VPS egress ever clears, the
+  entry is a two-line `relayUrl("https://www.vidy.st/...")` addition.
+- Two relay bugs found while testing Vidy (fixes kept, they help any newer
+  Next.js provider):
   1. Next.js assigns a `TrustedScriptURL` (not a string) to `script.src`, so
      `movie-proxy-client.js`'s hook returned it unchanged and every dynamic
      `/_next/static/chunks/*` load went to our own origin (404, no hydration).
@@ -238,13 +242,14 @@ header change fixes it.
      parsed the body as a Blob, the decrypt step rejected every server, and
      the UI ended on "This title isn't available". Unknown bodies now keep a
      `text/*` content type and only fall back to octet-stream otherwise.
-- Local Playwright check through the live relay: Fight Club (tmdb 550) played
-  `index-s1080p-v1-a1.m3u8` from `moon.goldenkite.top`, duration 8349s, video
-  `readyState 4`. Re-test from the VPS before moving it up the source order;
-  it is currently `fallbackRank` 5 (last).
+- Local Playwright check through the relay (before the VPS block was known):
+  Fight Club (tmdb 550) played `index-s1080p-v1-a1.m3u8` from
+  `moon.goldenkite.top`, duration 8349s, video `readyState 4`, and GoT
+  (tmdb 1399 S1E1) played with the correct episode. Production playback was
+  rechecked after deploy and stopped at the `403` on `/seed`, hence removal.
 - Movy's own `/movie/{id}?play=true` page renders a catalog hero and needs a
   second manual play click; it was not verified to deep-link TV episodes, so
-  it stays out of `MOVIES_SOURCES`.
+  it stays out of `MOVIES_SOURCES` too.
 
 ## Proxy (Scramjet) notes
 

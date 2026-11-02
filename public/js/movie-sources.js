@@ -19,9 +19,9 @@ function relayUrl(upstream) {
 
 var MOVIES_SOURCES = [
   // Keep array indexes stable for old saved preferences. fallbackRank controls
-  // automatic retries: Flixer -> 2Embed -> VidAPI -> VidSrc.su -> VidRock ->
-  // Vidy. All remain selectable. Shared CDNs can still fail together; these
-  // ranks reflect the supplied Oct 12-14 reports, not independent availability.
+  // automatic retries: Flixer -> 2Embed -> VidAPI -> VidSrc.su -> VidRock.
+  // All remain selectable. Shared CDNs can still fail together; these ranks
+  // reflect the supplied Oct 12-14 reports, not independent availability.
   {
     // Default source. Full watch pages, not an embed; needs the relay to
     // forward its signed X-Api-Key/X-Request-* headers.
@@ -86,28 +86,13 @@ var MOVIES_SOURCES = [
       );
     },
   },
-  {
-    // Purpose-built iframe embed; movie/TV routes take TMDB ids. The player
-    // probes ~18 servers through api.wecollege.net (the same backend as
-    // movy.sx) and plays the first that answers. Movy's shell is not added
-    // separately: it is the catalog frontend for this player.
-    id: "vidy",
-    fallbackRank: 5,
-    name: "Vidy (vidy.st)",
-    url: function (t, id, s, e) {
-      return relayUrl(
-        "https://www.vidy.st/" +
-          (t === "movie"
-            ? "movie/" + id
-            : "tv/" + id + "/" + s + "/" + e) +
-          "?autoplay=true",
-      );
-    },
-  },
   // Not listed because they don't play from the VPS (2026-10-11 sweep):
   // VidSrc (vidsrcme.ru), VidSrc.to, VidSrc.pm, SmashyStream, VidLink,
   // Embed.su, VidEasy, AutoEmbed, VidSrc.cc, VidSrc.wtf, VidZee, Hexa,
   // SpencerDevs, CinemaOS, PrimeSrc, Nontongo, VidFast, VidUp, SuperEmbed,
-  // hls.lol and lul. The last two can be re-added via hls-player.html
+  // hls.lol and lul. Vidy (vidy.st) joined them on 2026-11-02: its
+  // api.wecollege.net seed/sources API returns a Cloudflare 403 to the VPS
+  // while playing from a residential IP. The relay fixes for its Next.js
+  // player stay in place. The last two can be re-added via hls-player.html
   // (/hls-resolve) if that changes.
 ];
