@@ -18,6 +18,7 @@ export default [
       "index.js",
       "monitor.js",
       "lc-relay.js",
+      "eos-relay.js",
       "movie-relay.js",
       "eslint.config.js",
       "lib/**/*.js",

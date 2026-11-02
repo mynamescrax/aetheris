@@ -24,6 +24,7 @@ import { WebSocket, WebSocketServer } from "ws";
 import { createwispengine } from "./lib/wisp-engine.js";
 import { scramjetPath } from "@mercuryworkshop/scramjet/path";
 import { lcRelayUpgrade } from "./lc-relay.js";
+import { createEosRelay } from "./eos-relay.js";
 import { registerMovieRelay } from "./movie-relay.js";
 import { createmoviereport } from "./lib/movie-report.js";
 import { createRateLimiter } from "./lib/rate-limit.js";
@@ -468,6 +469,10 @@ const wispengine = createwispengine({
   dnsServers: ["1.1.1.3", "1.0.0.3"],
 });
 
+// Public game relay for any Rexcomp web port (see eos-relay.js): players point their page at
+// wss://<this host>/eos-relay, so nobody hosts an inbound port.
+const eosrelay = createEosRelay();
+
 // --- online counter (SSE) ---
 
 const clients = new Set();
@@ -548,6 +553,17 @@ function handleupgrade(req, socket, head) {
   // Lethal Company relay; deliberately open to any origin (see lc-relay.js)
   if (req.url === "/lc-relay" || req.url.startsWith("/lc-relay/")) {
     lcRelayUpgrade(req, socket, head);
+    return;
+  }
+
+  // Public game relay; open to any origin on purpose (see eos-relay.js). /relay is the same-origin
+  // default of a game page served from here.
+  if (
+    req.url === "/eos-relay" ||
+    req.url.startsWith("/eos-relay?") ||
+    req.url === "/relay"
+  ) {
+    eosrelay.upgrade(req, socket, head);
     return;
   }
 
@@ -816,6 +832,30 @@ fastify.get("/wisp-status", (req, reply) => {
     return;
   }
   reply.header("Cache-Control", "no-store").send(wispengine.status());
+});
+
+// Discovery for the public relay: what it is, where the docs are, and the limits it enforces.
+fastify.get("/eos-relay", (_req, reply) => {
+  reply.header("Cache-Control", "no-store").send({
+    relay: "eos",
+    protocol: 1,
+    docs: "/relay-api.html",
+    endpoint: "wss://" + (_req.headers.host || "aetheris.win") + "/eos-relay",
+    alias: "/relay",
+    options: ["room", "maxSessions", "idle"],
+    limits: eosrelay.limits(),
+  });
+});
+
+fastify.get("/eos-relay-status", (req, reply) => {
+  if (
+    req.headers["x-forwarded-for"] ||
+    !LOOPBACK.has(req.socket.remoteAddress)
+  ) {
+    reply.code(404).send({ error: "Not found" });
+    return;
+  }
+  reply.header("Cache-Control", "no-store").send(eosrelay.status());
 });
 
 // top/counts responses are recalculated at most every 10s
