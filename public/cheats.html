@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="./css/main.css?v=20261011.2" />
     <link rel="stylesheet" href="./css/cards.css?v=20260907.1" />
     <link rel="stylesheet" href="./css/themes.css?v=20261101.1" />
-    <link rel="stylesheet" href="./css/nav.css?v=20260907.4" />
+    <link rel="stylesheet" href="./css/nav.css?v=20261102.1" />
     <script src="./js/theme.js?v=20261101.1"></script>
 
     <meta name="theme-color" content="#0f0f0f" />
@@ -60,34 +60,46 @@
       }
 
       .cheat-card {
-        background: rgba(15, 23, 42, 0.9);
-        border-radius: 999px;
+        background: var(--surface-1);
+        border-radius: var(--radius-pill);
         padding: 14px 28px;
         display: flex;
         align-items: center;
         gap: 10px;
-        border: 1px solid rgba(148, 163, 184, 0.5);
+        border: 1px solid var(--border-subtle);
         cursor: pointer;
         color: inherit;
         font-family: inherit;
         min-width: 190px;
         justify-content: center;
         transition:
-          transform 0.18s ease,
-          box-shadow 0.18s ease,
-          background 0.18s ease,
-          border-color 0.18s ease;
-        box-shadow: 0 12px 35px rgba(15, 23, 42, 0.7);
+          transform 0.18s var(--ease),
+          box-shadow 0.18s var(--ease),
+          background-color 0.18s var(--ease),
+          border-color 0.18s var(--ease);
+        box-shadow: var(--shadow-md);
         text-decoration: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      .cheat-card:hover,
+      .cheat-card[aria-pressed="true"] {
+        background: var(--surface-2);
+        border-color: color-mix(
+          in srgb,
+          var(--accent) 45%,
+          var(--border-strong)
+        );
       }
 
       .cheat-card:hover {
-        transform: translateY(-3px) scale(1.02);
-        background: rgba(15, 23, 42, 0.98);
-        border-color: rgba(46, 40, 43, 0.9);
-        box-shadow:
-          0 18px 45px rgba(15, 23, 42, 0.9),
-          0 0 30px rgba(46, 40, 43, 0.9);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+      }
+
+      .cheat-card:active {
+        transform: translateY(0) scale(0.98);
+        transition-duration: 0.08s;
       }
 
       .cheat-card span.icon {
@@ -111,45 +123,49 @@
 
       .menu-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(150px, 200px));
+        justify-content: center;
         gap: 14px;
       }
 
       .menu-item {
-        background: rgba(15, 23, 42, 0.9);
+        background: var(--surface-1);
         border-radius: 18px;
-        border: 1px solid rgba(7, 14, 39, 0.8);
+        border: 1px solid var(--border-subtle);
         cursor: pointer;
         padding: 10px 10px 12px;
         display: flex;
         flex-direction: column;
         gap: 8px;
         transition:
-          transform 0.15s ease,
-          box-shadow 0.15s ease,
-          border-color 0.15s ease,
-          background 0.15s ease;
+          transform 0.15s var(--ease),
+          box-shadow 0.15s var(--ease),
+          border-color 0.15s var(--ease),
+          background-color 0.15s var(--ease);
       }
 
       .menu-item:hover {
         transform: translateY(-2px);
-        box-shadow:
-          0 14px 30px rgba(15, 23, 42, 0.85),
-          0 0 24px rgba(33, 41, 54, 0.65);
-        background: rgba(15, 23, 42, 1);
-        border-color: rgba(29, 36, 44, 0.95);
+        box-shadow: var(--shadow-md);
+        background: var(--surface-2);
+        border-color: var(--border-strong);
       }
 
       .menu-item-img {
         width: 100%;
         border-radius: 14px;
         aspect-ratio: 2 / 3;
-        background: radial-gradient(circle at top, #1d4ed8, #020617);
+        background:
+          radial-gradient(
+            circle at top,
+            color-mix(in srgb, var(--accent) 40%, transparent),
+            transparent 70%
+          ),
+          var(--surface-2);
         display: flex;
         align-items: center;
         justify-content: center;
         font-size: 2rem;
-        opacity: 0.75;
         overflow: hidden;
       }
 
@@ -179,15 +195,15 @@
         letter-spacing: 0.06em;
         padding: 2px 7px;
         border-radius: 999px;
-        background: rgba(37, 99, 235, 0.2);
-        border: 1px solid rgba(96, 165, 250, 0.9);
+        background: color-mix(in srgb, var(--accent) 18%, transparent);
+        border: 1px solid color-mix(in srgb, var(--accent) 65%, transparent);
       }
       .menu-item-note {
         font-size: 0.72rem;
         opacity: 0.6;
       }
     </style>
-    <link rel="stylesheet" href="./css/usability.css?v=20260928.1" />
+    <link rel="stylesheet" href="./css/usability.css?v=20261102.1" />
   </head>
 
   <body>
@@ -196,11 +212,23 @@
       <p class="cheats-subtitle">Choose a game, then pick a method</p>
 
       <div class="cheats-grid">
-        <button type="button" class="cheat-card" onclick="openmenu('kahoot')">
+        <button
+          type="button"
+          class="cheat-card"
+          data-game="kahoot"
+          aria-pressed="false"
+          onclick="openmenu('kahoot')"
+        >
           <span class="icon" aria-hidden="true">❓</span>
           <span class="label">Kahoot</span>
         </button>
-        <button type="button" class="cheat-card" onclick="openmenu('blooket')">
+        <button
+          type="button"
+          class="cheat-card"
+          data-game="blooket"
+          aria-pressed="false"
+          onclick="openmenu('blooket')"
+        >
           <span class="icon" aria-hidden="true">📦</span>
           <span class="label">Blooket</span>
         </button>
@@ -242,6 +270,12 @@
       function openmenu(gamekey) {
         var gamedata = CHEAT_DATA[gamekey];
         if (!gamedata) return;
+
+        var cards = document.querySelectorAll(".cheat-card[data-game]");
+        cards.forEach(function (b) {
+          var on = b.getAttribute("data-game") === gamekey;
+          b.setAttribute("aria-pressed", on ? "true" : "false");
+        });
 
         var menusection = document.getElementById("menuSection");
         var menugrid = document.getElementById("menuGrid");

@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="./css/main.css?v=20261011.2" />
     <link rel="stylesheet" href="./css/cards.css?v=20260907.1" />
     <link rel="stylesheet" href="./css/themes.css?v=20261101.1" />
-    <link rel="stylesheet" href="./css/nav.css?v=20260907.4" />
+    <link rel="stylesheet" href="./css/nav.css?v=20261102.1" />
 
     <meta name="theme-color" content="#0f0f0f" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -26,7 +26,7 @@
 
     <script src="./js/theme.js?v=20261101.1"></script>
     <script src="./js/navigation.js?v=20260907.1"></script>
-    <link rel="stylesheet" href="./css/usability.css?v=20260928.1" />
+    <link rel="stylesheet" href="./css/usability.css?v=20261102.1" />
   </head>
 
   <body>
@@ -45,7 +45,64 @@
         />
       </div>
 
-      <div class="footer-links" style="margin-top: 20px">
+      <nav class="home-launch" aria-label="Quick links">
+        <a
+          class="home-tile"
+          href="/index.html#games"
+          target="_top"
+          data-app="games"
+        >
+          <img src="./assets/images/games.png" alt="" draggable="false" />
+          <span>Games</span>
+        </a>
+        <a
+          class="home-tile"
+          href="/index.html#movies"
+          target="_top"
+          data-app="movies"
+        >
+          <img src="./assets/images/movies.png" alt="" draggable="false" />
+          <span>Movies</span>
+        </a>
+        <a
+          class="home-tile"
+          href="/index.html#apps"
+          target="_top"
+          data-app="apps"
+        >
+          <img src="./assets/images/apps.png" alt="" draggable="false" />
+          <span>Apps</span>
+        </a>
+        <a
+          class="home-tile"
+          href="/index.html#chat"
+          target="_top"
+          data-app="chat"
+        >
+          <img src="./assets/images/chat.png" alt="" draggable="false" />
+          <span>Chat</span>
+        </a>
+        <a
+          class="home-tile"
+          href="/index.html#ai"
+          target="_top"
+          data-app="ai"
+        >
+          <img src="./assets/images/ai.png" alt="" draggable="false" />
+          <span>AI</span>
+        </a>
+        <a
+          class="home-tile"
+          href="/index.html#cheats"
+          target="_top"
+          data-app="cheats"
+        >
+          <img src="./assets/images/cheats.png" alt="" draggable="false" />
+          <span>Cheats</span>
+        </a>
+      </nav>
+
+      <div class="footer-links home-links">
         <a href="./settings.html" class="btn secondary-btn">Settings</a>
         <a href="./about.html" class="btn secondary-btn">About</a>
         <a
@@ -120,6 +177,108 @@
         color: #e5e5e5;
       }
 
+      /* Quick links under the search bar. */
+      .home-launch {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: var(--space-3);
+        width: 100%;
+        max-width: 600px;
+        margin: 4px auto 0;
+      }
+      .home-tile {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        min-height: 92px;
+        padding: 14px 8px 12px;
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--border-subtle);
+        background: var(--surface-1);
+        color: var(--text-color);
+        font-family: var(--font-sans);
+        font-size: var(--text-sm);
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        text-decoration: none;
+        -webkit-tap-highlight-color: transparent;
+        transition:
+          transform 0.18s var(--ease),
+          background-color 0.18s var(--ease),
+          border-color 0.18s var(--ease),
+          box-shadow 0.18s var(--ease);
+      }
+      .home-tile img {
+        width: 28px;
+        height: 28px;
+        object-fit: contain;
+        opacity: 0.85;
+        pointer-events: none;
+        transition:
+          transform 0.18s var(--ease),
+          opacity 0.18s var(--ease);
+      }
+      .home-tile[data-app="ai"] img {
+        filter: brightness(0) invert(1);
+      }
+      .home-tile span {
+        opacity: 0.82;
+        transition: opacity 0.18s var(--ease);
+      }
+      .home-tile:visited,
+      .home-tile:hover {
+        color: var(--text-color);
+        text-decoration: none;
+      }
+      .home-tile:hover {
+        background: var(--surface-2);
+        border-color: color-mix(
+          in srgb,
+          var(--accent) 45%,
+          var(--border-strong)
+        );
+        box-shadow: var(--shadow-md);
+        transform: translateY(-2px);
+      }
+      .home-tile:hover img {
+        opacity: 1;
+        transform: scale(1.06);
+      }
+      .home-tile:hover span {
+        opacity: 1;
+      }
+      .home-tile:active {
+        transform: translateY(0) scale(0.97);
+        transition-duration: 0.08s;
+      }
+      .home-links {
+        margin-top: 18px;
+        gap: 6px;
+      }
+      .home-links .btn {
+        padding: 6px 12px;
+        font-size: var(--text-sm);
+        background: transparent;
+        border-color: transparent;
+        color: var(--text-muted);
+      }
+      .home-links .btn:hover {
+        background: var(--surface-1);
+        border-color: var(--border-subtle);
+        color: var(--text-color);
+      }
+      @media (max-width: 640px) {
+        .home-launch {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 10px;
+        }
+        .home-tile {
+          min-height: 84px;
+        }
+      }
+
       .online-status {
         position: fixed;
         bottom: max(12px, env(safe-area-inset-bottom, 12px));
@@ -178,14 +337,20 @@
         z-index: 9999;
       }
       .update-modal {
-        background: #111827;
-        color: #f9fafb;
-        max-width: 420px;
+        background:
+          linear-gradient(
+            160deg,
+            rgba(255, 255, 255, 0.06),
+            rgba(255, 255, 255, 0.015)
+          ),
+          var(--bg-color, #0f0f0f);
+        color: var(--text-color, #f9fafb);
+        max-width: 440px;
         width: 90%;
         padding: 1.5rem 1.75rem;
-        border-radius: 14px;
-        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.35);
-        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 18px;
+        box-shadow: var(--shadow-lg);
+        border: 1px solid var(--border-strong);
         animation: modal-in 0.2s ease-out;
       }
       .update-modal h2 {
@@ -212,16 +377,20 @@
       }
       .update-modal button {
         cursor: pointer;
-        border: none;
+        border: 1px solid var(--border-subtle);
         border-radius: 999px;
-        padding: 0.45rem 1rem;
+        padding: 0.5rem 1.1rem;
         font-size: 0.9rem;
-        background: rgba(255, 255, 255, 0.12);
+        font-weight: 600;
+        background: var(--surface-3);
         color: white;
-        transition: opacity 0.2s;
+        transition:
+          background-color 0.15s var(--ease),
+          border-color 0.15s var(--ease);
       }
       .update-modal button:hover {
-        opacity: 0.9;
+        background: rgba(255, 255, 255, 0.16);
+        border-color: var(--border-strong);
       }
 
       @keyframes modal-in {
@@ -537,6 +706,18 @@
         loadquote();
         setupsearch();
         showupdatemodal();
+      });
+
+      // Quick links open their page inside the shell, like the menu does.
+      // A modifier or middle click keeps the plain /index.html#page link,
+      // so "open in new tab" still works.
+      document.addEventListener("click", function (e) {
+        var link = e.target.closest && e.target.closest("a[data-app]");
+        if (!link || e.defaultPrevented || e.button !== 0) return;
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        if (typeof window.gotoapp !== "function") return;
+        e.preventDefault();
+        window.gotoapp(link.getAttribute("data-app"));
       });
 
       function eschtml(s) {

@@ -344,6 +344,18 @@
   line-height: 1;
 }
 
+/* The active pill is light in every theme, so its label and icon use the
+   theme's dark --nav-active-text instead of white. */
+.navitem a.is-active .nav-label {
+  color: var(--nav-active-text);
+}
+
+.navitem a.is-active img,
+.navitem a.is-active[data-page="ai"] img {
+  filter: brightness(0);
+  opacity: 0.8;
+}
+
 /* ── Nav item stagger when sidebar opens ── */
 @keyframes navitemIn {
   from {

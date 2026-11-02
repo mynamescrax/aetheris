@@ -71,8 +71,9 @@ html.in-iframe .tag-bar {
 }
 
 .games-topbar {
+  --games-topbar-top: calc(env(safe-area-inset-top) + 12px);
   position: sticky;
-  top: calc(env(safe-area-inset-top) + 12px);
+  top: var(--games-topbar-top);
   z-index: 20;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -80,6 +81,30 @@ html.in-iframe .tag-bar {
   gap: 10px;
   padding: 0 6px 12px;
   margin-bottom: 8px;
+}
+
+/* The grid scrolls under the sticky bar, so the bar gets a frosted backdrop
+   that also fills the gap above it (the sticky offset) and fades out below. */
+.games-topbar::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: calc(-1 * var(--games-topbar-top));
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: color-mix(in srgb, var(--bg-color, #0f0f0f) 90%, transparent);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  -webkit-mask-image: linear-gradient(#000 calc(100% - 12px), transparent);
+  mask-image: linear-gradient(#000 calc(100% - 12px), transparent);
+  pointer-events: none;
+}
+
+@supports not (color: color-mix(in srgb, red 50%, transparent)) {
+  .games-topbar::before {
+    background: var(--bg-color, #0f0f0f);
+  }
 }
 
 .games-search-wrap {
@@ -513,8 +538,10 @@ body[theme="dark-blue"] #source-filter optgroup {
 
 #game-popup {
   position: fixed;
-  top: max(12px, env(safe-area-inset-top, 12px));
-  right: max(12px, env(safe-area-inset-right, 12px));
+  /* Bottom corner, so the tip never covers the search bar, the filters or
+     the menu button. */
+  bottom: max(16px, env(safe-area-inset-bottom, 16px));
+  right: max(16px, env(safe-area-inset-right, 16px));
   box-sizing: border-box;
   width: min(360px, calc(100vw - 24px));
   background: rgba(20, 20, 22, 0.92);
@@ -532,12 +559,22 @@ body[theme="dark-blue"] #source-filter optgroup {
 
 #game-popup.show {
   display: block;
-  animation: slideIn 0.4s ease;
+  animation: tipIn 0.35s var(--ease, ease);
 }
 
-@keyframes slideIn {
-  from { opacity: 0; transform: translateY(-15px); }
+@keyframes tipIn {
+  from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 600px) {
+  #game-popup {
+    right: 12px;
+    bottom: max(12px, env(safe-area-inset-bottom, 12px));
+    left: 12px;
+    width: auto;
+    border-radius: 18px;
+  }
 }
 
 @keyframes popIn {

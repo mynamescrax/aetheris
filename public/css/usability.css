@@ -316,7 +316,7 @@ body.backup-open .nav-handle {
     padding-left: 6px;
   }
   .games-topbar {
-    top: 64px;
+    --games-topbar-top: 64px;
   }
   .game-sidebar {
     gap: 6px;
