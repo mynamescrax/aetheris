@@ -133,8 +133,9 @@
       <div class="update-modal">
         <h2 id="updatemodaltitle">What's new</h2>
         <ul class="update-list">
-          <li>Most games are fixed, including Unity games like Space Waves and Escape Road that sat on an empty loading bar on Firefox and iPad Safari</li>
-          <li>If a game still won't load, go to Settings → Data and use Reset cache, then reload the page and try again</li>
+          <li>Movies and TV now have a Vidy source with 1080p streams and a long list of fallback servers</li>
+          <li>Newer movie players load reliably now: their scripts and encrypted stream lists go through the relay correctly</li>
+          <li>If a game or movie still won't load, go to Settings → Data and use Reset cache, then reload the page and try again</li>
         </ul>
         <div class="update-modal-footer">
           <button id="updatemodalclose" type="button">Got it</button>
@@ -586,7 +587,7 @@
     </style>
 
     <script>
-      var UPDATE_VERSION = "24";
+      var UPDATE_VERSION = "25";
 
       async function loadquote() {
         try {

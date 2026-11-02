@@ -122,6 +122,10 @@ test("movie relay handles real HTTP bodies, ranges and redirect validation", asy
           Buffer.from("segment-payload"),
         ]),
       );
+    } else if (req.url === "/plain-sources") {
+      // Vidy's encrypted sources endpoint labels its payload text/plain.
+      res.writeHead(200, { "content-type": "text/plain; charset=UTF-8" });
+      res.end("ab-_0123456789azAZ");
     } else if (req.url === "/redirect") {
       res.writeHead(302, { location: "./html" });
       res.end();
@@ -518,6 +522,15 @@ test("movie relay handles real HTTP bodies, ranges and redirect validation", asy
       const result = await app.inject(path("/big-html"));
       assert.equal(result.statusCode, 502);
       assert.match(result.body, /exceeds 4 MB/);
+    },
+  );
+  await t.test(
+    "text/plain bodies keep their content type (Vidy sources)",
+    async () => {
+      const result = await app.inject(path("/plain-sources"));
+      assert.equal(result.statusCode, 200);
+      assert.match(String(result.headers["content-type"]), /^text\/plain/);
+      assert.equal(result.body, "ab-_0123456789azAZ");
     },
   );
   await t.test(

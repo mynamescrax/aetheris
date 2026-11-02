@@ -571,7 +571,7 @@ function rewriteHtml(html, targetUrl, proxyOrigin) {
     }
   }
 
-  const scriptTag = `<script>window.__MOVIE_PROXY_TARGET__=${JSON.stringify(href).replace(/</g, "\\u003c")};window.__MOVIE_PROXY_ORIGIN__=${JSON.stringify(origin).replace(/</g, "\\u003c")};</script><script src="/js/movie-proxy-client.js?v=20261015.1"></script>`;
+  const scriptTag = `<script>window.__MOVIE_PROXY_TARGET__=${JSON.stringify(href).replace(/</g, "\\u003c")};window.__MOVIE_PROXY_ORIGIN__=${JSON.stringify(origin).replace(/</g, "\\u003c")};</script><script src="/js/movie-proxy-client.js?v=20261102.1"></script>`;
 
   // Some players (2vcdn.skin) call `$` without loading jQuery, which aborts
   // their boot. Inject full jQuery (they use $.ajax) when the page uses `$(`
@@ -1709,8 +1709,15 @@ export function registerMovieRelay(
         reply.header("content-length", Buffer.byteLength(rewritten));
         reply.send(rewritten);
       } else {
-        reply.type("application/octet-stream");
-        reply.raw.setHeader("Content-Type", "application/octet-stream");
+        // Keep text/plain as text: some players pick response.json()/text()/
+        // blob() from this header. Vidy's encrypted sources come back as
+        // text/plain; serving them as octet-stream made its client read a Blob
+        // and the decrypt step rejected every source.
+        const passthroughType = contentType.startsWith("text/")
+          ? contentType
+          : "application/octet-stream";
+        reply.type(passthroughType);
+        reply.raw.setHeader("Content-Type", passthroughType);
         reply.send(decompressed);
       }
     };

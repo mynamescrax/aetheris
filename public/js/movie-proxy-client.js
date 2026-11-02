@@ -3,7 +3,7 @@
   window.__MOVIE_PROXY_INIT__ = true;
 
   var PROXY_ROUTE = "/movie-proxy";
-  var CLIENT_VERSION = "20261015.1";
+  var CLIENT_VERSION = "20261102.1";
   // Cap error beacons so a provider stuck in an error loop can't flood us.
   var MAX_ERROR_BEACONS = 25;
   var errorBeacons = 0;
@@ -239,7 +239,17 @@
   }
 
   function toProxyUrl(rawUrl, ref) {
-    if (!rawUrl || typeof rawUrl !== "string") return rawUrl;
+    if (!rawUrl) return rawUrl;
+    // Next.js assigns a TrustedScriptURL to script.src. It stringifies to the
+    // real URL, but the object isn't a string, so it used to bypass the hook
+    // and Next's dynamic chunks were fetched from our own origin.
+    if (typeof rawUrl !== "string") {
+      try {
+        rawUrl = String(rawUrl);
+      } catch (e) {
+        return rawUrl;
+      }
+    }
     var trimmed = decodeEntities(rawUrl.trim());
     // Vite's preload helper prefixes "/", turning our path into
     // "//movie-proxy?..." (a hostname).

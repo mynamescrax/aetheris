@@ -220,6 +220,32 @@ header change fixes it.
   `proxy?data=` URL 24,778 times (400); 400s from dragonballzfans are
   permanent, not transient.
 
+**2026-11-02**
+
+- Added `vidy.st` as a source (`vidy`). Its docs describe a drop-in iframe
+  player: `/movie/{tmdbId}` and `/tv/{tmdbId}/{season}/{episode}`. The page is
+  Next.js and the player probes ~18 provider servers (`miami`, `boise`,
+  `chicago`, ...) through `api.wecollege.net`; `movy.sx` is the catalog
+  frontend for the same backend (its footer API link points at `vidy.st`), so
+  it is not added as a second independent source.
+- Two relay bugs stopped Vidy from playing through `/movie-proxy`:
+  1. Next.js assigns a `TrustedScriptURL` (not a string) to `script.src`, so
+     `movie-proxy-client.js`'s hook returned it unchanged and every dynamic
+     `/_next/static/chunks/*` load went to our own origin (404, no hydration).
+     `toProxyUrl` now stringifies non-string URL objects first.
+  2. The relay's final text branch forced `application/octet-stream`. Vidy's
+     encrypted `/sources` response is `text/plain`, so its `ofetch` client
+     parsed the body as a Blob, the decrypt step rejected every server, and
+     the UI ended on "This title isn't available". Unknown bodies now keep a
+     `text/*` content type and only fall back to octet-stream otherwise.
+- Local Playwright check through the live relay: Fight Club (tmdb 550) played
+  `index-s1080p-v1-a1.m3u8` from `moon.goldenkite.top`, duration 8349s, video
+  `readyState 4`. Re-test from the VPS before moving it up the source order;
+  it is currently `fallbackRank` 5 (last).
+- Movy's own `/movie/{id}?play=true` page renders a catalog hero and needs a
+  second manual play click; it was not verified to deep-link TV episodes, so
+  it stays out of `MOVIES_SOURCES`.
+
 ## Proxy (Scramjet) notes
 
 - Wisp runs through `lib/wisp-engine.js`: wispurr (Go) worker processes by

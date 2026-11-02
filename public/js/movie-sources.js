@@ -19,9 +19,9 @@ function relayUrl(upstream) {
 
 var MOVIES_SOURCES = [
   // Keep array indexes stable for old saved preferences. fallbackRank controls
-  // automatic retries: Flixer -> 2Embed -> VidAPI -> VidSrc.su -> VidRock.
-  // All remain selectable. Shared CDNs can still fail together; these ranks
-  // reflect the supplied Oct 12-14 reports, not independent availability.
+  // automatic retries: Flixer -> 2Embed -> VidAPI -> VidSrc.su -> VidRock ->
+  // Vidy. All remain selectable. Shared CDNs can still fail together; these
+  // ranks reflect the supplied Oct 12-14 reports, not independent availability.
   {
     // Default source. Full watch pages, not an embed; needs the relay to
     // forward its signed X-Api-Key/X-Request-* headers.
@@ -83,6 +83,24 @@ var MOVIES_SOURCES = [
         t === "movie"
           ? "https://vidapi.xyz/embed/movie/" + id
           : "https://vidapi.xyz/embed/tv/" + id + "&s=" + s + "&e=" + e,
+      );
+    },
+  },
+  {
+    // Purpose-built iframe embed; movie/TV routes take TMDB ids. The player
+    // probes ~18 servers through api.wecollege.net (the same backend as
+    // movy.sx) and plays the first that answers. Movy's shell is not added
+    // separately: it is the catalog frontend for this player.
+    id: "vidy",
+    fallbackRank: 5,
+    name: "Vidy (vidy.st)",
+    url: function (t, id, s, e) {
+      return relayUrl(
+        "https://www.vidy.st/" +
+          (t === "movie"
+            ? "movie/" + id
+            : "tv/" + id + "/" + s + "/" + e) +
+          "?autoplay=true",
       );
     },
   },
