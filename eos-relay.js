@@ -103,8 +103,11 @@ export function createEosRelay(options = {}) {
     maxPeers: 512,
     maxPeersPerIp: 32,
     maxSessionsPerPeer: 8,
-    maxRecordBytes: 4096,
-    maxFrameBytes: 16 * 1024, // an EOS packet is < 1.3 KB; a session record is about 1 KB
+    maxSessions: 2048,
+    maxRecordBytes: 16 * 1024,
+    // An EOS packet is < 1.3 KB; only a session record gets large (the game's record is
+    // length-prefixed fields plus up to 64 attributes), so the frame cap has to clear it.
+    maxFrameBytes: 32 * 1024,
     heartbeatMs: 20_000,
     idleTimeoutMs: 65_000,
     msgRate: 300, // a host at 30 Hz fans out a few hundred small packets a second
@@ -273,7 +276,14 @@ export function createEosRelay(options = {}) {
       return;
     }
     const sid = frame.toString("latin1", 3, 3 + len);
-    if (!sessions.has(sid)) {
+    const fresh = !sessions.has(sid);
+    if (!fresh) {
+      // Re-advertising its own server (settings changed) is always fine.
+    } else if (sessions.size >= cfg.maxSessions) {
+      stats.dropped++;
+      cfg.log(`[eos-relay] server list is full (${sessions.size}); dropping ${clean(sid)}`);
+      return;
+    } else {
       let mine = 0;
       for (const session of sessions.values()) if (session.owner === conn.puid) mine++;
       if (mine >= conn.maxSessions) {
@@ -284,7 +294,6 @@ export function createEosRelay(options = {}) {
         return;
       }
     }
-    const fresh = !sessions.has(sid);
     sessions.set(sid, {
       owner: conn.puid,
       room: conn.room,
@@ -469,6 +478,7 @@ export function createEosRelay(options = {}) {
       maxPlayers: cfg.maxPeers,
       maxPlayersPerIp: cfg.maxPeersPerIp,
       maxSessionsPerPlayer: cfg.maxSessionsPerPeer,
+      maxSessions: cfg.maxSessions,
       maxRecordBytes: cfg.maxRecordBytes,
       maxFrameBytes: cfg.maxFrameBytes,
       heartbeatMs: cfg.heartbeatMs,

@@ -307,6 +307,34 @@ test("maxSessions caps the servers one connection may advertise", async (t) => {
   assert.equal(relay.relay.status().sessions, 1);
 });
 
+test("a large session record survives the relay intact", async (t) => {
+  const relay = await startRelay();
+  t.after(() => relay.close());
+
+  // The game's record is length-prefixed fields plus up to 64 attributes, so it can be
+  // several KB; a cap that is too small would silently hide a hosted server.
+  const host = connect(relay.url);
+  const watcher = connect(relay.url);
+  t.after(() => {
+    host.ws.terminate();
+    watcher.ws.terminate();
+  });
+  await Promise.all([host.open(), watcher.open()]);
+  host.send(hello(PUID_A));
+  watcher.send(hello(PUID_B));
+  const record = Buffer.alloc(12 * 1024);
+  for (let i = 0; i < record.length; i++) record[i] = 0x61 + (i % 26);
+  host.send(advertise("bigserver", record));
+  await settle();
+
+  watcher.send(search(9));
+  const reply = await watcher.next();
+  assert.equal(reply.readUInt16BE(5), 1);
+  const length = reply.readUInt32BE(7);
+  assert.equal(length, record.length);
+  assert.deepEqual(reply.subarray(11, 11 + length), record);
+});
+
 test("the public docs page covers every frame and option", () => {
   const html = fs.readFileSync(
     new URL("../public/relay-api.html", import.meta.url),

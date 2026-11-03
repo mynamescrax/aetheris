@@ -49,7 +49,7 @@
 wss://aetheris.win/eos-relay?room=FRIENDS&amp;maxSessions=2&amp;idle=120</code></pre>
 
   <h2>Frames</h2>
-  <p>Binary WebSocket messages. The first byte is the kind, integers are big-endian. Ids are 32 printable ASCII characters; a session id is at most 64 characters and its record at most 4 KB (the relay treats the record as opaque bytes).</p>
+  <p>Binary WebSocket messages. The first byte is the kind, integers are big-endian. Ids are 32 printable ASCII characters; a session id is at most 64 characters and its record at most 16 KB (the relay treats the record as opaque bytes).</p>
   <table>
     <thead><tr><th>Client → relay</th><th>Relay → client</th></tr></thead>
     <tbody>
@@ -80,11 +80,11 @@ wss://aetheris.win/eos-relay?room=FRIENDS&amp;maxSessions=2&amp;idle=120</code><
   <table>
     <thead><tr><th>Limit</th><th>Value</th></tr></thead>
     <tbody>
-      <tr><td>Frame size</td><td>16 KB</td></tr>
+      <tr><td>Frame size</td><td>32 KB (a game packet is about 1.2 KB; only a session record is larger)</td></tr>
       <tr><td>Rate per socket</td><td>300 messages and 256 KB per second, burst 900 / 1 MB</td></tr>
       <tr><td>Sockets</td><td>1024 total, 48 per address</td></tr>
       <tr><td>Players</td><td>512 total, 32 per address</td></tr>
-      <tr><td>Advertised servers</td><td>8 per player (fewer with <code>maxSessions</code>)</td></tr>
+      <tr><td>Advertised servers</td><td>8 per player (fewer with <code>maxSessions</code>), 2048 relay-wide</td></tr>
       <tr><td>Keepalive</td><td>A ping every 20 s; a silent socket is dropped after <code>idle</code> seconds</td></tr>
     </tbody>
   </table>
