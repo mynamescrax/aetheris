@@ -90,7 +90,7 @@ function connectionSettings(search, cfg) {
   return {
     room,
     maxSessions: number("maxSessions", 1, cfg.maxSessionsPerPeer, cfg.maxSessionsPerPeer),
-    idleTimeoutMs: number("idle", 60, 900, Math.round(cfg.idleTimeoutMs / 1000)) * 1000,
+    idleTimeoutMs: number("idle", 60, 600, Math.round(cfg.idleTimeoutMs / 1000)) * 1000,
   };
 }
 
@@ -110,7 +110,7 @@ export function createEosRelay(options = {}) {
     maxFrameBytes: 32 * 1024,
     heartbeatMs: 20_000,
     keepaliveMs: 25_000,
-    idleTimeoutMs: 600_000, // backstop only: proxies close a dead socket far sooner
+    idleTimeoutMs: 180_000, // backstop only: a dead socket is closed by the proxy far sooner
     msgRate: 300, // a host at 30 Hz fans out a few hundred small packets a second
     msgBurst: 900,
     byteRate: 256 * 1024,
@@ -331,6 +331,9 @@ export function createEosRelay(options = {}) {
       return;
     }
     const qid = frame.readUInt32BE(1);
+    // Q 0xFFFFFFFF is a keepalive: the client counts as active (lastSeen already moved) and the
+    // relay answers nothing, so a quiet game can keep a proxied socket open for a few bytes.
+    if (qid === 0xffffffff) return;
     const records = [];
     let size = 7; // op + qid + count
     for (const session of sessions.values()) {

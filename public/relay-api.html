@@ -42,7 +42,7 @@
     <tbody>
       <tr><td><code>room</code></td><td>empty (public)</td><td>A private relay: up to 32 letters, digits, <code>_</code> or <code>-</code>. Players in different rooms never see each other's servers and packets never cross. Share the code with friends to keep a game off the public list.</td></tr>
       <tr><td><code>maxSessions</code></td><td>8</td><td>How many servers this one connection may advertise (1–8).</td></tr>
-      <tr><td><code>idle</code></td><td>600</td><td>Backstop: seconds of total silence before the socket is dropped (60–900). Normal keepalives make this rare.</td></tr>
+      <tr><td><code>idle</code></td><td>180</td><td>Backstop: seconds of total silence before the socket is dropped (60–600). Client keepalives make this rare.</td></tr>
     </tbody>
   </table>
   <pre><code>wss://aetheris.win/eos-relay?room=FRIENDS
@@ -70,7 +70,7 @@ wss://aetheris.win/eos-relay?room=FRIENDS&amp;maxSessions=2&amp;idle=120</code><
         <td colspan="1">Sockets close with 1008 for a protocol or rate error, 1009 for a frame over the cap, 1013 when the relay is full, 1029 when one address has too many players.</td>
       </tr>
       <tr>
-        <td><code>Q</code> <code>qid:u32</code><br>List the servers of everyone else in your room.</td>
+        <td><code>Q</code> <code>qid:u32</code><br>List the servers of everyone else in your room. qid <code>0xFFFFFFFF</code> is a keepalive: counted, never answered.</td>
         <td></td>
       </tr>
     </tbody>
@@ -85,7 +85,7 @@ wss://aetheris.win/eos-relay?room=FRIENDS&amp;maxSessions=2&amp;idle=120</code><
       <tr><td>Sockets</td><td>1024 total, 48 per address</td></tr>
       <tr><td>Players</td><td>512 total, 32 per address</td></tr>
       <tr><td>Advertised servers</td><td>8 per player (fewer with <code>maxSessions</code>), 2048 relay-wide</td></tr>
-      <tr><td>Keepalive</td><td>A small, ignorable data frame every 25 s (proxies close WebSockets that go ~100 s without data) plus a ping; <code>idle</code> is only a backstop</td></tr>
+      <tr><td>Keepalive</td><td>Clients should send <code>Q</code> with qid <code>0xFFFFFFFF</code> every 30 s: it counts as activity, gets no reply, and keeps a proxied socket open (Cloudflare closes WebSockets that send no data for ~100 s). The relay also sends one small ignorable frame every 25 s</td></tr>
     </tbody>
   </table>
 

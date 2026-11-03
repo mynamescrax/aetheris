@@ -77,11 +77,17 @@ function connect(url, options = {}) {
     next(ms = 2000) {
       return new Promise((resolve, reject) => {
         if (inbox.length) return resolve(inbox.shift());
-        const timer = setTimeout(() => reject(new Error("no relay frame")), ms);
-        waiters.push((frame) => {
+        const waiter = (frame) => {
           clearTimeout(timer);
           resolve(frame);
-        });
+        };
+        const timer = setTimeout(() => {
+          // A timed-out waiter must not stay queued, or it swallows the next frame.
+          const at = waiters.indexOf(waiter);
+          if (at !== -1) waiters.splice(at, 1);
+          reject(new Error("no relay frame"));
+        }, ms);
+        waiters.push(waiter);
       });
     },
     open() {
@@ -314,6 +320,34 @@ test("maxSessions caps the servers one connection may advertise", async (t) => {
   const length = reply.readUInt32BE(7);
   assert.equal(reply.toString("latin1", 11, 11 + length), "first");
   assert.equal(relay.relay.status().sessions, 1);
+});
+
+test("Q 0xFFFFFFFF is a silent keepalive that still counts as activity", async (t) => {
+  const relay = await startRelay({ heartbeatMs: 60_000, keepaliveMs: 60_000, idleTimeoutMs: 300 });
+  t.after(() => relay.close());
+
+  const player = connect(relay.url, { autoPong: false });
+  t.after(() => player.ws.terminate());
+  await player.open();
+  player.send(hello(PUID_A));
+  await settle(60);
+
+  const keepalive = Buffer.alloc(5);
+  keepalive[0] = 0x51;
+  keepalive.writeUInt32BE(0xffffffff, 1);
+
+  // No pongs at all: only these silent keepalives hold the socket inside its 300 ms window,
+  // for 800 ms, which is well past where silence would have dropped it.
+  for (let i = 0; i < 8; i++) {
+    player.send(keepalive);
+    await settle(100);
+  }
+  assert.equal(relay.relay.status().peers, 1, "keepalives kept the player connected");
+  await assert.rejects(player.next(150), /no relay frame/, "a keepalive is never answered");
+
+  player.send(search(5));
+  const reply = await player.next();
+  assert.equal(reply.readUInt32BE(1), 5, "a real search still works afterwards");
 });
 
 test("a large session record survives the relay intact", async (t) => {
