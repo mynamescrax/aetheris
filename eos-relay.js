@@ -90,7 +90,7 @@ function connectionSettings(search, cfg) {
   return {
     room,
     maxSessions: number("maxSessions", 1, cfg.maxSessionsPerPeer, cfg.maxSessionsPerPeer),
-    idleTimeoutMs: number("idle", 20, 300, Math.round(cfg.idleTimeoutMs / 1000)) * 1000,
+    idleTimeoutMs: number("idle", 60, 900, Math.round(cfg.idleTimeoutMs / 1000)) * 1000,
   };
 }
 
@@ -109,7 +109,8 @@ export function createEosRelay(options = {}) {
     // length-prefixed fields plus up to 64 attributes), so the frame cap has to clear it.
     maxFrameBytes: 32 * 1024,
     heartbeatMs: 20_000,
-    idleTimeoutMs: 65_000,
+    keepaliveMs: 25_000,
+    idleTimeoutMs: 600_000, // backstop only: proxies close a dead socket far sooner
     msgRate: 300, // a host at 30 Hz fans out a few hundred small packets a second
     msgBurst: 900,
     byteRate: 256 * 1024,
@@ -386,6 +387,7 @@ export function createEosRelay(options = {}) {
       maxSessions: settings.maxSessions,
       idleTimeoutMs: settings.idleTimeoutMs,
       lastSeen: Date.now(),
+      keepaliveAt: Date.now(),
       messages: tokenBucket(cfg.msgRate, cfg.msgBurst),
       bytes: tokenBucket(cfg.byteRate, cfg.byteBurst),
     };
@@ -439,15 +441,24 @@ export function createEosRelay(options = {}) {
     wss.handleUpgrade(req, socket, head, (ws) => attach(ws, req, ip, settings));
   }
 
-  // Browsers answer protocol pings without any game code, so a page whose network vanished is
-  // dropped, its servers withdrawn, and its peers told - instead of sitting in search results.
+  // Keepalive. Cloudflare, which fronts this relay, closes a WebSocket that carries no data for
+  // about 100 s, and it does not reliably deliver ping/pong frames. So a quiet game - sitting in a
+  // menu, or loading a map for a minute or two - is kept alive with a valid search reply that the
+  // game ignores (an R whose qid matches no pending search is dropped by eos_fake's search_reply).
+  // Liveness therefore never depends on a pong: the idle timeout is only a backstop, and a socket
+  // whose network died is closed by the proxy first, which raises a close event here.
+  const KEEPALIVE = Buffer.from([OpSearchReply, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00]);
   const heartbeat = setInterval(() => {
     const now = Date.now();
     for (const conn of sockets) {
       if (now - conn.lastSeen > conn.idleTimeoutMs) {
-        cfg.log(`[eos-relay] dropping idle connection (${clean(conn.puid || conn.ip)})`);
+        cfg.log(`[eos-relay] dropping silent connection (${clean(conn.puid || conn.ip)})`);
         conn.ws.terminate();
         continue;
+      }
+      if (now - conn.keepaliveAt >= cfg.keepaliveMs) {
+        conn.keepaliveAt = now;
+        send(conn.ws, KEEPALIVE);
       }
       try {
         conn.ws.ping();
@@ -455,7 +466,7 @@ export function createEosRelay(options = {}) {
         conn.ws.terminate();
       }
     }
-  }, cfg.heartbeatMs);
+  }, Math.max(200, Math.min(cfg.keepaliveMs, cfg.heartbeatMs, 5_000)));
   heartbeat.unref();
 
   function status() {
@@ -482,6 +493,7 @@ export function createEosRelay(options = {}) {
       maxRecordBytes: cfg.maxRecordBytes,
       maxFrameBytes: cfg.maxFrameBytes,
       heartbeatMs: cfg.heartbeatMs,
+      keepaliveMs: cfg.keepaliveMs,
       idleTimeoutMs: cfg.idleTimeoutMs,
       messagesPerSecond: cfg.msgRate,
       bytesPerSecond: cfg.byteRate,

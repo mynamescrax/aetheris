@@ -57,8 +57,8 @@ async function startRelay(options = {}) {
   };
 }
 
-function connect(url) {
-  const ws = new WebSocket(url);
+function connect(url, options = {}) {
+  const ws = new WebSocket(url, options);
   const inbox = [];
   const waiters = [];
   ws.on("message", (data) => {
@@ -228,20 +228,29 @@ test("a whole IP cannot open unlimited sockets", async (t) => {
   assert.equal(relay.relay.status().connections, 1);
 });
 
-test("heartbeats keep an idle player connected", async (t) => {
-  const relay = await startRelay({ heartbeatMs: 25, idleTimeoutMs: 150 });
+test("an idle player is kept alive with data, not just pings", async (t) => {
+  // A client that never pongs, like a page behind a proxy that drops ping frames.
+  const relay = await startRelay({ heartbeatMs: 25, keepaliveMs: 40, idleTimeoutMs: 600 });
   t.after(() => relay.close());
 
-  const player = connect(relay.url);
+  const player = connect(relay.url, { autoPong: false });
   t.after(() => player.ws.terminate());
   await player.open();
   player.send(hello(PUID_A));
-  await new Promise((resolve) => setTimeout(resolve, 400));
 
-  // Browsers answer the relay's pings themselves, so an idle page must survive the idle timeout.
-  assert.equal(relay.relay.status().peers, 1);
+  const keepalive = await player.next(500);
+  assert.equal(keepalive[0], 0x52, "keepalive is a search reply the game ignores");
+  assert.equal(keepalive.readUInt32BE(1), 0xffffffff, "its qid matches no pending search");
+  assert.equal(keepalive.readUInt16BE(5), 0);
+
+  await new Promise((resolve) => setTimeout(resolve, 400));
+  assert.equal(relay.relay.status().peers, 1, "no pong must not cost the player its socket");
   player.send(search(3));
-  assert.equal((await player.next())[0], 0x52);
+  let reply = await player.next();
+  // Keepalives keep arriving; the real answer is the one whose qid matches.
+  while (reply.readUInt32BE(1) === 0xffffffff) reply = await player.next();
+  assert.equal(reply[0], 0x52);
+  assert.equal(reply.readUInt32BE(1), 3, "real search replies still match their qid");
 });
 
 const settle = (ms = 40) => new Promise((resolve) => setTimeout(resolve, ms));

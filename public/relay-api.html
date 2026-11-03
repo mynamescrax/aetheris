@@ -42,7 +42,7 @@
     <tbody>
       <tr><td><code>room</code></td><td>empty (public)</td><td>A private relay: up to 32 letters, digits, <code>_</code> or <code>-</code>. Players in different rooms never see each other's servers and packets never cross. Share the code with friends to keep a game off the public list.</td></tr>
       <tr><td><code>maxSessions</code></td><td>8</td><td>How many servers this one connection may advertise (1–8).</td></tr>
-      <tr><td><code>idle</code></td><td>65</td><td>Seconds without a message or pong before the socket is dropped (20–300).</td></tr>
+      <tr><td><code>idle</code></td><td>600</td><td>Backstop: seconds of total silence before the socket is dropped (60–900). Normal keepalives make this rare.</td></tr>
     </tbody>
   </table>
   <pre><code>wss://aetheris.win/eos-relay?room=FRIENDS
@@ -85,7 +85,7 @@ wss://aetheris.win/eos-relay?room=FRIENDS&amp;maxSessions=2&amp;idle=120</code><
       <tr><td>Sockets</td><td>1024 total, 48 per address</td></tr>
       <tr><td>Players</td><td>512 total, 32 per address</td></tr>
       <tr><td>Advertised servers</td><td>8 per player (fewer with <code>maxSessions</code>), 2048 relay-wide</td></tr>
-      <tr><td>Keepalive</td><td>A ping every 20 s; a silent socket is dropped after <code>idle</code> seconds</td></tr>
+      <tr><td>Keepalive</td><td>A small, ignorable data frame every 25 s (proxies close WebSockets that go ~100 s without data) plus a ping; <code>idle</code> is only a backstop</td></tr>
     </tbody>
   </table>
 
