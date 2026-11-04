@@ -31,6 +31,7 @@ import { createRateLimiter } from "./lib/rate-limit.js";
 import { downloadPublicImage, resolvePublicUrl } from "./lib/public-network.js";
 import { registerImageProxy } from "./lib/image-proxy.js";
 import { registerGameCatalogs } from "./lib/game-catalogs.js";
+import { registerEmbedCheck } from "./lib/embed-check.js";
 import { registerGameAssets } from "./lib/game-assets.js";
 import { rewriteAssetUrls } from "./lib/asset-urls.js";
 import { uniqueOnlineCount } from "./lib/online.js";
@@ -682,6 +683,7 @@ registerMovieRelay(fastify, {
 });
 registerImageProxy(fastify);
 registerGameCatalogs(fastify);
+registerEmbedCheck(fastify);
 registerGameAssets(fastify);
 
 // Returns { group, limit, windowMs, perAccount } for metered requests, or null.
@@ -702,6 +704,8 @@ function ratelimitfor(method, path) {
     if (path === "/img") return { group: "img-proxy", limit: 6000 };
     if (path.startsWith("/api/games/catalog/"))
       return { group: "game-catalogs", limit: 600 };
+    if (path === "/api/embed-check")
+      return { group: "embed-check", limit: 120 };
     if (path === "/movie-ping") return { group: "movie-ping", limit: 60 };
     if (path.startsWith("/api/tmdb/")) return { group: "tmdb", limit: 120 };
     if (path === "/api/ai/models") return { group: "ai-models", limit: 30 };

@@ -1066,6 +1066,10 @@ var MIRROR_HOSTS = {
   "cdn.statically.io": "statically",
   "raw.githubusercontent.com": "ghraw",
   "raw.githack.com": "githack",
+  "rawcdn.githack.com": "githack",
+  "cdn.githack.com": "githack",
+  "bbcdn.githack.com": "bbgithack",
+  "raw.github.com": "ghraw",
   "cdnjs.cloudflare.com": "cdnjs",
 };
 

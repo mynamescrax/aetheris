@@ -83,6 +83,35 @@
     return list;
   }
 
+  var framecache = Object.create(null);
+
+  // Whether a provider lets us iframe it directly. Framing policy is in the
+  // response headers, which the browser only sees after it has already
+  // refused the frame, so the server answers once and this caches it.
+  async function canframe(url) {
+    if (framecache[url] !== undefined) return framecache[url];
+    var controller = new AbortController();
+    var timer = setTimeout(function () {
+      controller.abort();
+    }, 4000);
+    try {
+      var response = await fetch(
+        "/api/embed-check?url=" + encodeURIComponent(url),
+        { headers: { Accept: "application/json" }, signal: controller.signal },
+      );
+      var data = await response.json().catch(function () {
+        return null;
+      });
+      framecache[url] = data && data.ok ? data.frameable : null;
+      return framecache[url];
+    } catch (_) {
+      // Unknown: keep the proxy path rather than guess.
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   function withtimeout(promise, ms, text) {
     return new Promise(function (resolve, reject) {
       var timer = setTimeout(function () {
@@ -387,8 +416,15 @@
       countplay(source);
 
       var isexternal = new URL(url, location.href).origin !== location.origin;
-
+      // Frameable providers are iframed directly. The proxy is only for
+      // providers that refuse framing, or when the check could not answer.
+      var usedirect = !isexternal || !!item.noProxy;
       if (isexternal && !item.noProxy) {
+        usedirect = (await canframe(url)) === true;
+        if (stale()) return;
+      }
+
+      if (!usedirect) {
         // Never probe the provider from the page itself: this network usually
         // can't reach it directly (that is what the proxy is for), so a failed
         // probe would swap away from a copy that proxies perfectly well.

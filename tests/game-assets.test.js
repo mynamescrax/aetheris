@@ -13,6 +13,7 @@ import {
   opaqueAssetUrl,
   assetCacheControl,
   GAME_ASSET_REVISION,
+  MIRRORS,
 } from "../lib/game-assets.js";
 import { rewriteAssetUrls } from "../lib/asset-urls.js";
 
@@ -292,6 +293,40 @@ test("the githack mirror is served from GitHub, not its dead redirect", async ()
     );
     assert.ok(!urls.some((url) => url.includes("githack")), "no request goes to the redirecting host");
   } finally { await app.close(); }
+});
+
+test("bbcdn.githack is served from Bitbucket with the same path", async () => {
+  // bbcdn is githack's Bitbucket front end: the path keeps Bitbucket's raw
+  // shape ("user/repo/raw/ref/file"), so bitbucket.org serves it directly.
+  const urls = [];
+  const app = fixture({ fetchimpl: async (url) => {
+    urls.push(url);
+    return new Response("ok");
+  }});
+  try {
+    const result = await app.inject("/game-assets/m/bbgithack/johnbones/john/raw/main/README.md");
+    assert.equal(result.statusCode, 200);
+    assert.equal(urls[0], "https://bitbucket.org/johnbones/john/raw/main/README.md");
+  } finally { await app.close(); }
+});
+
+test("the worker only redirects hosts the relay has a mirror for", () => {
+  // Absolute CDN URLs in game pages are redirected by the worker to the relay.
+  // A host in the worker's map without a relay mirror would 400, and a host
+  // missing from the map is fetched from the CDN directly, so keep them equal.
+  const source = readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
+  const from = source.indexOf("var MIRROR_HOSTS =");
+  const to = source.indexOf("// One path segment of a relayed asset path");
+  assert.ok(from !== -1 && to > from, "the worker host map is where we expect it");
+  const context = {};
+  vm.runInNewContext(source.slice(from, to) + "\nthis.hosts = MIRROR_HOSTS;", context);
+  for (const [host, mirror] of Object.entries(context.hosts)) {
+    assert.equal(host, host.toLowerCase(), `${host} is not lowercase`);
+    assert.ok(MIRRORS[mirror], `${host} maps to unknown mirror "${mirror}"`);
+  }
+  // Every githack front end that appears in game pages is relayed.
+  for (const host of ["raw.githack.com", "rawcdn.githack.com", "bbcdn.githack.com"])
+    assert.ok(context.hosts[host], `${host} is not relayed`);
 });
 
 test("an opaque URL carries the mirror and the directory, not the CDN layout", async () => {
