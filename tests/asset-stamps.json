@@ -20,8 +20,8 @@
     "hash": "067ec347bb8febff"
   },
   "css/load.css": {
-    "stamp": "20261011.2",
-    "hash": "247d0ed094da4146"
+    "stamp": "20261103.2",
+    "hash": "79e71137269b0367"
   },
   "css/main.css": {
     "stamp": "20261011.2",
@@ -44,16 +44,16 @@
     "hash": "6ab5d58f6274e886"
   },
   "css/usability.css": {
-    "stamp": "20261102.1",
-    "hash": "fb3e170d74a75cfe"
+    "stamp": "20261103.3",
+    "hash": "2d615dd6252a5940"
   },
   "js/ad-spoof.js": {
     "stamp": "20260928.3",
     "hash": "af94e97a4329df10"
   },
   "js/ai.js": {
-    "stamp": "20261011.3",
-    "hash": "6ef35be2eebbaff2"
+    "stamp": "20261104.1",
+    "hash": "135917a9749a04c7"
   },
   "js/apps.js": {
     "stamp": "20260917.2",
@@ -80,12 +80,12 @@
     "hash": "f463fb597693bd41"
   },
   "js/games.js": {
-    "stamp": "20260928.2",
-    "hash": "531ea4825b0b3a7d"
+    "stamp": "20261103.1",
+    "hash": "322331c7aa60b3ec"
   },
   "js/load.js": {
-    "stamp": "20261011.1",
-    "hash": "831371338aeda341"
+    "stamp": "20261103.5",
+    "hash": "7554f7acfd037aca"
   },
   "js/movie-proxy-client.js": {
     "stamp": "20261102.1",
@@ -104,8 +104,8 @@
     "hash": "977a45488dafadbe"
   },
   "js/player-data.js": {
-    "stamp": "20260928.2",
-    "hash": "c70d3c671851e218"
+    "stamp": "20261103.8",
+    "hash": "848c42ee854d72c2"
   },
   "js/preload.js": {
     "stamp": "20261008.1",
@@ -116,8 +116,8 @@
     "hash": "8460b234e917a788"
   },
   "js/settings.js": {
-    "stamp": "20261022.1",
-    "hash": "fbae66a786e5ac33"
+    "stamp": "20261103.1",
+    "hash": "316d47c840787b14"
   },
   "js/site.js": {
     "stamp": "20261101.1",
@@ -128,8 +128,8 @@
     "hash": "7bd11be6201c7418"
   },
   "js/tutorial.js": {
-    "stamp": "20261102.1",
-    "hash": "eb94de1b3eb59c9a"
+    "stamp": "20261103.1",
+    "hash": "f08b5b06293589f4"
   },
   "js/vendor/hls.min.js": {
     "stamp": "1.5.13",

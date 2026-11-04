@@ -8,6 +8,33 @@
   var backend = null;
   var iframe = null;
   var started = false;
+  var item = null;
+  // Playable copies of the current game, best first (aetheris, gnmath, …).
+  var attempts = [];
+  var attemptindex = 0;
+  // Bumped on every attempt so a slow failure from a previous source cannot
+  // swap the game the player is already watching.
+  var attempttoken = 0;
+  var playcounted = false;
+
+  var LOAD_TIMEOUT = 15000;
+  // How long a proxied frame gets after its load event before an empty
+  // document counts as a failure. Long enough that a game still booting is
+  // never swapped away from.
+  var EXTERNAL_SETTLE_MS = 2000;
+
+  var SOURCE_LABELS = {
+    aetheris: "Aetheris",
+    gnmath: "Gn-Math",
+    velara: "Velara",
+    petezah: "Petezah",
+    truffled: "Truffled",
+  };
+
+  function sourcelabel(name) {
+    name = String(name || "");
+    return SOURCE_LABELS[name] || name || "source";
+  }
 
   function goback() {
     try {
@@ -28,7 +55,53 @@
   }
   window.goback = goback;
 
-  function showLoading(item) {
+  function sourceurl(source) {
+    if (!source) return null;
+    return (
+      Aetheris.httpUrl(source.url || source.html || source.iframe || "") || null
+    );
+  }
+
+  // Merged catalog records carry every provider that has this game. Fall back
+  // to the flat fields for entries loaded from a pre-merge cache.
+  function itemsources(entry) {
+    var list = [];
+    if (entry && Array.isArray(entry.sources))
+      list = entry.sources.filter(function (source) {
+        return !!sourceurl(source);
+      });
+    if (!list.length) {
+      var flat = {
+        name: entry.source || "aetheris",
+        id: entry.id,
+        url: entry.url,
+        html: entry.html,
+        iframe: entry.iframe,
+      };
+      if (sourceurl(flat)) list.push(flat);
+    }
+    return list;
+  }
+
+  function withtimeout(promise, ms, text) {
+    return new Promise(function (resolve, reject) {
+      var timer = setTimeout(function () {
+        reject(new Error(text));
+      }, ms);
+      promise.then(
+        function (value) {
+          clearTimeout(timer);
+          resolve(value);
+        },
+        function (error) {
+          clearTimeout(timer);
+          reject(error);
+        },
+      );
+    });
+  }
+
+  function showLoading(entry, source, note) {
     var container = document.getElementById("game-frame");
     if (!container) return null;
     container.replaceChildren();
@@ -40,9 +113,22 @@
     spinner.setAttribute("aria-hidden", "true");
     var paragraph = document.createElement("p");
     paragraph.textContent =
-      "Loading " + (item.title || item.name || (appid ? "app" : "game")) + "…";
+      note ||
+      "Loading " +
+        (entry.title || entry.name || (appid ? "app" : "game")) +
+        (source ? " from " + sourcelabel(source.name) : "") +
+        "…";
     var actions = document.createElement("div");
     actions.className = "player-loading-actions";
+    if (attempts.length > 1) {
+      var swap = document.createElement("button");
+      swap.type = "button";
+      swap.textContent = "Swap source";
+      swap.addEventListener("click", function () {
+        window.swapsource();
+      });
+      actions.appendChild(swap);
+    }
     var cancel = document.createElement("button");
     cancel.type = "button";
     cancel.textContent = appid ? "Back to apps" : "Back to games";
@@ -79,8 +165,11 @@
         try {
           if (window.aetherisProxy) window.aetherisProxy.reset();
         } catch (_) {}
-        started = false;
-        boot();
+        backend = null;
+        // Start over at the best source instead of retrying the one that was
+        // already exhausted.
+        attemptindex = 0;
+        attempt();
       });
       var back = document.createElement("button");
       back.type = "button";
@@ -115,7 +204,7 @@
     return String(str || "")
       .toLowerCase()
       .trim()
-      .replace(/['"]/g, "")
+      .replace(/['\"]/g, "")
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "");
   }
@@ -154,20 +243,20 @@
     return null;
   }
 
-  function setgameinfo(item) {
+  function setgameinfo(entry) {
     var titleel = document.getElementById("game-title");
     var descel = document.getElementById("game-desc");
     var imgel = document.getElementById("game-img");
 
-    if (titleel) titleel.textContent = item.title || item.name || "";
-    if (descel) descel.textContent = item.description || "";
+    if (titleel) titleel.textContent = entry.title || entry.name || "";
+    if (descel) descel.textContent = entry.description || "";
     if (imgel) {
       imgel.onerror = function () {
         imgel.onerror = null;
         imgel.src = Aetheris.placeholder;
       };
       imgel.src = Aetheris.imageUrl(
-        item.image || item.img || Aetheris.placeholder,
+        entry.image || entry.img || Aetheris.placeholder,
       );
     }
   }
@@ -190,58 +279,168 @@
     }
 
     // getController() caches and resets itself; a local cache would pin a dead transport.
-    backend = await window.aetherisProxy.getController();
+    if (!backend) backend = await window.aetherisProxy.getController();
     syncuaspoof();
   }
 
-  async function loaditem(item) {
-    var container = document.getElementById("game-frame");
-    // some catalog entries only have an "iframe" URL.
-    var url = Aetheris.httpUrl(item.url || item.html || item.iframe || "");
+  // Only aetheris-served games are in the play-count allowlist.
+  function countplay(source) {
+    if (playcounted || appid || !source || source.name !== "aetheris") return;
+    playcounted = true;
+    var deviceid = Aetheris.storage.getItem("dmDeviceId") || "";
+    fetch(
+      "/api/plays/" +
+        encodeURIComponent(source.id != null ? source.id : item.id),
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deviceId: deviceid }),
+      },
+    ).catch(function () {});
+  }
 
+  function updateswapbutton() {
+    var button = document.getElementById("swap-source-btn");
+    if (!button) return;
+    var source = attempts[attemptindex];
+    var more = attempts.length > 1;
+    button.disabled = !more;
+    button.title = !source
+      ? "Change source"
+      : more
+        ? "Source: " +
+          sourcelabel(source.name) +
+          " — click to switch to " +
+          sourcelabel(
+            attempts[(attemptindex + 1) % attempts.length].name,
+          )
+        : "Only one source for this game (" + sourcelabel(source.name) + ")";
+    button.setAttribute("aria-label", button.title);
+
+    // The corner hint is only worth showing when a swap is actually possible.
+    var hint = document.getElementById("swap-hint");
+    if (hint) {
+      hint.hidden =
+        !more || Aetheris.storage.getItem("swapHintDismissed") === "true";
+    }
+  }
+
+  // Next playable copy for this game. Wraps around, so a broken source can be
+  // cycled past and a better one picked back up later.
+  window.swapsource = function () {
+    if (!started || attempts.length < 2) return false;
+    if (window.dismissshaphint) window.dismissshaphint();
+    attemptindex = (attemptindex + 1) % attempts.length;
+    attempt("Switching to " + sourcelabel(attempts[attemptindex].name) + "…");
+    return true;
+  };
+
+  function fail(reason) {
+    var failed = attempts[attemptindex];
+    if (failed) console.warn("Game source failed:", failed.name, reason);
+    if (attemptindex + 1 < attempts.length) {
+      attemptindex++;
+      attempt(
+        (failed ? sourcelabel(failed.name) + " did not load. " : "") +
+          "Trying " +
+          sourcelabel(attempts[attemptindex].name) +
+          "…",
+      );
+      return;
+    }
+    message(
+      "This " +
+        (appid ? "app" : "game") +
+        " did not load from any source. Try again, or pick another source with the swap button.",
+      true,
+    );
+  }
+
+  async function attempt(note) {
+    if (!item) return;
+    var container = document.getElementById("game-frame");
     if (!container) {
       console.error("no #game-frame found");
       return;
     }
-    if (!url) throw new Error("This item does not have a valid game/app URL.");
 
-    setgameinfo(item);
-
-    if (!appid && (item.source || "aetheris") === "aetheris") {
-      var deviceid = Aetheris.storage.getItem("dmDeviceId") || "";
-      fetch("/api/plays/" + encodeURIComponent(item.id), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ deviceId: deviceid }),
-      }).catch(function () {});
+    var source = attempts[attemptindex];
+    var url = sourceurl(source);
+    if (!url) {
+      fail(new Error("This source has no valid game URL."));
+      return;
     }
 
-    setupfavoritebutton(item);
-    // Keep a visible loading state until the frame reports back. Clearing
-    // the container first is what made slow boots look crashed.
-    var loading = showLoading(item);
+    var token = ++attempttoken;
+    function stale() {
+      return token !== attempttoken;
+    }
 
+    setgameinfo(item);
+    updateswapbutton();
+    var loading = showLoading(item, source, note);
     function hideLoading() {
       if (loading && loading.isConnected) loading.remove();
     }
 
-    var isexternal = new URL(url).origin !== location.origin;
+    try {
+      countplay(source);
 
-    if (isexternal && !item.noProxy) {
-      await startbackend();
-      var frameel = document.createElement("iframe");
-      frameel.title = item.title || item.name || "Game";
-      frameel.allow =
-        "autoplay; fullscreen; encrypted-media; picture-in-picture";
-      frameel.style.cssText = "width:100%;height:100%;border:0;";
-      frameel.addEventListener("load", hideLoading, { once: true });
-      iframe = backend.createFrame(frameel);
-      container.appendChild(frameel);
-      await window.aetherisProxy.go(iframe, url);
-      // Proxied frames don't always fire load after go(); fall back to
-      // hiding the spinner once navigation was accepted.
-      setTimeout(hideLoading, 3000);
-    } else {
+      var isexternal = new URL(url, location.href).origin !== location.origin;
+
+      if (isexternal && !item.noProxy) {
+        // Never probe the provider from the page itself: this network usually
+        // can't reach it directly (that is what the proxy is for), so a failed
+        // probe would swap away from a copy that proxies perfectly well.
+        await startbackend();
+        if (stale()) return;
+
+        var frameel = document.createElement("iframe");
+        frameel.title = item.title || item.name || "Game";
+        frameel.allow =
+          "autoplay; fullscreen; encrypted-media; picture-in-picture";
+        frameel.style.cssText = "width:100%;height:100%;border:0;";
+        frameel.addEventListener("load", hideLoading, { once: true });
+        iframe = backend.createFrame(frameel);
+        container.appendChild(frameel);
+        // Frame#go() returns void, so a failure is a thrown error or a frame
+        // that never navigates — never a rejected promise. Wrapping it in a
+        // promise timeout marked every proxied game as broken.
+        try {
+          window.aetherisProxy.go(iframe, url);
+        } catch (error) {
+          fail(error);
+          return;
+        }
+        if (stale()) return;
+        // go() reports nothing: when the upstream is blocked or missing the
+        // proxy leaves the frame on about:blank rather than raising, so this
+        // copy would silently show an empty page instead of falling through to
+        // the next source. Judge only a frame that has loaded and still has no
+        // document, and only after a grace period, so a slow proxied game is
+        // never swapped away from.
+        frameel.addEventListener("load", function () {
+          if (stale()) return;
+          setTimeout(function () {
+            if (stale()) return;
+            var doc = null;
+            try {
+              doc = frameel.contentDocument;
+            } catch (_) {
+              return;
+            }
+            // no document means it navigated somewhere cross-origin, which is
+            // not something this can judge
+            if (!doc || doc.URL !== "about:blank") return;
+            fail(new Error("The game page never loaded from this source."));
+          }, EXTERNAL_SETTLE_MS);
+        });
+        // Proxied frames don't always fire load after go(); fall back to
+        // hiding the spinner once navigation was accepted.
+        setTimeout(hideLoading, 3000);
+        return;
+      }
+
       var frame = document.createElement("iframe");
       frame.title = item.title || item.name || "Game";
       frame.referrerPolicy = "no-referrer";
@@ -253,6 +452,17 @@
           "allow-pointer-lock allow-downloads allow-modals allow-orientation-lock " +
           "allow-presentation allow-storage-access-by-user-activation",
       );
+
+      var loaded = new Promise(function (resolve, reject) {
+        frame.addEventListener("load", resolve, { once: true });
+        frame.addEventListener(
+          "error",
+          function () {
+            reject(new Error("The game file could not be loaded."));
+          },
+          { once: true },
+        );
+      });
 
       container.appendChild(frame);
       syncuaspoof();
@@ -284,36 +494,56 @@
       }
 
       frame.src = url;
-      frame.addEventListener("load", function () {
-        hideLoading();
-        try {
-          if (
-            frame.contentDocument.querySelector(
-              'meta[name="aetheris-error"][content="404"]',
-            )
-          ) {
-            message(
-              "The game file was not found on this server. Restore the matching public/assets/games files and try again.",
-              true,
-            );
-          }
-        } catch (_) {
-          /* external frames cannot be inspected */
+      await withtimeout(loaded, LOAD_TIMEOUT, "The game file took too long to load.");
+      if (stale()) return;
+      hideLoading();
+
+      try {
+        if (
+          frame.contentDocument.querySelector(
+            'meta[name="aetheris-error"][content="404"]',
+          )
+        ) {
+          fail(new Error("The game file was not found on this source."));
+          return;
         }
-      });
+      } catch (_) {
+        /* external frames cannot be inspected */
+      }
+    } catch (error) {
+      if (stale()) return;
+      fail(error);
     }
   }
 
-  function setupfavoritebutton(item) {
+  async function loaditem(entry) {
+    item = entry;
+    attempts = itemsources(entry);
+    attemptindex = 0;
+    playcounted = false;
+    setgameinfo(entry);
+    setupfavoritebutton(entry);
+    if (!attempts.length)
+      throw new Error("This item does not have a valid game/app URL.");
+    await attempt();
+  }
+
+  function setupfavoritebutton(entry) {
     var starbtn = document.querySelector("#fav-btn");
     if (!starbtn) return;
 
     var storagekey = appid ? "favoritedApps" : "favoritedGames";
-    var itemid = String(item.id);
+    var itemid = String(entry.id);
+
+    function matches(value) {
+      if (typeof window.gamehasid === "function")
+        return window.gamehasid(entry, value);
+      return String(value) === itemid;
+    }
 
     function refreshstar() {
       var saved = Aetheris.readList(storagekey);
-      var active = isfavorited(saved, item);
+      var active = saved.some(matches);
       starbtn.textContent = active ? "★" : "☆";
       starbtn.setAttribute("aria-pressed", String(active));
       starbtn.setAttribute(
@@ -322,19 +552,11 @@
       );
     }
 
-    function isfavorited(saved, it) {
-      if (saved.indexOf(String(it.id)) !== -1) return true;
-      // favorites saved before id deduping may hold the raw shared id
-      return it.rawid != null && saved.indexOf(String(it.rawid)) !== -1;
-    }
-
     starbtn.onclick = function () {
       var favs = Aetheris.readList(storagekey);
-      if (isfavorited(favs, item))
+      if (favs.some(matches))
         favs = favs.filter(function (id) {
-          return (
-            id !== itemid && (item.rawid == null || id !== String(item.rawid))
-          );
+          return !matches(id);
         });
       else favs.push(itemid);
 
@@ -350,10 +572,10 @@
 
   function tryload() {
     if (started) return true;
-    var item = finditem();
-    if (!item) return false;
+    var found = finditem();
+    if (!found) return false;
     started = true;
-    loaditem(item).catch(function (error) {
+    loaditem(found).catch(function (error) {
       console.error(error);
       message(
         error.message || "The game could not be loaded. Please try again.",

@@ -236,7 +236,7 @@ body.left-handed .report-pill {
   .chat-panel {
     width: min(300px, calc(100vw - 20px));
     right: 10px;
-    bottom: max(110px, calc(env(safe-area-inset-bottom) + 102px));
+    bottom: max(158px, calc(env(safe-area-inset-bottom) + 150px));
   }
 }
 
@@ -306,7 +306,7 @@ body.left-handed .chat-pill {
 
 .chat-panel {
   position: fixed;
-  bottom: max(128px, calc(env(safe-area-inset-bottom) + 120px));
+  bottom: max(176px, calc(env(safe-area-inset-bottom) + 168px));
   right: max(20px, calc(env(safe-area-inset-right) + 12px));
   width: min(340px, calc(100vw - 32px));
   height: min(500px, calc(var(--app-height, 100dvh) - 160px));
@@ -343,7 +343,7 @@ body.left-handed .chat-panel {
 
 .osk-pill {
   position: fixed;
-  bottom: max(124px, calc(env(safe-area-inset-bottom) + 116px));
+  bottom: max(172px, calc(env(safe-area-inset-bottom) + 164px));
   right: max(12px, calc(env(safe-area-inset-right) + 8px));
   z-index: 9998;
   display: flex;
@@ -510,4 +510,121 @@ body.left-handed .osk-pill {
 .osk-key[data-w="space"] {
   flex: 1;
   min-width: 120px;
+}
+
+/* Swap source sits above the chat pill, in the accent colour so it reads as
+   the fix for a game that did not load. */
+.swap-pill {
+  position: fixed;
+  bottom: max(124px, calc(env(safe-area-inset-bottom) + 116px));
+  right: max(12px, calc(env(safe-area-inset-right) + 8px));
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: linear-gradient(135deg, #e6d3ff, #c3a4ff);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  color: #1a1226;
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  padding: 7px 15px;
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  transition:
+    transform 0.15s,
+    filter 0.15s,
+    opacity 0.15s;
+}
+
+.swap-pill:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.08);
+}
+
+.swap-pill:active {
+  transform: scale(0.96);
+}
+
+.swap-pill:disabled {
+  background: rgba(0, 0, 0, 0.45);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.45);
+  box-shadow: none;
+  filter: none;
+  transform: none;
+}
+
+.swap-pill-icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+body.left-handed .swap-pill {
+  left: max(20px, calc(env(safe-area-inset-left) + 12px));
+  right: auto;
+}
+
+/* Corner hint pointing at the swap pill. */
+.swap-hint {
+  position: fixed;
+  top: max(12px, calc(env(safe-area-inset-top) + 8px));
+  right: calc(
+    var(--player-sidebar, 0px) + max(12px, calc(env(safe-area-inset-right) + 8px))
+  );
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: min(320px, calc(100vw - 24px));
+  padding: 7px 8px 7px 12px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.88);
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  line-height: 1.25;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+}
+
+.swap-hint strong {
+  color: #d9c2ff;
+  font-weight: 700;
+}
+
+.swap-hint-close {
+  flex: 0 0 auto;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  opacity: 0.55;
+  font-size: 15px;
+  line-height: 1;
+  padding: 2px 4px;
+  cursor: pointer;
+}
+
+.swap-hint-close:hover {
+  opacity: 1;
+}
+
+:root {
+  --player-sidebar: 0px;
+}
+
+@media (min-width: 901px) and (max-width: 1024px) {
+  :root {
+    --player-sidebar: 240px;
+  }
+}
+
+@media (min-width: 1025px) {
+  :root {
+    --player-sidebar: 280px;
+  }
 }

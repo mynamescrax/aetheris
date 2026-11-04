@@ -50,7 +50,7 @@
     {
       icon: "🎮",
       title: "Playing games",
-      body: "Pick a game, search for one, or hit Random. Above each game you'll find fullscreen, favorites and a report button. If a game won't load, try another source from the dropdown or report it.",
+      body: "Pick a game, search for one, or hit Random. Above each game you'll find fullscreen, favorites and a report button. If a game won't load, use the swap source button in the player or report it.",
       action: { label: "Open games", run: go("games") },
     },
     {

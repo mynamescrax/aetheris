@@ -20,7 +20,7 @@
     <link rel="stylesheet" href="./css/ai.css?v=20261007.1" />
     <script src="./js/theme.js?v=20261101.1"></script>
     <script defer src="./js/preload.js?v=20261008.1"></script>
-    <link rel="stylesheet" href="./css/usability.css?v=20261102.1" />
+    <link rel="stylesheet" href="./css/usability.css?v=20261103.3" />
   </head>
 
   <body>
@@ -94,7 +94,6 @@
             <span>Images</span>
           </button>
         </nav>
-
       </aside>
 
       <section class="ai-workspace" id="ai-content">
@@ -114,10 +113,10 @@
                   aria-haspopup="dialog"
                   aria-expanded="false"
                 >
-                  <span class="ai-provider-icon" data-provider="OpenAI">O</span>
+                  <span class="ai-provider-icon" data-provider="Other">✦</span>
                   <span class="ai-model-trigger-copy"
-                    ><strong>gpt-5-6-sol</strong><small>OpenAI</small></span
-                  >
+                    ><strong>Loading models…</strong><small></small
+                  ></span>
                   <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
                     <path
                       d="m6 8 4 4 4-4"
@@ -166,9 +165,7 @@
                 id="ai-model"
                 aria-label="Chat model"
                 tabindex="-1"
-              >
-                <option value="gpt-5-6-sol">gpt-5-6-sol</option>
-              </select>
+              ></select>
             </div>
             <button
               class="ai-new-mobile"
@@ -267,7 +264,10 @@
             <div class="ai-img-result">
               <div class="ai-img-empty" id="ai-img-empty">
                 <h1>Make an image</h1>
-                <p>Describe what you want. More detail usually means a better result.</p>
+                <p>
+                  Describe what you want. More detail usually means a better
+                  result.
+                </p>
                 <div class="ai-prompt-grid ai-image-starters">
                   <button
                     type="button"
@@ -347,13 +347,12 @@
                         aria-haspopup="dialog"
                         aria-expanded="false"
                       >
-                        <span class="ai-provider-icon" data-provider="OpenAI"
-                          >O</span
+                        <span class="ai-provider-icon" data-provider="Other"
+                          >✦</span
                         >
                         <span class="ai-model-trigger-copy"
-                          ><strong>gpt-image-2</strong
-                          ><small>OpenAI</small></span
-                        >
+                          ><strong>Loading models…</strong><small></small
+                        ></span>
                         <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
                           <path
                             d="m6 8 4 4 4-4"
@@ -379,9 +378,7 @@
                       id="ai-img-model"
                       aria-label="Image model"
                       tabindex="-1"
-                    >
-                      <option value="gpt-image-2">gpt-image-2</option>
-                    </select>
+                    ></select>
                   </div>
                 </div>
                 <button
@@ -416,6 +413,6 @@
       </section>
     </div>
 
-    <script src="./js/ai.js?v=20261011.3"></script>
+    <script src="./js/ai.js?v=20261104.1"></script>
   </body>
 </html>

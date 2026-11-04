@@ -378,6 +378,50 @@ test("a large session record survives the relay intact", async (t) => {
   assert.deepEqual(reply.subarray(11, 11 + length), record);
 });
 
+test("only the connection that advertised a server may replace it", async (t) => {
+  const relay = await startRelay();
+  t.after(() => relay.close());
+
+  const host = connect(relay.url);
+  const attacker = connect(relay.url);
+  const watcher = connect(relay.url);
+  t.after(() => {
+    host.ws.terminate();
+    attacker.ws.terminate();
+    watcher.ws.terminate();
+  });
+  await Promise.all([host.open(), attacker.open(), watcher.open()]);
+  host.send(hello(PUID_A));
+  attacker.send(hello(PUID_B));
+  watcher.send(hello("c".repeat(32)));
+
+  host.send(advertise("victim", Buffer.from("real-server")));
+  await settle();
+  // Someone who learned the name must not be able to point it at their copy.
+  attacker.send(advertise("victim", Buffer.from("attacker-server")));
+  await settle();
+
+  watcher.send(search(1));
+  const reply = await watcher.next();
+  assert.equal(reply.readUInt16BE(5), 1, "the hijack attempt did not add a second server");
+  const length = reply.readUInt32BE(7);
+  assert.equal(reply.toString("latin1", 11, 11 + length), "real-server");
+  assert.equal(relay.relay.status().sessions, 1);
+  assert.equal(relay.relay.status().dropped, 1, "the hijack attempt is counted as dropped");
+
+  // The owner can still refresh its own record, which is the point of S.
+  host.send(advertise("victim", Buffer.from("real-server-refreshed")));
+  await settle();
+  watcher.send(search(2));
+  const refreshed = await watcher.next();
+  const refreshedlength = refreshed.readUInt32BE(7);
+  assert.equal(
+    refreshed.toString("latin1", 11, 11 + refreshedlength),
+    "real-server-refreshed",
+  );
+  assert.equal(relay.relay.status().sessions, 1);
+});
+
 test("the public docs page covers every frame and option", () => {
   const html = fs.readFileSync(
     new URL("../public/relay-api.html", import.meta.url),

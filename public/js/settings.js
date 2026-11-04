@@ -389,6 +389,14 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
+  var erudatoggle = document.getElementById("eruda-toggle");
+  if (erudatoggle) {
+    erudatoggle.checked = store.getItem("erudaEnabled") === "true";
+    erudatoggle.addEventListener("change", function () {
+      store.setItem("erudaEnabled", String(erudatoggle.checked));
+    });
+  }
+
   var perftoggle = document.getElementById("performance-toggle");
   if (perftoggle) {
     perftoggle.checked = store.getItem("performanceMode") === "true";

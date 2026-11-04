@@ -19,7 +19,7 @@
     <link rel="stylesheet" href="./css/cards.css?v=20260907.1" />
     <link rel="stylesheet" href="./css/themes.css?v=20261101.1" />
     <link rel="stylesheet" href="./css/nav.css?v=20261102.1" />
-    <link rel="stylesheet" href="./css/load.css?v=20261011.2" />
+    <link rel="stylesheet" href="./css/load.css?v=20261103.2" />
     <script src="./js/theme.js?v=20261101.1"></script>
 
     <script defer src="./js/preload.js?v=20261008.1"></script>
@@ -256,7 +256,7 @@
         }
       })();
     </script>
-    <link rel="stylesheet" href="./css/usability.css?v=20261102.1" />
+    <link rel="stylesheet" href="./css/usability.css?v=20261103.3" />
   </head>
 
   <body>
@@ -336,25 +336,6 @@
             ↺
           </button>
           <button
-            onclick="downloadgame()"
-            aria-label="Save online game launcher"
-            title="Save launcher (requires this site and internet)"
-            style="min-width: 44px; min-height: 44px; font-size: 20px"
-          >
-            ⬇
-          </button>
-          <button
-            onclick="debuggame()"
-            title="Debug (Eruda)"
-            style="min-width: 44px; min-height: 44px"
-          >
-            <img
-              src="./assets/images/eruda.png"
-              alt="Debug"
-              style="width: 20px; height: 20px; display: block"
-            />
-          </button>
-          <button
             onclick="togglehandedmode()"
             title="Toggle left/right handed mode"
             id="handed-btn"
@@ -368,60 +349,10 @@
     </div>
 
     <script defer src="./register-sw.js?v=20260907.1"></script>
-    <script defer src="./js/player-data.js?v=20260928.2"></script>
-    <script defer src="./js/load.js?v=20261011.1"></script>
+    <script defer src="./js/player-data.js?v=20261103.8"></script>
+    <script defer src="./js/load.js?v=20261103.5"></script>
 
     <script>
-      function downloadgame() {
-        var iframe = document.querySelector("#game-frame iframe");
-        if (!iframe || !iframe.src) {
-          alert("No game loaded yet.");
-          return;
-        }
-
-        var gamesrc = location.origin + "/index.html#load" + location.search;
-        var titleel = document.getElementById("game-title");
-        var rawtitle = (titleel && titleel.textContent.trim()) || "";
-        var slug = rawtitle
-          ? rawtitle
-              .toLowerCase()
-              .replace(/[^a-z0-9]+/g, "-")
-              .replace(/^-+|-+$/g, "")
-          : gamesrc.split("/").pop().split("?")[0] || "game";
-        var filename =
-          slug.substring(slug.length - 5) === ".html" ? slug : slug + ".html";
-        var title = rawtitle || slug;
-
-        var html =
-          '<!DOCTYPE html>\n<html lang="en">\n<head>\n' +
-          '<meta charset="UTF-8">\n' +
-          '<meta name="viewport" content="width=device-width,initial-scale=1.0">\n' +
-          "<title>" +
-          title.replace(/</g, "&lt;") +
-          "</title>\n" +
-          "<style>*{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;overflow:hidden}" +
-          "iframe{width:100%;height:100%;border:none}</style>\n" +
-          "</head>\n<body>\n" +
-          '<iframe src="' +
-          gamesrc.replace(/"/g, "&quot;") +
-          '" ' +
-          'allow="autoplay;fullscreen;gamepad;microphone;camera" ' +
-          'sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-pointer-lock allow-downloads allow-modals" ' +
-          "allowfullscreen></iframe>\n" +
-          "</body>\n</html>";
-
-        var blob = new Blob([html], { type: "text/html" });
-        var link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        setTimeout(function () {
-          URL.revokeObjectURL(link.href);
-        }, 60000);
-      }
-
       function refreshgame() {
         var iframe = document.querySelector("#game-frame iframe");
         if (!iframe) {
@@ -442,7 +373,8 @@
         iframe.src = url.href;
       }
 
-      var erudaActive = false;
+      // Eruda is opt-in from Settings → DevTools; the player has no debug button.
+      var erudaActive = localStorage.getItem("erudaEnabled") === "true";
 
       function injecterudaintoiframe(iframe) {
         try {
@@ -461,64 +393,6 @@
         } catch (e) {}
       }
 
-      function debuggame() {
-        var iframe = document.querySelector("#game-frame iframe");
-        if (!iframe) {
-          alert("No game loaded yet.");
-          return;
-        }
-
-        try {
-          var doc = iframe.contentDocument || iframe.contentWindow.document;
-          if (doc) {
-            var win = iframe.contentWindow;
-
-            if (win.eruda && win.__erudaInjected) {
-              try {
-                win.eruda.destroy();
-              } catch (e) {}
-              win.__erudaInjected = false;
-              erudaActive = false;
-              return;
-            }
-
-            erudaActive = true;
-            injecterudaintoiframe(iframe);
-            return;
-          }
-        } catch (err) {
-          console.warn(
-            "Cross-origin iframe, toggling Eruda on parent page instead.",
-            err,
-          );
-        }
-
-        if (window.eruda && window.__erudaInjected) {
-          try {
-            window.eruda.destroy();
-          } catch (e) {}
-          window.__erudaInjected = false;
-          erudaActive = false;
-          return;
-        }
-
-        erudaActive = true;
-        var s = document.createElement("script");
-        s.src = "https://cdn.jsdelivr.net/npm/eruda";
-        s.onload = function () {
-          var init = document.createElement("script");
-          init.textContent = "eruda.init(); window.__erudaInjected = true;";
-          document.body.appendChild(init);
-          alert(
-            "Game iframe is cross-origin, so Eruda was attached to the page wrapper instead.",
-          );
-        };
-        s.onerror = function () {
-          alert("Failed to load Eruda.");
-        };
-        document.body.appendChild(s);
-      }
-
       // Re-inject Eruda after iframe refreshes
       document.getElementById("game-frame").addEventListener(
         "load",
@@ -529,6 +403,11 @@
         },
         true,
       );
+
+      if (erudaActive) {
+        var debugframe = document.querySelector("#game-frame iframe");
+        if (debugframe) injecterudaintoiframe(debugframe);
+      }
 
       function eschtml(s) {
         return String(s)
@@ -603,6 +482,14 @@
         }
       })();
 
+      function dismissshaphint() {
+        var hint = document.getElementById("swap-hint");
+        if (hint) hint.hidden = true;
+        try {
+          localStorage.setItem("swapHintDismissed", "true");
+        } catch (e) {}
+      }
+
       function togglehandedmode() {
         var isleft = document.body.classList.toggle("left-handed");
         localStorage.setItem("leftHanded", isleft ? "true" : "false");
@@ -640,7 +527,7 @@
       document.addEventListener("DOMContentLoaded", function () {
         var tools = document.getElementById("player-extra-tools");
         document
-          .querySelectorAll(".chat-pill, .report-pill, .osk-pill")
+          .querySelectorAll(".swap-pill, .chat-pill, .report-pill, .osk-pill")
           .forEach(function (button) {
             tools.appendChild(button);
           });
@@ -742,6 +629,30 @@
         }
       });
     </script>
+
+    <!-- swap source pill (above the chat pill) -->
+    <button
+      class="swap-pill"
+      id="swap-source-btn"
+      onclick="window.swapsource ? window.swapsource() : null"
+      aria-label="Swap source"
+      title="Change source"
+    >
+      <span class="swap-pill-icon">⇆</span>
+      <span>Swap source</span>
+    </button>
+
+    <!-- hint (top right of the game) -->
+    <div class="swap-hint" id="swap-hint" role="status" hidden>
+      <span>Not working? Press <strong>swap source</strong></span>
+      <button
+        class="swap-hint-close"
+        onclick="dismissshaphint()"
+        aria-label="Dismiss hint"
+      >
+        ×
+      </button>
+    </div>
 
     <!-- chat pill (above report pill) -->
     <button

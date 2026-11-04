@@ -30,6 +30,7 @@ import { createmoviereport } from "./lib/movie-report.js";
 import { createRateLimiter } from "./lib/rate-limit.js";
 import { downloadPublicImage, resolvePublicUrl } from "./lib/public-network.js";
 import { registerImageProxy } from "./lib/image-proxy.js";
+import { registerGameCatalogs } from "./lib/game-catalogs.js";
 import { registerGameAssets } from "./lib/game-assets.js";
 import { rewriteAssetUrls } from "./lib/asset-urls.js";
 import { uniqueOnlineCount } from "./lib/online.js";
@@ -680,6 +681,7 @@ registerMovieRelay(fastify, {
     .filter(Boolean),
 });
 registerImageProxy(fastify);
+registerGameCatalogs(fastify);
 registerGameAssets(fastify);
 
 // Returns { group, limit, windowMs, perAccount } for metered requests, or null.
@@ -698,6 +700,8 @@ function ratelimitfor(method, path) {
 
   if (method === "GET") {
     if (path === "/img") return { group: "img-proxy", limit: 6000 };
+    if (path.startsWith("/api/games/catalog/"))
+      return { group: "game-catalogs", limit: 600 };
     if (path === "/movie-ping") return { group: "movie-ping", limit: 60 };
     if (path.startsWith("/api/tmdb/")) return { group: "tmdb", limit: 120 };
     if (path === "/api/ai/models") return { group: "ai-models", limit: 30 };
@@ -1902,8 +1906,10 @@ const CRAX_GPT_KEY = process.env.CRAX_GPT_KEY || "";
 const CRAX_GPT_BASE = (
   process.env.CRAX_GPT_BASE_URL || "https://gpt.crax.lol/v1"
 ).replace(/\/+$/, "");
-const CRAX_GPT_MODEL = process.env.CRAX_GPT_MODEL || "gpt-5-6-sol";
-const CRAX_GPT_IMG_MODEL = process.env.CRAX_GPT_IMAGE_MODEL || "gpt-image-2";
+// Optional overrides. When unset, the default is discovered from the provider's
+// /models endpoint so a renamed or retired model can't break chat.
+const CRAX_GPT_MODEL = process.env.CRAX_GPT_MODEL || "";
+const CRAX_GPT_IMG_MODEL = process.env.CRAX_GPT_IMAGE_MODEL || "";
 const MAX_GENERATED_IMAGE_BYTES = 20 * 1024 * 1024;
 const AI_MODELS_TIMEOUT_MS = 15 * 1000;
 // A game page is rewritten to opaque relay URLs only when it fits in memory.
@@ -1918,6 +1924,13 @@ const AI_IMAGE_DOWNLOAD_TIMEOUT_MS = 30 * 1000;
 const AI_MAX_TEXT_CHARS = 200_000;
 const AI_MAX_CONCURRENT_PER_IP = 3;
 const AI_MAX_CONCURRENT = 24;
+
+// The provider's model list changes over time, so it is cached briefly instead
+// of being pinned in code or re-fetched for every chat request.
+const AI_MODEL_CACHE_TTL_MS = 10 * 60 * 1000;
+const AI_IMAGE_MODEL_RE =
+  /image|img|dall|flux|sdxl|sd3(?:-|$)|banana|krea|recraft|ideogram/i;
+const AI_VIDEO_MODEL_RE = /video|sora|veo|kling|runway|pika/i;
 
 const aiactive = new Map(); // client ip -> in-flight upstream requests
 let aiactiveTotal = 0;
@@ -1988,8 +2001,13 @@ function isupstreamfault(status) {
 function sendUpstreamError(reply, res, data, label, service = "AI service") {
   const detail = upstreamerror(data, res);
   if (res.status === 401 || res.status === 403) {
+    const code = data && data.error && data.error.code;
     console.error(
-      `[${label}] upstream rejected our credentials (${res.status}):`,
+      `[${label}] upstream rejected our credentials (${res.status})${
+        code === "read_only_key"
+          ? " — CRAX_GPT_KEY is read-only; generation needs a read+write key"
+          : ""
+      }:`,
       detail,
     );
     return reply.code(502).send({
@@ -1998,7 +2016,8 @@ function sendUpstreamError(reply, res, data, label, service = "AI service") {
     });
   }
   if (res.status === 429) {
-    const retry = res.headers.get("retry-after");
+    const retry =
+      res.headers && res.headers.get ? res.headers.get("retry-after") : null;
     if (retry && /^\d+$/.test(retry)) reply.header("Retry-After", retry);
     return reply.code(429).send({
       ok: false,
@@ -2026,6 +2045,81 @@ function sendUpstreamFailure(reply, error, label, service = "the AI service") {
     ok: false,
     error: `Could not reach ${service}. Please try again.`,
   });
+}
+
+function aiModelId(entry) {
+  if (typeof entry === "string") return entry;
+  return entry && typeof entry.id === "string" ? entry.id : "";
+}
+
+function aiDefaultModel(models, preferred) {
+  if (preferred) return preferred;
+  const first = models.find((model) => aiModelId(model));
+  return first ? aiModelId(first) : "";
+}
+
+let aiModelCache = null; // last successful /models response
+let aiModelInflight = null;
+
+// Fetches and caches the provider's model list. A stale list beats a hard
+// failure, so a brief provider outage doesn't disable AI entirely.
+async function aiModelCatalog() {
+  if (aiModelCache && Date.now() - aiModelCache.at < AI_MODEL_CACHE_TTL_MS)
+    return aiModelCache;
+  if (aiModelInflight) return aiModelInflight;
+  aiModelInflight = (async () => {
+    try {
+      const res = await fetch(`${CRAX_GPT_BASE}/models`, {
+        headers: { Authorization: `Bearer ${CRAX_GPT_KEY}` },
+        signal: AbortSignal.timeout(AI_MODELS_TIMEOUT_MS),
+      });
+      const data = await readAiResponse(res);
+      if (!res.ok) {
+        const error = new Error(upstreamerror(data, res));
+        error.status = res.status;
+        error.data = data;
+        throw error;
+      }
+      const models = Array.isArray(data.data) ? data.data : [];
+      const chat = [];
+      const images = [];
+      for (const model of models) {
+        const id = aiModelId(model);
+        if (!id || AI_VIDEO_MODEL_RE.test(id)) continue;
+        if (AI_IMAGE_MODEL_RE.test(id)) images.push(model);
+        else chat.push(model);
+      }
+      aiModelCache = {
+        at: Date.now(),
+        data: models,
+        default_model: aiDefaultModel(chat, CRAX_GPT_MODEL),
+        default_image_model: aiDefaultModel(images, CRAX_GPT_IMG_MODEL),
+      };
+      return aiModelCache;
+    } catch (error) {
+      if (aiModelCache) {
+        console.warn(
+          "[ai models] refresh failed, serving cached list:",
+          error.message,
+        );
+        return aiModelCache;
+      }
+      throw error;
+    } finally {
+      aiModelInflight = null;
+    }
+  })();
+  return aiModelInflight;
+}
+
+// Resolves the model for a request: the client's explicit choice, then the env
+// override, then whatever the provider currently lists.
+async function resolveAiModel(requested, kind) {
+  if (typeof requested === "string" && requested) return requested;
+  const override = kind === "image" ? CRAX_GPT_IMG_MODEL : CRAX_GPT_MODEL;
+  if (override) return override;
+  const catalog = await aiModelCatalog();
+  return kind === "image" ? catalog.default_image_model : catalog.default_model;
 }
 
 // Sends the error and returns false when AI is unavailable to this request.
@@ -2098,10 +2192,19 @@ fastify.post(
         return reply
           .code(400)
           .send({ ok: false, error: "Invalid model or stream option." });
+      const chosen = await resolveAiModel(model, "chat");
+      if (!chosen)
+        return reply.code(503).send({
+          ok: false,
+          error:
+            "No AI models are available right now. Please try again later.",
+        });
       const payload = {
-        model: String(model || CRAX_GPT_MODEL),
+        model: chosen,
         messages,
-        ...(stream === true ? { stream: true } : {}),
+        // The provider streams by default, so non-stream callers must opt out
+        // explicitly or they receive an SSE body.
+        stream: stream === true,
         ...(include_reasoning === true ? { include_reasoning: true } : {}),
       };
       const res = await fetch(`${CRAX_GPT_BASE}/chat/completions`, {
@@ -2158,19 +2261,21 @@ fastify.post(
 fastify.get("/api/ai/models", async (req, reply) => {
   if (!aiallowed(req, reply)) return;
   try {
-    const res = await fetch(`${CRAX_GPT_BASE}/models`, {
-      headers: { Authorization: `Bearer ${CRAX_GPT_KEY}` },
-      signal: AbortSignal.timeout(AI_MODELS_TIMEOUT_MS),
-    });
-    const data = await readAiResponse(res);
-    if (!res.ok) return sendUpstreamError(reply, res, data, "ai models");
+    const catalog = await aiModelCatalog();
     reply.send({
       ok: true,
-      data: Array.isArray(data.data) ? data.data : [],
-      default_model: CRAX_GPT_MODEL,
-      default_image_model: CRAX_GPT_IMG_MODEL,
+      data: catalog.data,
+      default_model: catalog.default_model,
+      default_image_model: catalog.default_image_model,
     });
   } catch (e) {
+    if (e && e.status)
+      return sendUpstreamError(
+        reply,
+        { status: e.status, headers: null },
+        e.data || {},
+        "ai models",
+      );
     sendUpstreamFailure(reply, e, "ai models");
   }
 });
@@ -2239,8 +2344,14 @@ fastify.post(
           });
         }
       }
+      const chosenImage = await resolveAiModel(model, "image");
+      if (!chosenImage)
+        return reply.code(503).send({
+          ok: false,
+          error: "Image generation isn't available right now.",
+        });
       const payload = {
-        model: String(model || CRAX_GPT_IMG_MODEL),
+        model: chosenImage,
         prompt: String(prompt),
         ...(n ? { n } : {}),
         ...(size ? { size } : {}),

@@ -8531,5 +8531,16 @@
     "tags": [
       "WASM"
     ]
+  },
+  {
+    "id": "mecchachameleon",
+    "title": "Meccha Chameleon",
+    "html": "assets/games/mecchachameleon.html",
+    "image": "assets/images/mecchachameleon.jpg",
+    "source": "aetheris",
+    "tags": [
+      "Action",
+      "WASM"
+    ]
   }
 ]

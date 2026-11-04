@@ -16,8 +16,9 @@
   var imageAttachments = [];
   var chatModels = [];
   var imageModels = [];
-  var defaultModel = "gpt-5-6-sol";
-  var defaultImgModel = "gpt-image-2";
+  var defaultModel = "";
+  var defaultImgModel = "";
+  var modelsLoaded = false;
   var busying = false;
   var maxAttachments = 3;
   var maxImageAttachments = 4;
@@ -150,7 +151,12 @@
   }
 
   function updateTrigger(trigger, model) {
-    if (!model) return;
+    if (!model) {
+      trigger.querySelector("strong").textContent = "No models";
+      trigger.querySelector("small").textContent = "";
+      trigger.title = "No models available";
+      return;
+    }
     var oldIcon = trigger.querySelector(".ai-provider-icon");
     oldIcon.textContent = model.mark;
     oldIcon.setAttribute("data-provider", model.provider);
@@ -200,7 +206,11 @@
     if (!filtered.length) {
       var empty = document.createElement("div");
       empty.className = "ai-model-empty";
-      empty.textContent = "No models match that";
+      empty.textContent = !models.length
+        ? modelsLoaded
+          ? "No models available"
+          : "Loading models…"
+        : "No models match that";
       container.appendChild(empty);
       return;
     }
@@ -271,16 +281,25 @@
     imageModels = normalized.filter(function (model) {
       return isImageModel(model.id) && !/video/i.test(model.id);
     });
-    if (!chatModels.length)
+    // A configured default only fills in when the provider list is missing one.
+    if (!chatModels.length && defaultModel)
       chatModels = normalizeModels([{ id: defaultModel }]);
-    if (!imageModels.length)
+    if (!imageModels.length && defaultImgModel)
       imageModels = normalizeModels([{ id: defaultImgModel }]);
+    modelsLoaded = true;
 
-    var selectedChat = findModel(chatModels, defaultModel) || chatModels[0];
-    var selectedImage =
-      findModel(imageModels, defaultImgModel) || imageModels[0];
-    buildNativeSelect(modelEl, chatModels, selectedChat.id);
-    buildNativeSelect(imgModelEl, imageModels, selectedImage.id);
+    var selectedChat = defaultModel
+      ? findModel(chatModels, defaultModel)
+      : chatModels[0];
+    var selectedImage = defaultImgModel
+      ? findModel(imageModels, defaultImgModel)
+      : imageModels[0];
+    buildNativeSelect(modelEl, chatModels, selectedChat && selectedChat.id);
+    buildNativeSelect(
+      imgModelEl,
+      imageModels,
+      selectedImage && selectedImage.id,
+    );
     updateTrigger(modelTrigger, selectedChat);
     updateTrigger(imgModelTrigger, selectedImage);
     renderModelList("chat", "");
@@ -288,7 +307,6 @@
   }
 
   function loadModels() {
-    applyModels([{ id: defaultModel }, { id: defaultImgModel }]);
     // Token is needed when AI_REQUIRE_LOGIN=true.
     fetch("/api/ai/models", { headers: apiHeaders() })
       .then(function (response) {
@@ -301,9 +319,8 @@
       .then(function (data) {
         if (!data || !data.ok)
           throw new Error((data && data.error) || "Could not load AI models.");
-        if (data.default_model) defaultModel = data.default_model;
-        if (data.default_image_model)
-          defaultImgModel = data.default_image_model;
+        defaultModel = data.default_model || "";
+        defaultImgModel = data.default_image_model || "";
         applyModels(data.data || []);
       })
       .catch(function (error) {
@@ -593,6 +610,14 @@
   async function sendChat() {
     var text = chatInp.value.trim();
     if ((!text && !attachments.length) || busying) return;
+    var model = modelEl.value || defaultModel;
+    if (!model) {
+      setErr(
+        "No AI models are available right now. Please refresh in a moment.",
+        "chat",
+      );
+      return;
+    }
     var pendingAttachments = attachments.slice();
     var messageContent = text;
     if (pendingAttachments.length) {
@@ -623,7 +648,6 @@
     );
     setBusy(true);
     var typing = addTyping();
-    var model = modelEl.value || defaultModel;
     var controller = new AbortController();
     var timeout = setTimeout(function () {
       controller.abort();
@@ -784,7 +808,8 @@
         headers: apiHeaders(),
         body: JSON.stringify({
           prompt: prompt,
-          model: selectedImageModel,
+          // Omitted when unknown so the server picks the provider's default.
+          model: selectedImageModel || undefined,
           images: imageAttachments.map(function (attachment) {
             return attachment.dataUrl;
           }),

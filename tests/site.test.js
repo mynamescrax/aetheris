@@ -138,7 +138,9 @@ test("player accepts iframe-only catalog entries", () => {
     new URL("../public/js/load.js", import.meta.url),
     "utf8",
   );
-  assert.match(source, /item\.url \|\| item\.html \|\| item\.iframe/);
+  assert.match(source, /source\.url \|\| source\.html \|\| source\.iframe/);
+  // flat records that predate the merged `sources` list still work.
+  assert.match(source, /iframe: entry\.iframe/);
 });
 
 // Loads the real service worker in a VM with just enough of the worker

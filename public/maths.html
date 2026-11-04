@@ -31,14 +31,14 @@
     <script defer src="./js/preload.js?v=20261008.1"></script>
     <script
       defer
-      src="./assets/data/games.js?v=20261016.1"
+      src="./assets/data/games.js?v=20261103.9"
       onerror="window.gamesLoadErrors = ['catalog']; window.gamesloaded = true; window.dispatchEvent(new Event('gamesloaded'));"
     ></script>
-    <script defer src="./js/games.js?v=20260928.2"></script>
+    <script defer src="./js/games.js?v=20261103.1"></script>
 
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <link rel="stylesheet" href="./css/usability.css?v=20261102.1" />
+    <link rel="stylesheet" href="./css/usability.css?v=20261103.3" />
   </head>
 
   <body>
@@ -131,35 +131,6 @@
               </svg>
               Most played
             </button>
-            <div style="position: relative">
-              <button
-                class="icon-btn"
-                id="filter-toggle"
-                type="button"
-                aria-label="Open filters"
-                aria-expanded="false"
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M4 6h16"></path>
-                  <path d="M7 12h10"></path>
-                  <path d="M10 18h4"></path>
-                </svg>
-              </button>
-
-              <div class="filters-popover" id="filters-popover">
-                <label for="source-filter">Source</label>
-                <div class="select-wrap">
-                  <select id="source-filter">
-                    <option value="aetheris" selected>Aetheris</option>
-                    <option value="velara">Velara</option>
-                    <option value="petezah">Petezah</option>
-                    <option value="truffled">Truffled</option>
-                    <option value="gnmath">Gn-Math</option>
-                    <option value="all">All sources</option>
-                  </select>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 

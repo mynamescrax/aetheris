@@ -62,7 +62,7 @@ wss://aetheris.win/eos-relay?room=FRIENDS&amp;maxSessions=2&amp;idle=120</code><
         <td><code>G</code> <code>puid[32]</code><br>That player left, or was never connected.</td>
       </tr>
       <tr>
-        <td><code>S</code> <code>n:u16</code> <code>sid</code> <code>record</code><br>Advertise a hosted server.</td>
+        <td><code>S</code> <code>n:u16</code> <code>sid</code> <code>record</code><br>Advertise a hosted server. Sending the same <code>sid</code> again replaces its own record.</td>
         <td><code>R</code> <code>qid:u32</code> <code>n:u16</code> (<code>len:u32</code> <code>record</code>)*<br>Reply to the search with this id.</td>
       </tr>
       <tr>
@@ -123,6 +123,7 @@ asyncio.run(main())</code></pre>
     <li>Any website may open a connection (it only moves packets between players), so a page served from <code>localhost</code>, a tunnel or another domain all work.</li>
     <li>A player's servers are withdrawn the moment its socket closes, and a vanished socket is detected by the keepalive, so dead games do not pile up in search results.</li>
     <li>Games with their own server browser need no join codes: they advertise with <code>S</code> and list with <code>Q</code>. A room is the code, when you want one.</li>
+    <li>A server name belongs to the connection that advertised it. Only that player can replace or withdraw it, so nobody else can point a name at their own game or keep it from being refreshed.</li>
     <li>Rexcomp ports use it directly: <code>?REXCOMP_RELAY=wss://aetheris.win/eos-relay</code>, or with a room, <code>?REXCOMP_RELAY=wss://aetheris.win/eos-relay?room=FRIENDS</code>.</li>
   </ul>
 

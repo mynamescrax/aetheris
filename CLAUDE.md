@@ -6,6 +6,9 @@ Node/Fastify app behind Caddy. Production runs from `/var/www/aetheris` under
 PM2; Caddy uses the repo's `Caddyfile` as `/etc/caddy/Caddyfile`.
 
 - `index.js` - Fastify app: APIs, WebSocket/Wisp, static files.
+- `lib/game-catalogs.js` - cached server relay for the live provider game
+  catalogs (`/api/games/catalog/:source`); the client merges them into one
+  library (`public/assets/data/games.js`).
 - `movie-relay.js` - server-side relay behind `/movie-proxy`.
 - `Caddyfile` - public routing and server-side reverse proxies.
 - `public/movies.html` - Movies & TV UI and provider selection.

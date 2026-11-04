@@ -93,6 +93,10 @@ select {
   display: inline-flex;
   align-items: center;
 }
+#swap-source-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
 .card-item:visited {
   color: var(--text-color, #e5e5e5);
 }
@@ -293,6 +297,7 @@ body.backup-open .nav-handle {
     gap: 8px;
     flex-wrap: wrap;
   }
+  .player-extra-tools .swap-pill,
   .player-extra-tools .chat-pill,
   .player-extra-tools .report-pill,
   .player-extra-tools .osk-pill {

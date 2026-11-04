@@ -19,7 +19,7 @@
 
     <script src="register-sw.js?v=20260907.1" defer></script>
     <script defer src="./js/preload.js?v=20261008.1"></script>
-    <script defer src="./js/settings.js?v=20261022.1"></script>
+    <script defer src="./js/settings.js?v=20261103.1"></script>
     <script defer src="./js/data-transfer.js?v=20261020.1"></script>
     <script defer src="./js/cache-reset.js?v=20260924.1"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -57,7 +57,7 @@
         });
       })();
     </script>
-    <link rel="stylesheet" href="./css/usability.css?v=20261102.1" />
+    <link rel="stylesheet" href="./css/usability.css?v=20261103.3" />
   </head>
 
   <body>
@@ -382,6 +382,24 @@
               <span class="toggle-thumb"></span>
             </span>
             <span class="toggle-text">Block ads in the proxy</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-section" id="section-devtools">
+        <h2>DevTools</h2>
+        <h4>
+          Adds the Eruda debugger inside games, for reading console errors when
+          something won't load. Reload a game you already have open to apply it.
+        </h4>
+
+        <div class="toggle-row">
+          <label class="toggle-label" for="eruda-toggle">
+            <span class="toggle-track">
+              <input type="checkbox" id="eruda-toggle" />
+              <span class="toggle-thumb"></span>
+            </span>
+            <span class="toggle-text">Show debugger in games</span>
           </label>
         </div>
       </div>

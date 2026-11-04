@@ -11,7 +11,6 @@
   var popularIds = [];
   var activeTags = new Set();
   var search = document.getElementById("search-box");
-  var source = document.getElementById("source-filter");
   var main = document.getElementById("gamecards");
   var favGrid = document.getElementById("favoritedgames");
   var popular = document.getElementById("populargames");
@@ -34,7 +33,6 @@
         STATE_KEY,
         JSON.stringify({
           q: search.value,
-          src: source.value,
           tags: Array.from(activeTags),
           sort: sortByPlays,
           limit: limit,
@@ -52,13 +50,6 @@
     }
     if (!s || typeof s !== "object") return;
     if (typeof s.q === "string") search.value = s.q;
-    if (
-      typeof s.src === "string" &&
-      Array.from(source.options).some(function (o) {
-        return o.value === s.src;
-      })
-    )
-      source.value = s.src;
     if (Array.isArray(s.tags))
       activeTags = new Set(
         s.tags.filter(function (t) {
@@ -110,19 +101,18 @@
     return card;
   }
 
+  // A game can be favorited under its primary id or any provider's own id.
   function isFavorite(game) {
-    return (
-      favorites.indexOf(String(game.id)) !== -1 ||
-      (game.rawid != null && favorites.indexOf(String(game.rawid)) !== -1)
-    );
+    return favorites.some(function (id) {
+      return typeof window.gamehasid === "function"
+        ? window.gamehasid(game, id)
+        : String(game.id) === String(id);
+    });
   }
 
   function renderPopular() {
     if (!popular) return;
-    var show =
-      !search.value.trim() &&
-      !activeTags.size &&
-      (source.value === "aetheris" || source.value === "all");
+    var show = !search.value.trim() && !activeTags.size;
     popular.replaceChildren();
     if (show)
       popularIds.forEach(function (id) {
@@ -169,7 +159,7 @@
           " of " +
           filtered.length.toLocaleString() +
           " items"
-        : "No matches. Try another search, source, or tag."
+        : "No matches. Try another search or tag."
       : "The catalog could not be loaded. Check your connection and try again.";
     if (
       catalog.length &&
@@ -195,7 +185,6 @@
   function applyFilters(reset) {
     if (reset !== false) limit = PAGE_SIZE;
     var query = search.value.trim().toLowerCase();
-    var selectedSource = source.value || "all";
     var tags = Array.from(activeTags);
     filtered = catalog.filter(function (game) {
       return (
@@ -203,7 +192,6 @@
           String(game.title || game.name || "")
             .toLowerCase()
             .includes(query)) &&
-        (selectedSource === "all" || game.source === selectedSource) &&
         (!tags.length ||
           tags.some(function (tag) {
             return Array.isArray(game.tags) && game.tags.includes(tag);
@@ -224,7 +212,6 @@
   function renderTags() {
     var tags = new Set();
     catalog.forEach(function (game) {
-      if (source.value !== "all" && game.source !== source.value) return;
       if (Array.isArray(game.tags))
         game.tags.forEach(function (tag) {
           if (typeof tag !== "string") return;
@@ -316,17 +303,6 @@
     clearTimeout(searchTimer);
     searchTimer = setTimeout(applyFilters, 120);
   });
-  source.addEventListener("change", function () {
-    // Sources load on demand; "all" pulls every source.
-    if (source.value === "all") {
-      if (typeof window.gamesloadall === "function") window.gamesloadall();
-    } else if (typeof window.gamesloadsource === "function") {
-      window.gamesloadsource(source.value);
-    }
-    renderTags();
-    applyFilters();
-    closeFilters();
-  });
   more.addEventListener("click", function () {
     limit += PAGE_SIZE;
     render();
@@ -348,7 +324,6 @@
     clearBtn.addEventListener("click", function () {
       search.value = "";
       activeTags.clear();
-      source.value = "aetheris";
       sortByPlays = false;
       sort.classList.remove("sort-active");
       sort.setAttribute("aria-pressed", "false");
@@ -397,31 +372,6 @@
       renderTags();
       applyFilters();
     });
-
-  var toggle = document.getElementById("filter-toggle");
-  var popover = document.getElementById("filters-popover");
-  function closeFilters() {
-    popover.classList.remove("open");
-    popover.inert = true;
-    toggle.setAttribute("aria-expanded", "false");
-  }
-  closeFilters();
-  toggle.addEventListener("click", function () {
-    var open = popover.classList.toggle("open");
-    popover.inert = !open;
-    toggle.setAttribute("aria-expanded", String(open));
-    if (open) source.focus();
-  });
-  document.addEventListener("click", function (event) {
-    if (!popover.contains(event.target) && !toggle.contains(event.target))
-      closeFilters();
-  });
-  document.addEventListener("keydown", function (event) {
-    if (event.key === "Escape" && popover.classList.contains("open")) {
-      closeFilters();
-      toggle.focus();
-    }
-  });
 
   window.closegamepopup = function () {
     document.getElementById("game-popup").classList.remove("show");

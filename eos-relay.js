@@ -277,9 +277,20 @@ export function createEosRelay(options = {}) {
       return;
     }
     const sid = frame.toString("latin1", 3, 3 + len);
-    const fresh = !sessions.has(sid);
-    if (!fresh) {
-      // Re-advertising its own server (settings changed) is always fine.
+    const existing = sessions.get(sid);
+    const fresh = !existing;
+    if (existing) {
+      // Re-advertising its own server (settings changed) is always fine. Only
+      // the owner may do it, though: otherwise anyone who learns a server name
+      // can swap in their own record and capture the traffic aimed at it, or
+      // keep re-writing it so the real host can never refresh.
+      if (existing.owner !== conn.puid) {
+        stats.dropped++;
+        cfg.log(
+          `[eos-relay] ${clean(conn.puid)} tried to overwrite server ${clean(sid)} owned by ${clean(existing.owner)}`,
+        );
+        return;
+      }
     } else if (sessions.size >= cfg.maxSessions) {
       stats.dropped++;
       cfg.log(`[eos-relay] server list is full (${sessions.size}); dropping ${clean(sid)}`);
