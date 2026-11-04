@@ -390,6 +390,8 @@ var DEDUPE_SUFFIX = {
   beta: 1,
   demo: 1,
   trial: 1,
+  scratch: 1,
+  case: 1,
 };
 
 function dedupetokens(title) {
@@ -673,6 +675,12 @@ function deduperelated(a, b, slug) {
     longcore = la;
   }
   if (longcore.indexOf(shortcore) !== -1) {
+    // "Growden.io" / "Grow Denio": the provider split one word in two.
+    if (
+      longcore.indexOf(shortcore) === 0 &&
+      longcore.length - shortcore.length <= 2
+    )
+      return true;
     var extra = dedupeextras(longer, shorter);
     if (!extra.length) return true;
     if (extra.length >= 2) return true;
@@ -739,7 +747,13 @@ function foldacronymcopies(cards) {
     if (acronym.length < 3) continue;
     if (!groups[acronym]) groups[acronym] = [];
     groups[acronym].push(cards[i]);
-    if (gameslug(cards[i]) === acronym) named[acronym] = true;
+    // A file named after the initials, or a card whose whole title is the
+    // initials ("ADOFAI"), makes them safe to fold.
+    if (
+      gameslug(cards[i]) === acronym ||
+      dedupecore(cards[i].title) === acronym
+    )
+      named[acronym] = true;
   }
   for (var key in groups) if (!named[key]) delete groups[key];
   var removed = [];

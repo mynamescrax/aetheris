@@ -426,6 +426,35 @@ test("provider compounds that hide articles still fold", () => {
   for (const card of merged) assert.equal(card.sources.length, 2);
 });
 
+test("initials and split words still fold on the same provider file", () => {
+  const game = catalog();
+  const list = (source, records) =>
+    records.map((record) => game.normalize(record, source));
+  const merged = game.merge([
+    list("aetheris", [
+      {
+        title: "A Dance of Fire and Ice",
+        html: "assets/games/adanceoffireandice.html",
+      },
+      { title: "Grow Denio", html: "assets/games/growdenio/index.html" },
+    ]),
+    list("petezah", [
+      {
+        title: "ADOFAI",
+        url: "https://gospel.newcovenant-teaching.org/resources/semag/adofai/index.html",
+      },
+    ]),
+    list("velara", [
+      {
+        title: "Growden.io",
+        url: "https://velara.my/assets/games/growdenio.html",
+      },
+    ]),
+  ]);
+  assert.equal(merged.length, 2);
+  for (const card of merged) assert.equal(card.sources.length, 2);
+});
+
 test("acronyms and subtitles fold; sequels and different games stay apart", () => {
   const game = catalog();
   const list = (source, records) =>
