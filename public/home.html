@@ -133,8 +133,10 @@
       <div class="update-modal">
         <h2 id="updatemodaltitle">What's new</h2>
         <ul class="update-list">
-          <li>Movie playback is more reliable for newer players: their scripts and encrypted stream lists now load correctly through the relay</li>
-          <li>If a game or movie still won't load, go to Settings → Data and use Reset cache, then reload the page and try again</li>
+          <li>AI chat now pulls its model list from the provider, so it keeps working when a model is renamed or retired</li>
+          <li>The game library loads every provider catalog through the site, and GN-Math is bundled so a rotated provider link can't empty it</li>
+          <li>Games have a Swap source button, plus Settings → DevTools → Show debugger in games when something won't load</li>
+          <li>New game: Meccha Chameleon</li>
         </ul>
         <div class="update-modal-footer">
           <button id="updatemodalclose" type="button">Got it</button>
@@ -586,7 +588,7 @@
     </style>
 
     <script>
-      var UPDATE_VERSION = "25";
+      var UPDATE_VERSION = "26";
 
       async function loadquote() {
         try {

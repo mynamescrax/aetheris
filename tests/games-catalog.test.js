@@ -25,7 +25,10 @@ function catalog() {
   sandbox.globalThis = sandbox;
   sandbox.self = sandbox;
   vm.createContext(sandbox);
-  vm.runInContext(source.slice(0, source.indexOf("window.gamesready")), sandbox);
+  vm.runInContext(
+    source.slice(0, source.indexOf("window.gamesready")),
+    sandbox,
+  );
   const get = (name) => vm.runInContext(name, sandbox);
   const mergeName = vm.runInContext(
     "Object.getOwnPropertyNames(this).find(function (n) { return /^merg/.test(n); }, this)",
@@ -103,7 +106,10 @@ test("provider catalogs are mapped onto the internal game shape", () => {
     url: "/games/1on1soccer/index.html",
     thumbnail: "png/games/12.webp",
   });
-  assert.equal(truffled.url, "https://truffled.lol/games/1on1soccer/index.html");
+  assert.equal(
+    truffled.url,
+    "https://truffled.lol/games/1on1soccer/index.html",
+  );
   assert.equal(truffled.image, "https://truffled.lol/png/games/12.webp");
 
   const velara = game.map.velara({
@@ -141,7 +147,10 @@ test("provider catalogs are mapped onto the internal game shape", () => {
     directory: "webdash",
     tags: ["top", "platformer"],
   });
-  assert.equal(selenite.url, "https://selenite.cc/resources/semag/webdash/index.html");
+  assert.equal(
+    selenite.url,
+    "https://selenite.cc/resources/semag/webdash/index.html",
+  );
   assert.equal(
     selenite.image,
     "https://selenite.cc/resources/semag/webdash/gd.webp",
@@ -173,15 +182,43 @@ test("the server accepts every catalog shape the client reader does", async () =
   assert.equal(iscatalogpayload(null), false);
 });
 
+test("gnmath is served from the saved snapshot, not the network", async () => {
+  const Fastify = (await import("fastify")).default;
+  const { registerGameCatalogs } = await import("../lib/game-catalogs.js");
+  const app = Fastify();
+  registerGameCatalogs(app);
+  await app.ready();
+  try {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/games/catalog/gnmath",
+    });
+    assert.equal(res.statusCode, 200);
+    assert.equal(
+      res.headers["cache-control"],
+      "public, max-age=300, stale-while-revalidate=3600",
+    );
+    const data = res.json();
+    assert.ok(Array.isArray(data), "the snapshot stays in provider shape");
+    assert.ok(data.length > 500, "the snapshot should carry the whole library");
+
+    const unknown = await app.inject({
+      method: "GET",
+      url: "/api/games/catalog/not-a-source",
+    });
+    assert.equal(unknown.statusCode, 404);
+  } finally {
+    await app.close();
+  }
+});
+
 test("a game carried by every provider becomes one card with ordered copies", () => {
   const game = catalog();
   const list = (source, records) =>
     records.map((record) => game.normalize(record, source));
 
   const merged = game.merge([
-    list("petezah", [
-      { title: "Alpha", url: "https://petezahgames.com/a/" },
-    ]),
+    list("petezah", [{ title: "Alpha", url: "https://petezahgames.com/a/" }]),
     list("velara", [
       { title: "Alpha", url: "https://velara.my/a/", tags: ["Action"] },
     ]),
@@ -271,7 +308,10 @@ test("duplicate titles fold into one card, including short and repeated rows", (
       { title: "2048 Merge Run", url: "https://gn-math.github.io/html/1.html" },
     ]),
     list("velara", [
-      { title: "2048 Mergerun", url: "https://velara.my/assets/games/2048.html" },
+      {
+        title: "2048 Mergerun",
+        url: "https://velara.my/assets/games/2048.html",
+      },
     ]),
   ]);
   assert.equal(spaced.length, 1);
