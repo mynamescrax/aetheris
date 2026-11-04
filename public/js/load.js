@@ -27,8 +27,8 @@
     aetheris: "Aetheris",
     gnmath: "Gn-Math",
     velara: "Velara",
-    petezah: "Petezah",
     truffled: "Truffled",
+    selenite: "Selenite",
   };
 
   function sourcelabel(name) {

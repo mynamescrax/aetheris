@@ -50,7 +50,6 @@ function catalog() {
       gnmath: get("gnmathcatalog"),
       truffled: get("truffledcatalog"),
       velara: get("velaracatalog"),
-      petezah: get("petezahcatalog"),
       selenite: get("selenitecatalog"),
     },
   };
@@ -63,21 +62,15 @@ test("catalogs are fetched live, aetheris first and in fallback order", () => {
     "gnmath",
     "truffled",
     "velara",
-    "petezah",
     "selenite",
   ]);
   assert.equal(game.urls[0], "assets/data/aetheris.json");
   for (const url of Array.from(game.urls).slice(1))
     assert.match(String(url), /^\/api\/games\/catalog\//);
 
-  const order = [
-    "aetheris",
-    "gnmath",
-    "truffled",
-    "velara",
-    "petezah",
-    "selenite",
-  ].map((name) => game.order(name));
+  const order = ["aetheris", "gnmath", "truffled", "velara", "selenite"].map(
+    (name) => game.order(name),
+  );
   assert.deepEqual(
     order,
     order.slice().sort((a, b) => a - b),
@@ -120,25 +113,6 @@ test("provider catalogs are mapped onto the internal game shape", () => {
   assert.equal(
     velara.url,
     "https://velara.my/assets/games/10minutestilldawn.html",
-  );
-
-  const petezah = game.map.petezah({
-    label: "Minecraft",
-    imageUrl: "/storage/images/main/minecraft.jpg",
-    url: "/iframe.html?url=/storage/ag/originals/precision/index.html",
-    categories: ["2 player"],
-  });
-  assert.equal(
-    petezah.url,
-    "https://petezahgames.com/storage/ag/originals/precision/index.html",
-  );
-  assert.deepEqual(Array.from(petezah.tags), ["2 player"]);
-  assert.equal(
-    game.map.petezah({
-      label: "Request Games",
-      url: "https://docs.google.com/forms/d/e/x/viewform",
-    }),
-    null,
   );
 
   const selenite = game.map.selenite({
@@ -212,13 +186,12 @@ test("gnmath is served from the saved snapshot, not the network", async () => {
   }
 });
 
-test("a game carried by every provider becomes one card with ordered copies", () => {
+test("a game carried by several providers becomes one card with ordered copies", () => {
   const game = catalog();
   const list = (source, records) =>
     records.map((record) => game.normalize(record, source));
 
   const merged = game.merge([
-    list("petezah", [{ title: "Alpha", url: "https://petezahgames.com/a/" }]),
     list("velara", [
       { title: "Alpha", url: "https://velara.my/a/", tags: ["Action"] },
     ]),
@@ -241,7 +214,7 @@ test("a game carried by every provider becomes one card with ordered copies", ()
   assert.equal(merged[0].source, "aetheris");
   assert.deepEqual(
     Array.from(merged[0].sources, (source) => source.name),
-    ["aetheris", "gnmath", "truffled", "velara", "petezah"],
+    ["aetheris", "gnmath", "truffled", "velara"],
   );
   assert.deepEqual(Array.from(merged[0].tags).sort(), ["Action", "Skill"]);
 });
@@ -438,10 +411,10 @@ test("initials and split words still fold on the same provider file", () => {
       },
       { title: "Grow Denio", html: "assets/games/growdenio/index.html" },
     ]),
-    list("petezah", [
+    list("selenite", [
       {
         title: "ADOFAI",
-        url: "https://gospel.newcovenant-teaching.org/resources/semag/adofai/index.html",
+        url: "https://selenite.cc/resources/semag/adofai/index.html",
       },
     ]),
     list("velara", [
@@ -469,10 +442,10 @@ test("acronyms and subtitles fold; sequels and different games stay apart", () =
       { title: "Rocket League", html: "assets/games/rl.html" },
       { title: "Moto X3M", html: "assets/games/moto.html" },
     ]),
-    list("petezah", [
+    list("selenite", [
       {
         title: "FNAF",
-        url: "https://gospel.newcovenant-teaching.org/resources/semag/fnaf/index.html",
+        url: "https://selenite.cc/resources/semag/fnaf/index.html",
       },
       {
         title: "Rocket League Sideswipe",
@@ -480,7 +453,7 @@ test("acronyms and subtitles fold; sequels and different games stay apart", () =
       },
       {
         title: "Moto X3M 2",
-        url: "https://petezahgames.com/storage/ag/echo/motox3m2/index.html",
+        url: "https://selenite.cc/resources/semag/motox3m2/index.html",
       },
     ]),
     list("velara", [
@@ -496,7 +469,7 @@ test("acronyms and subtitles fold; sequels and different games stay apart", () =
   assert.ok(bytitle["Five Nights At Freddy's"]);
   assert.deepEqual(
     Array.from(bytitle["Five Nights At Freddy's"].sources, (s) => s.name),
-    ["aetheris", "petezah"],
+    ["aetheris", "selenite"],
   );
   assert.deepEqual(
     Array.from(

@@ -14,7 +14,6 @@ var gamesources = [
   { name: "gnmath", url: "/api/games/catalog/gnmath", map: gnmathcatalog },
   { name: "truffled", url: "/api/games/catalog/truffled", map: truffledcatalog },
   { name: "velara", url: "/api/games/catalog/velara", map: velaracatalog },
-  { name: "petezah", url: "/api/games/catalog/petezah", map: petezahcatalog },
   { name: "selenite", url: "/api/games/catalog/selenite", map: selenitecatalog },
 ];
 
@@ -26,7 +25,6 @@ var gamesourcepriority = [
   "gnmath",
   "truffled",
   "velara",
-  "petezah",
   "selenite",
 ];
 
@@ -94,50 +92,6 @@ function velaracatalog(raw) {
     title: title,
     url: absoluteurl(raw.location || raw.url || raw.html, "https://velara.my/"),
     image: absoluteurl(raw.image || raw.img, "https://velara.my/"),
-  };
-}
-
-function petezahcatalog(raw) {
-  if (!raw) return null;
-  var title = raw.label || raw.title || raw.name;
-  if (!title) return null;
-
-  // Their catalog points at /iframe.html?url=<game>, a wrapper page. Play the
-  // game itself instead of nesting their wrapper inside the proxy.
-  var target = String(raw.url || "");
-  var wrapped = /[?&]url=([^&]+)/.exec(target);
-  if (wrapped) {
-    try {
-      target = decodeURIComponent(wrapped[1]);
-    } catch (e) {
-      target = wrapped[1];
-    }
-  }
-  // /!!/<url> is their bot-protected passthrough: it answers with a Cloudflare
-  // challenge instead of the game, so play the target itself. Their catalog
-  // writes it relative (/!!/<url>, often behind /iframe.html?url=).
-  var rawpassthrough =
-    /^(?:https?:\/\/petezahgames\.com)?\/!!\/(.+)$/i.exec(target);
-  if (rawpassthrough) {
-    var passthroughurl = rawpassthrough[1];
-    try {
-      passthroughurl = decodeURIComponent(passthroughurl);
-    } catch (e) {}
-    if (/^https?:\/\//i.test(passthroughurl)) target = passthroughurl;
-  }
-  var url = absoluteurl(target, "https://petezahgames.com/");
-  // The list also carries request forms and discord invites.
-  if (!url || /^https?:\/\/(docs\.google\.com|discord\.(gg|com))\//i.test(url))
-    return null;
-
-  return {
-    title: title,
-    url: url,
-    image: absoluteurl(
-      raw.imageUrl || raw.image || raw.img,
-      "https://petezahgames.com/",
-    ),
-    tags: Array.isArray(raw.categories) ? raw.categories.slice() : [],
   };
 }
 
@@ -282,7 +236,7 @@ async function getcachedgames() {
         var v = get.result;
         finish(
           v &&
-            v.schema === 18 &&
+            v.schema === 19 &&
             Array.isArray(v.data) &&
             v.data.length &&
             Date.now() - v.ts >= 0 &&
@@ -311,7 +265,7 @@ async function setcachedgames(data) {
     tx.objectStore(GAMES_STORE).put(
       // Bump the schema when the merge changes so clients do not keep an
       // hour-old card list built by the previous rules.
-      { schema: 18, ts: Date.now(), data: data },
+      { schema: 19, ts: Date.now(), data: data },
       GAMES_IDB_KEY,
     );
     tx.oncomplete = function () {
@@ -563,10 +517,7 @@ function gameslug(game) {
       .replace(/\.(html?|htm)$/i, "")
       .replace(/-(fix\d*|f\d*|update\d*|a\d*|ff)$/i, "");
     if (/^\d+$/.test(slug)) return "";
-  } else if (
-    host.indexOf("selenite.cc") !== -1 ||
-    host.indexOf("gospel.newcovenant-teaching.org") !== -1
-  ) {
+  } else if (host.indexOf("selenite.cc") !== -1) {
     var sindex = parts.indexOf("semag");
     slug =
       sindex !== -1 ? parts[sindex + 1] || "" : slugparent(parts) || "";
@@ -574,9 +525,6 @@ function gameslug(game) {
     if (parts[0] === "games")
       slug = last === "index" ? slugparent(parts) : last;
     else if (parts[0] === "gamefile") slug = last;
-  } else if (host.indexOf("petezahgames.com") !== -1) {
-    if (parts[0] !== "embed")
-      slug = last === "index" ? slugparent(parts) : last;
   } else {
     slug = last === "index" ? slugparent(parts) : last;
   }
