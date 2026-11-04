@@ -282,7 +282,7 @@ async function getcachedgames() {
         var v = get.result;
         finish(
           v &&
-            v.schema === 17 &&
+            v.schema === 18 &&
             Array.isArray(v.data) &&
             v.data.length &&
             Date.now() - v.ts >= 0 &&
@@ -309,7 +309,9 @@ async function setcachedgames(data) {
   try {
     var tx = db.transaction(GAMES_STORE, "readwrite");
     tx.objectStore(GAMES_STORE).put(
-      { schema: 17, ts: Date.now(), data: data },
+      // Bump the schema when the merge changes so clients do not keep an
+      // hour-old card list built by the previous rules.
+      { schema: 18, ts: Date.now(), data: data },
       GAMES_IDB_KEY,
     );
     tx.oncomplete = function () {
@@ -353,15 +355,409 @@ function sourceentry(game) {
   };
 }
 
+// Provider spellings of one game differ in noise that should never create a
+// second card: "2048"/"2048 Game", "Shapez"/"Shapez.io", "Pizza Tower"/"Pizza
+// Tower (Web Port)", "The World's Hardest Game"/"Worlds Hardest Game".
+var DEDUPE_NOISE = {
+  game: 1,
+  games: 1,
+  html5: 1,
+  webport: 1,
+  unblocked: 1,
+  fullscreen: 1,
+  full: 1,
+  screen: 1,
+  play: 1,
+  online: 1,
+  io: 1,
+  the: 1,
+  a: 1,
+  an: 1,
+  remake: 1,
+  edition: 1,
+  deluxe: 1,
+  goty: 1,
+  hd: 1,
+};
+// A remastered build is a separate entry on purpose.
+var DEDUPE_EDITION = { remastered: 1, remaster: 1 };
+// Extra words that only describe a flavour of the same build.
+var DEDUPE_SUFFIX = {
+  lite: 1,
+  plus: 1,
+  pro: 1,
+  classic: 1,
+  beta: 1,
+  demo: 1,
+  trial: 1,
+};
+
+function dedupetokens(title) {
+  var text = cleantitle(title || "")
+    .toLowerCase()
+    .replace(/['’`]/g, "")
+    .replace(/&/g, " and ")
+    // "Pizza Tower (Web Port)" is the same game; keep "Web Dashers" whole.
+    .replace(/\bweb\s*port\b/g, " ");
+  text = text
+    .replace(/\biii\b/g, "3")
+    .replace(/\bii\b/g, "2")
+    .replace(/\biv\b/g, "4")
+    .replace(/\bvi\b/g, "6")
+    .replace(/\bv\b/g, "5")
+    .replace(/\bvol(?:ume)?\.?\s*(\d+)/g, "$1")
+    .replace(/\bpart\s*(\d+)/g, "$1");
+  return text.split(/[^a-z0-9]+/).filter(Boolean);
+}
+
+// The words that identify the game, with noise and edition markers removed.
+function dedupecore(title) {
+  var tokens = dedupetokens(title);
+  var kept = [];
+  for (var i = 0; i < tokens.length; i++)
+    if (!DEDUPE_NOISE[tokens[i]] && !DEDUPE_EDITION[tokens[i]])
+      kept.push(tokens[i]);
+  return kept.join("");
+}
+
+function dedupeeditions(title) {
+  return dedupetokens(title)
+    .filter(function (token) {
+      return DEDUPE_EDITION[token];
+    })
+    .sort();
+}
+
+// Initials of the title, so "Five Nights At Freddy's" and "FNAF" agree.
+// An all-caps word contributes each of its letters ("TD3" -> "td3").
+function dedupeacronym(title) {
+  var primary = cleantitle(title || "")
+    .replace(/['’`]/g, "")
+    .split(",")[0];
+  var words = primary.split(/[^A-Za-z0-9]+/).filter(Boolean);
+  var out = "";
+  for (var i = 0; i < words.length; i++) {
+    var word = words[i];
+    if (/^\d+$/.test(word)) {
+      out += word;
+      continue;
+    }
+    var caps = word.match(/[A-Z]/g);
+    var digits = word.match(/\d+/g);
+    if (caps && caps.length >= 2 && word === word.toUpperCase()) {
+      out += caps.join("").toLowerCase();
+      if (digits) out += digits.join("");
+    } else {
+      out += word.charAt(0).toLowerCase();
+      if (digits) out += digits.join("");
+    }
+  }
+  return out;
+}
+
+function dedupeedit(a, b) {
+  if (Math.abs(a.length - b.length) > 1) return 9;
+  var m = a.length;
+  var n = b.length;
+  var prev = [];
+  for (var j = 0; j <= n; j++) prev[j] = j;
+  for (var i = 1; i <= m; i++) {
+    var cur = [i];
+    for (var k = 1; k <= n; k++)
+      cur[k] = Math.min(
+        prev[k] + 1,
+        cur[k - 1] + 1,
+        prev[k - 1] + (a.charAt(i - 1) === b.charAt(k - 1) ? 0 : 1),
+      );
+    prev = cur;
+  }
+  return prev[n];
+}
+
+// Tokens of the longer title that the shorter one does not already account
+// for. A token also covers its own extensions ("agar" covers "agario").
+function dedupeextras(longer, shorter) {
+  var extra = [];
+  for (var i = 0; i < longer.length; i++) {
+    var token = longer[i];
+    var covered = false;
+    for (var j = 0; j < shorter.length; j++) {
+      var other = shorter[j];
+      if (
+        token === other ||
+        token.indexOf(other) === 0 ||
+        other.indexOf(token) === 0
+      ) {
+        covered = true;
+        break;
+      }
+    }
+    if (!covered) extra.push(token);
+  }
+  return extra;
+}
+
+var DEDUPE_GENERIC_SLUG = {
+  index: 1,
+  embed: 1,
+  main: 1,
+  game: 1,
+  games: 1,
+  play: 1,
+  html: 1,
+  app: 1,
+  iframe: 1,
+  files: 1,
+  file: 1,
+  start: 1,
+  home: 1,
+  download: 1,
+  downloads: 1,
+};
+
+function decodeurlpart(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch (e) {
+    return value;
+  }
+}
+
+// The directory naming a game when the file is "index.html": skip "index",
+// numeric and generic names so "/kindergarten/1/index.html" resolves to
+// "kindergarten" and "/pegg/deluxe/index.html" to "deluxe".
+function slugparent(parts) {
+  for (var i = parts.length - 2; i >= 0; i--) {
+    var name = parts[i].toLowerCase();
+    if (DEDUPE_GENERIC_SLUG[name] || /^\d+$/.test(name)) continue;
+    return parts[i];
+  }
+  return "";
+}
+
+// The provider's own name for the game, taken from the playable URL:
+// "https://truffled.lol/games/btd3/index.html" -> "btd3",
+// "assets/games/bloonsTD3.html" -> "bloontd3",
+// "https://gn-math.github.io/html/0-fix2.html" -> "" (numeric, no name).
+function gameslug(game) {
+  var value = game.url || game.html || game.iframe;
+  if (!value) return "";
+  var url;
+  try {
+    url = new URL(value, "https://aetheris.win/");
+  } catch (e) {
+    return "";
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") return "";
+  var host = url.hostname.toLowerCase();
+  var parts = url.pathname.split("/").filter(Boolean).map(decodeurlpart);
+  var last = parts.length ? parts[parts.length - 1] : "";
+  last = last.replace(/\.(html?|htm|php)$/i, "");
+  var slug = "";
+  if (host.indexOf("github.io") !== -1) {
+    var hindex = parts.indexOf("html");
+    slug = hindex !== -1 && parts[hindex + 1] ? parts[hindex + 1] : last;
+    slug = slug
+      .replace(/\.(html?|htm)$/i, "")
+      .replace(/-(fix\d*|f\d*|update\d*|a\d*|ff)$/i, "");
+    if (/^\d+$/.test(slug)) return "";
+  } else if (
+    host.indexOf("selenite.cc") !== -1 ||
+    host.indexOf("gospel.newcovenant-teaching.org") !== -1
+  ) {
+    var sindex = parts.indexOf("semag");
+    slug =
+      sindex !== -1 ? parts[sindex + 1] || "" : slugparent(parts) || "";
+  } else if (host.indexOf("truffled.lol") !== -1) {
+    if (parts[0] === "games")
+      slug = last === "index" ? slugparent(parts) : last;
+    else if (parts[0] === "gamefile") slug = last;
+  } else if (host.indexOf("petezahgames.com") !== -1) {
+    if (parts[0] !== "embed")
+      slug = last === "index" ? slugparent(parts) : last;
+  } else {
+    slug = last === "index" ? slugparent(parts) : last;
+  }
+  slug = String(slug)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+  if (slug.length < 3 || /^\d+$/.test(slug) || DEDUPE_GENERIC_SLUG[slug])
+    return "";
+  return slug;
+}
+
+function dedupesameedition(a, b) {
+  return (
+    dedupeeditions(a.title).join(",") === dedupeeditions(b.title).join(",")
+  );
+}
+
+// Whether the shorter token list appears in the longer one, in order, with
+// only the returned tokens left over ("Minecraft Beta 1.7.3" vs "1.7.3").
+function dedupesubsequence(longer, shorter) {
+  var extra = [];
+  var j = 0;
+  for (var i = 0; i < longer.length; i++) {
+    if (
+      j < shorter.length &&
+      (longer[i] === shorter[j] || longer[i].indexOf(shorter[j]) === 0)
+    ) {
+      j++;
+      continue;
+    }
+    extra.push(longer[i]);
+  }
+  return j === shorter.length ? extra : null;
+}
+
+// Provider compounds hide the same noise inside one word
+// ("theworldshardestgame" vs "world's hardest game").
+function loosecore(title) {
+  return dedupecore(title).replace(
+    /the|game|games|html5|unblocked|webport|online/g,
+    "",
+  );
+}
+
+// Two cards are the same game when they resolve to the same provider file and
+// their titles agree. The title rules are deliberately strict: sequels, DLC
+// and remastered builds keep separate cards.
+function deduperelated(a, b, slug) {
+  var ca = dedupecore(a.title);
+  var cb = dedupecore(b.title);
+  if (!ca || !cb) return false;
+  if (ca === cb) return true;
+  var la = loosecore(a.title);
+  var lb = loosecore(b.title);
+  if (la && la === lb) return true;
+
+  var aa = dedupeacronym(a.title);
+  var ab = dedupeacronym(b.title);
+  var anorm = ca === slug;
+  var bnorm = cb === slug;
+  var aslug = aa === slug;
+  var bslug = ab === slug;
+
+  // "Btd 3" / "Bloons Tower Defense 3": one name is the file, the other
+  // spells the same initials.
+  if ((anorm && bslug) || (bnorm && aslug)) return true;
+  if (aslug && bslug) return true;
+
+  // "Quake" / "Quake 1": the provider numbers the first entry.
+  if (ca === cb + "1" || cb === ca + "1") return true;
+
+  // A typo both cards agree on in the file name ("Bomberman"/"Bombmerman").
+  if (
+    ca.length >= 6 &&
+    cb.length >= 6 &&
+    Math.abs(ca.length - cb.length) <= 1 &&
+    dedupeedit(ca, cb) === 1 &&
+    (anorm || bnorm || aslug || bslug)
+  )
+    return true;
+
+  // One title extends the other. The extra words must be a flavour ("Lite")
+  // or a subtitle/franchise of two or more words
+  // ("Henry Stickmin: …"). Articles inside a provider's compound spelling do
+  // not count ("Bob the Robber 2" / "Bobtherobber 2").
+  var ta = dedupetokens(a.title);
+  var tb = dedupetokens(b.title);
+  var shorter = ta;
+  var longer = tb;
+  var shortcore = la;
+  var longcore = lb;
+  if (shortcore.length > longcore.length) {
+    shorter = tb;
+    longer = ta;
+    shortcore = lb;
+    longcore = la;
+  }
+  if (longcore.indexOf(shortcore) !== -1) {
+    var extra = dedupeextras(longer, shorter);
+    if (!extra.length) return true;
+    if (extra.length >= 2) return true;
+    if (extra.length === 1 && DEDUPE_SUFFIX[extra[0]]) return true;
+  }
+  var sub = dedupesubsequence(longer, shorter);
+  if (sub && (sub.length >= 2 || (sub.length === 1 && DEDUPE_SUFFIX[sub[0]])))
+    return true;
+  return false;
+}
+
+// Second pass: providers often ship one game under different titles and the
+// same file path ("Bloons Tower Defense 3", "Bloon TD3", "Btd 3"). Fold those
+// copies into one card so the player can fall back between them.
+function foldgroups(cards, groups, remove) {
+  for (var key in groups) {
+    var list = groups[key];
+    if (list.length < 2) continue;
+    list.sort(function (a, b) {
+      var priority = gamesourceorder(a.source) - gamesourceorder(b.source);
+      if (priority !== 0) return priority;
+      return (a.title || "").localeCompare(b.title || "");
+    });
+    var target = list[0];
+    for (var j = 1; j < list.length; j++) {
+      var other = list[j];
+      if (remove.indexOf(other) !== -1) continue;
+      if (!dedupesameedition(target, other)) continue;
+      if (!deduperelated(target, other, key)) continue;
+      for (var k = 0; k < other.sources.length; k++)
+        addalternate(target, other.sources[k], other);
+      if (!target.image && other.image) target.image = other.image;
+      remove.push(other);
+    }
+  }
+}
+
+function foldfilecopies(cards) {
+  var groups = Object.create(null);
+  for (var i = 0; i < cards.length; i++) {
+    var slug = gameslug(cards[i]);
+    if (!slug) continue;
+    if (!groups[slug]) groups[slug] = [];
+    groups[slug].push(cards[i]);
+  }
+  var removed = [];
+  foldgroups(cards, groups, removed);
+  if (!removed.length) return cards;
+  return cards.filter(function (card) {
+    return removed.indexOf(card) === -1;
+  });
+}
+
+// Third pass: the same game across providers whose file names differ but whose
+// initials are the provider's name for it ("Bloons Tower Defense 3" is
+// "bloonsTD3.html" on one provider and "btd3" on the others). At least one
+// file must actually be named after those initials, so two titles that merely
+// share initials are not folded together.
+function foldacronymcopies(cards) {
+  var groups = Object.create(null);
+  var named = Object.create(null);
+  for (var i = 0; i < cards.length; i++) {
+    var acronym = dedupeacronym(cards[i].title);
+    if (acronym.length < 3) continue;
+    if (!groups[acronym]) groups[acronym] = [];
+    groups[acronym].push(cards[i]);
+    if (gameslug(cards[i]) === acronym) named[acronym] = true;
+  }
+  for (var key in groups) if (!named[key]) delete groups[key];
+  var removed = [];
+  foldgroups(cards, groups, removed);
+  if (!removed.length) return cards;
+  return cards.filter(function (card) {
+    return removed.indexOf(card) === -1;
+  });
+}
+
 function gamesdedupekey(game) {
-  var title = cleantitle(game.title || game.name || "").toLowerCase();
-  // Squash separators entirely so provider spellings of one title land on one
-  // card: "2048 Merge Run" / "2048 Mergerun", "1 On 1 Soccer" / "1on1soccer".
-  // Short junk titles ("-3", "-b", "1") dedupe the same way. Untitled rows
-  // can only dedupe inside their own source.
-  var squash = title.replace(/[^a-z0-9]+/g, "");
-  if (squash) return "title:" + squash;
-  return "id:" + game.source + ":" + game.id;
+  var title = game.title || game.name || "";
+  var core = dedupecore(title);
+  if (!core) return "id:" + game.source + ":" + game.id;
+  // A remastered build is a separate entry on purpose, so the marker stays in
+  // the key: everything else about the title is folded together.
+  var editions = dedupeeditions(title);
+  return "title:" + core + (editions.length ? "|" + editions.join(",") : "");
 }
 
 function copiesmatch(a, b) {
@@ -440,6 +836,11 @@ function mergegames(lists) {
     }
     seenids.add(id);
   });
+
+  // Providers sometimes ship one game under different titles and the same
+  // file path; fold those copies into the card the title pass built.
+  merged = foldfilecopies(merged);
+  merged = foldacronymcopies(merged);
 
   merged.sort(function (a, b) {
     return (a.title || "").localeCompare(b.title || "");

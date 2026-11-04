@@ -329,3 +329,156 @@ test("duplicate titles fold into one card, including short and repeated rows", (
   ]);
   assert.equal(distinct.length, 2);
 });
+
+test("provider spellings of one title fold into one card", () => {
+  const game = catalog();
+  const list = (source, records) =>
+    records.map((record) => game.normalize(record, source));
+
+  const merged = game.merge([
+    list("aetheris", [
+      { title: "2048", html: "assets/games/2048.html" },
+      { title: "Shapez.io", html: "assets/games/shapez.html" },
+      { title: "GTA III", html: "assets/games/gta3.html" },
+      { title: "The World's Hardest Game", html: "assets/games/twhg.html" },
+      { title: "Red Ball 4: Volume 2", html: "assets/games/redball4vol2.html" },
+    ]),
+    list("velara", [
+      {
+        title: "2048 Game",
+        url: "https://velara.my/assets/games/2048game.html",
+      },
+      { title: "Shapez", url: "https://velara.my/assets/games/shapez.html" },
+      { title: "GTA 3", url: "https://velara.my/assets/games/gta3.html" },
+      {
+        title: "Worlds Hardest Game",
+        url: "https://velara.my/assets/games/twhg.html",
+      },
+      {
+        title: "Red Ball 4 Vol. 2",
+        url: "https://velara.my/assets/games/redball42.html",
+      },
+    ]),
+  ]);
+  assert.equal(merged.length, 5);
+  for (const card of merged) assert.equal(card.sources.length, 2);
+});
+
+test("remastered builds stay separate from the original", () => {
+  const game = catalog();
+  const list = (source, records) =>
+    records.map((record) => game.normalize(record, source));
+  const merged = game.merge([
+    list("aetheris", [
+      { title: "Super Mario Bros", html: "assets/games/smb.html" },
+      { title: "Super Mario Bros Remastered", html: "assets/games/smbr.html" },
+    ]),
+  ]);
+  assert.equal(merged.length, 2);
+});
+
+test("one provider file under different names folds into one card", () => {
+  const game = catalog();
+  const list = (source, records) =>
+    records.map((record) => game.normalize(record, source));
+  const merged = game.merge([
+    list("aetheris", [
+      { title: "Bloons Tower Defense 3", html: "assets/games/bloonsTD3.html" },
+    ]),
+    list("truffled", [
+      { title: "Bloon TD3", url: "https://truffled.lol/games/btd3/index.html" },
+    ]),
+    list("velara", [
+      { title: "Btd 3", url: "https://velara.my/assets/games/btd3.html" },
+    ]),
+  ]);
+  assert.equal(merged.length, 1);
+  assert.deepEqual(
+    Array.from(merged[0].sources, (source) => source.name),
+    ["aetheris", "truffled", "velara"],
+  );
+});
+
+test("provider compounds that hide articles still fold", () => {
+  const game = catalog();
+  const list = (source, records) =>
+    records.map((record) => game.normalize(record, source));
+  const merged = game.merge([
+    list("aetheris", [
+      { title: "Bob the Robber 2", html: "assets/games/bobtherobber2.html" },
+      {
+        title: "The World's Hardest Game 3",
+        html: "assets/games/theworldshardestgame3.html",
+      },
+    ]),
+    list("velara", [
+      {
+        title: "Bobtherobber 2",
+        url: "https://velara.my/assets/games/bobtherobber2.html",
+      },
+      {
+        title: "Theworldshardestgame 3",
+        url: "https://velara.my/assets/games/theworldshardestgame3.html",
+      },
+    ]),
+  ]);
+  assert.equal(merged.length, 2);
+  for (const card of merged) assert.equal(card.sources.length, 2);
+});
+
+test("acronyms and subtitles fold; sequels and different games stay apart", () => {
+  const game = catalog();
+  const list = (source, records) =>
+    records.map((record) => game.normalize(record, source));
+  const merged = game.merge([
+    list("aetheris", [
+      { title: "Five Nights At Freddy's", html: "assets/games/FNAF.html" },
+      {
+        title: "Henry Stickmin: Escaping the Prison",
+        html: "assets/games/escapingtheprison.html",
+      },
+      { title: "Rocket League", html: "assets/games/rl.html" },
+      { title: "Moto X3M", html: "assets/games/moto.html" },
+    ]),
+    list("petezah", [
+      {
+        title: "FNAF",
+        url: "https://gospel.newcovenant-teaching.org/resources/semag/fnaf/index.html",
+      },
+      {
+        title: "Rocket League Sideswipe",
+        url: "https://nowgg.fun/apps/psyonix-studios/4656/rocket-league.html",
+      },
+      {
+        title: "Moto X3M 2",
+        url: "https://petezahgames.com/storage/ag/echo/motox3m2/index.html",
+      },
+    ]),
+    list("velara", [
+      {
+        title: "Es Cap Ing The Prison",
+        url: "https://velara.my/assets/games/escapingtheprison.html",
+      },
+    ]),
+  ]);
+
+  const bytitle = {};
+  for (const card of merged) bytitle[card.title] = card;
+  assert.ok(bytitle["Five Nights At Freddy's"]);
+  assert.deepEqual(
+    Array.from(bytitle["Five Nights At Freddy's"].sources, (s) => s.name),
+    ["aetheris", "petezah"],
+  );
+  assert.deepEqual(
+    Array.from(
+      bytitle["Henry Stickmin: Escaping the Prison"].sources,
+      (s) => s.name,
+    ),
+    ["aetheris", "velara"],
+  );
+  assert.ok(bytitle["Rocket League"]);
+  assert.ok(bytitle["Rocket League Sideswipe"]);
+  assert.ok(bytitle["Moto X3M"]);
+  assert.ok(bytitle["Moto X3M 2"]);
+  assert.equal(merged.length, 6);
+});
