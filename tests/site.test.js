@@ -28,6 +28,40 @@ test("proxy engine URLs carry a version so a cached bundle can't outlive a deplo
   );
 });
 
+test("YouTube page origins are routed around epoxy's HTTP/2 header limit", () => {
+  // YouTube's HTML response headers exceed the 16 KB header-list size hyper
+  // advertises, and epoxy's h2 client resets the stream. These page origins
+  // go through libcurl instead; media/API hosts stay on the active transport.
+  const source = fs.readFileSync(
+    new URL("../public/js/scramjet-init.js", import.meta.url),
+    "utf8",
+  );
+  const from = source.indexOf("var OVERSIZEDHEADERHOSTS =");
+  const to = source.indexOf("function hostnameof");
+  assert.ok(from !== -1 && to > from, "the host route is where we expect it");
+  const context = {};
+  vm.runInNewContext(
+    source.slice(from, to) + "\nthis.hosts = OVERSIZEDHEADERHOSTS;",
+    context,
+  );
+  for (const host of [
+    "www.youtube.com",
+    "music.youtube.com",
+    "youtu.be",
+    "www.youtube-nocookie.com",
+  ]) {
+    assert.equal(context.hosts.test(host), true, `${host} must be routed`);
+  }
+  for (const host of [
+    "googlevideo.com",
+    "i.ytimg.com",
+    "www.google.com",
+    "notyoutube.com",
+  ]) {
+    assert.equal(context.hosts.test(host), false, `${host} must stay put`);
+  }
+});
+
 test("a rewritten proxied body never keeps a stale content-length", async () => {
   const source = fs.readFileSync(
     new URL("../public/sw.js", import.meta.url),

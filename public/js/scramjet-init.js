@@ -122,6 +122,7 @@
   }
 
   var activetransport = null;
+  var auxiliarytransport = null;
 
   function closequietly(transport) {
     try {
@@ -180,6 +181,97 @@
   // read), 80 (SSL shutdown), 90 (pinned key), 91 (SSL invalid cert status).
   var TLSERROR = /(SSL|TLS|certificate|error code (35|51|58|60|77|80|90|91))/i;
 
+  // YouTube's HTML pages send a response header block larger than the 16 KB
+  // SETTINGS_MAX_HEADER_LIST_SIZE hyper advertises for HTTP/2. h2 then treats
+  // the response as a protocol error, resets the stream and the frame renders
+  // "Internal Service Worker Error: ... Http2 ... Reset(StreamId(1),
+  // PROTOCOL_ERROR, Library)". libcurl has no such header-list limit, so when
+  // epoxy is the active transport these page origins go through a second,
+  // lazily-started libcurl transport. Media and API hosts (googlevideo,
+  // ytimg, youtubei) stay on the active transport: their headers fit.
+  var OVERSIZEDHEADERHOSTS =
+    /(^|\.)(youtube\.com|youtu\.be|youtube-nocookie\.com)$/i;
+
+  function hostnameof(url) {
+    try {
+      return String(url && url.hostname ? url.hostname : new URL(url).hostname);
+    } catch (_) {
+      return "";
+    }
+  }
+
+  function routeoversizedheaders(transport, wispurl, name) {
+    if (name === "libcurl" || typeof transport.request !== "function") return;
+    if (transport.oversizedheadersrouted) return;
+    transport.oversizedheadersrouted = true;
+
+    var native = transport.request.bind(transport);
+    var starting = null;
+    var unavailable = false;
+
+    function getauxiliary() {
+      if (auxiliarytransport) return Promise.resolve(auxiliarytransport);
+      if (unavailable) {
+        return Promise.reject(new Error("libcurl transport unavailable"));
+      }
+      if (!starting) {
+        starting = (async function () {
+          var mod = await import("/libcurl/index.mjs");
+          var extra = new mod.default({ wisp: wispurl });
+          try {
+            await withtimeout(
+              extra.init(),
+              TRANSPORT_INIT_TIMEOUT,
+              "libcurl transport did not finish starting",
+            );
+          } catch (err) {
+            closequietly(extra);
+            throw err;
+          }
+          auxiliarytransport = extra;
+          return extra;
+        })()
+          .catch(function (err) {
+            // Don't retry the 15s init on every YouTube request.
+            unavailable = true;
+            throw err;
+          })
+          .finally(function () {
+            starting = null;
+          });
+      }
+      return starting;
+    }
+
+    transport.request = function (url, method, body, headers, signal) {
+      function sendactive() {
+        return native(url, method, body, headers, signal);
+      }
+      if (!OVERSIZEDHEADERHOSTS.test(hostnameof(url))) return sendactive();
+      // Keep the original request if libcurl can't start (Apple devices where
+      // the WASM build is unavailable): the caller still sees the real error.
+      return getauxiliary().then(
+        function (extra) {
+          return extra
+            .request(url, method, body, headers, signal)
+            .catch(function (err) {
+              // A certificate libcurl's bundle doesn't know still works on the
+              // active transport; a consumed request stream can't be replayed.
+              if (
+                typeof ReadableStream === "function" &&
+                body instanceof ReadableStream
+              )
+                throw err;
+              return sendactive();
+            });
+        },
+        function () {
+          return sendactive();
+        },
+      );
+    };
+  }
+
   // Wrap a transport so a TLS failure quietly moves the session to the other
   // transport and replays the one failed request. Without this, sites whose
   // certificate chain is missing from libcurl's bundled CA list stay broken
@@ -193,7 +285,10 @@
       return native(url, method, body, headers, signal).catch(function (err) {
         var message = String((err && err.message) || err);
         if (!TLSERROR.test(message) || switched) throw err;
-        if (typeof ReadableStream === "function" && body instanceof ReadableStream)
+        if (
+          typeof ReadableStream === "function" &&
+          body instanceof ReadableStream
+        )
           throw err; // a consumed request stream cannot be replayed
         switched = true;
         console.warn(
@@ -204,6 +299,13 @@
         );
         return createtransport(wispurl, name).then(function (picked) {
           activetransport = picked.transport;
+          routeoversizedheaders(picked.transport, wispurl, picked.name);
+          installtransportfailover(
+            controller,
+            picked.transport,
+            wispurl,
+            picked.name,
+          );
           controller.setTransport(picked.transport);
           closequietly(transport);
           return picked.transport.request(url, method, body, headers, signal);
@@ -474,6 +576,7 @@
         throw new Error("Proxy startup was reset. Try again.");
       }
       activetransport = transport;
+      routeoversizedheaders(transport, wispurl, picked.name);
       try {
         var controller = new $scramjetController.Controller({
           serviceworker: sw,
@@ -511,6 +614,8 @@
         // would otherwise build another one on top of it.
         closequietly(transport);
         if (activetransport === transport) activetransport = null;
+        closequietly(auxiliarytransport);
+        auxiliarytransport = null;
         throw error;
       }
     })().catch(function (err) {
@@ -530,6 +635,8 @@
     starttoken++;
     closequietly(activetransport);
     activetransport = null;
+    closequietly(auxiliarytransport);
+    auxiliarytransport = null;
     controllerpromise = null;
     // Frames created through the dropped controller are no longer part of a
     // live session; the new controller's frames re-register themselves.

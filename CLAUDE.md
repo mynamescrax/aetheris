@@ -312,6 +312,14 @@ header change fixes it.
   `String.prototype.startsWith` for the URL rewriter. If a dependency bump
   removes an anchor, the server logs `[scramjet-patch] <label> pattern not
   found` and serves that snippet unpatched.
+- YouTube's HTML pages send header blocks larger than the 16 KB
+  `SETTINGS_MAX_HEADER_LIST_SIZE` hyper advertises, so epoxy's h2 client
+  resets the stream and the frame shows `Internal Service Worker Error: ...
+  Http2 ... Reset(StreamId(1), PROTOCOL_ERROR, Library)`. When epoxy is active,
+  `scramjet-init.js` sends `youtube.com` / `youtu.be` / `youtube-nocookie.com`
+  through a lazily started libcurl transport; media/API hosts stay on epoxy.
+  If libcurl can't start (Apple), the original error stands. epoxy exposes no
+  option for the h2 header-list limit.
 - `sw.js` blocks proxied subresources on the HaGeZi LIGHT list
   (`public/assets/data/adblock-domains.txt`, refresh with
   `node scripts/update-adblock.js`, then bump `ADBLOCK_LIST_VERSION`) plus a
