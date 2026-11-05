@@ -2501,10 +2501,16 @@ fastify.addHook("onSend", async (req, reply, payload) => {
       );
     }
   } else if (/^\/(scramjet|controller|libcurl|epoxy)\//.test(path)) {
-    // version-pinned proxy engine bundles
+    // Proxy engine bundles. The client asks for them with a ?v= that changes
+    // with the serve-time patches (PROXY_ENGINE_VERSION in
+    // scramjet-init.js); an unversioned URL is still requested by older
+    // clients, so it must revalidate instead of pinning a copy Cloudflare
+    // would keep serving after a deploy.
     reply.header(
       "Cache-Control",
-      "public, max-age=600, stale-while-revalidate=604800",
+      /[?&]v=/.test(req.url)
+        ? "public, max-age=31536000, immutable"
+        : "no-cache",
     );
   } else if (
     String(reply.getHeader("content-type") || "").includes("text/html")

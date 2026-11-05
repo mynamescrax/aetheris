@@ -5,8 +5,16 @@
 // has to load after scramjet.js.
 
 (function () {
-  var SCRAMJET_CORE_SRC = "/scramjet/scramjet.js";
-  var SCRAMJET_CONTROLLER_SRC = "/controller/controller.api.js";
+  // Bump when the serve-time scramjet patches in index.js change. The bundle
+  // URL is otherwise the same across deploys, so a browser or a Cloudflare
+  // edge node that cached the old copy keeps the old same-origin guard (which
+  // aborts every local game) until its cache expires. The server marks a
+  // versioned URL immutable and an unversioned one no-cache.
+  var PROXY_ENGINE_VERSION = "20261105.1";
+  var SCRAMJET_CORE_SRC =
+    "/scramjet/scramjet.js?v=" + PROXY_ENGINE_VERSION;
+  var SCRAMJET_CONTROLLER_SRC =
+    "/controller/controller.api.js?v=" + PROXY_ENGINE_VERSION;
   // Keep this in sync with settings.js's transport default. Apple devices
   // get epoxy because libcurl's WASM build does not start there.
   var APPLE_UA_CHECK =
@@ -300,7 +308,17 @@
   // Only the site's static files are served this way. Anything else on our
   // origin (/api/, /auth/, …) stays on the transport, so a proxied page can
   // never use the player page's cookies to read an authenticated answer.
-  var LOCAL_PATHS = ["/assets/", "/game-assets/", "/s/", "/js/", "/css/"];
+  var LOCAL_PATHS = [
+    "/assets/",
+    "/game-assets/",
+    "/s/",
+    "/js/",
+    "/css/",
+    // The engine the controller injects into every proxied frame. Serving it
+    // from the page's own cache keeps ~1MB per frame off wisp.
+    "/scramjet/",
+    "/controller/",
+  ];
 
   function localpath(url) {
     var path = url.pathname;
@@ -437,6 +455,14 @@
         var controller = new $scramjetController.Controller({
           serviceworker: sw,
           transport: transport,
+          // The injected client loads the engine from inside each proxied
+          // frame; the same version keeps it on the same cached copy.
+          config: {
+            scramjetPath: SCRAMJET_CORE_SRC,
+            injectPath:
+              "/controller/controller.inject.js?v=" + PROXY_ENGINE_VERSION,
+            wasmPath: "/scramjet/scramjet.wasm?v=" + PROXY_ENGINE_VERSION,
+          },
           // allowInvalidJs: scripts the rewriter can't parse are passed
           // through instead of failing, so more sites keep working.
           scramjetConfig: {

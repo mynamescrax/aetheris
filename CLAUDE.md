@@ -305,11 +305,24 @@ header change fixes it.
   found` and serves that snippet unpatched.
 - `sw.js` blocks proxied subresources on the HaGeZi LIGHT list
   (`public/assets/data/adblock-domains.txt`, refresh with
-  `node scripts/update-adblock.js`, then bump `ADBLOCK_LIST_VERSION`).
-  Navigations are never blocked; a per-host brake delays repeats past 20/s
-  (CNN's video-ad fallback looped ~2000/s on instant failures). Proxied
-  URLs are `/~/sj/<tab>/<frame>/<encoded url>`. Users can turn it off in
-  settings (`proxyAdblock`).
+  `node scripts/update-adblock.js`, then bump `ADBLOCK_LIST_VERSION`) plus a
+  curated `AD_HOSTS_BUILTIN` set of ad networks (Google IMA/AdX, Prebid,
+  app-ads SDKs, popunders): LIGHT deliberately omits hosts that ad-funded
+  games load, so on its own it left game ads running. Top-level navigations
+  are never blocked; subframe navigations (`destination === "iframe"`) are,
+  which is how a game's ad iframe is stopped. A per-host brake delays repeats
+  past 20/s (CNN's video-ad fallback looped ~2000/s on instant failures).
+  Proxied URLs are `/~/sj/<tab>/<frame>/<encoded url>`. Users can turn it off
+  in settings (`proxyAdblock`). The in-frame adblocker in `load.html` also
+  removes ad nodes/iframes and blocks ad `fetch`/XHR/`window.open`.
+- The scramjet/controller bundle URLs carry `PROXY_ENGINE_VERSION`
+  (`scramjet-init.js`, passed to the Controller config for the injected
+  copies too). Bump it whenever the serve-time patches in `index.js` change:
+  without it a browser or Cloudflare copy cached before the deploy keeps the
+  old bundle (the same-origin guard then breaks every aetheris game until the
+  cache expires). Versioned bundle URLs are served `immutable`; unversioned
+  ones `no-cache`. `load.js` also reloads once if a frame shows the
+  same-origin error, so an already-cached client recovers.
 
 ## Game asset relay
 

@@ -217,11 +217,105 @@ function loadadblocklist() {
 }
 
 // entries cover their subdomains, so walk up the labels
+// HaGeZi LIGHT is deliberately conservative (it leaves ad networks that ad
+// funded games load), so the ad networks a web game actually uses are listed
+// here as well. Apex entries cover their subdomains; host entries are exact.
+var AD_HOSTS_BUILTIN = new Set([
+  // display / video ad exchanges and their players
+  "doubleclick.net",
+  "googlesyndication.com",
+  "googleadservices.com",
+  "googletagservices.com",
+  "googletagmanager.com",
+  "imasdk.googleapis.com",
+  "adnxs.com",
+  "amazon-adsystem.com",
+  "adsrvr.org",
+  "bidswitch.net",
+  "casalemedia.com",
+  "contextweb.com",
+  "criteo.com",
+  "districtm.io",
+  "gumgum.com",
+  "indexexchange.com",
+  "innovid.com",
+  "lijit.com",
+  "loopme.me",
+  "media.net",
+  "mgid.com",
+  "moatads.com",
+  "openx.net",
+  "outbrain.com",
+  "pubmatic.com",
+  "revcontent.com",
+  "rubiconproject.com",
+  "sharethrough.com",
+  "smaato.net",
+  "smartadserver.com",
+  "sovrn.com",
+  "spotx.tv",
+  "spotxchange.com",
+  "springserve.com",
+  "taboola.com",
+  "teads.tv",
+  "tremorhub.com",
+  "triplelift.com",
+  "undertone.com",
+  "yieldmo.com",
+  "zergnet.com",
+  // mobile / HTML5 game ad SDKs
+  "adcolony.com",
+  "adincube.com",
+  "admob.com",
+  "applovin.com",
+  "chartboost.com",
+  "fyber.com",
+  "heyzap.com",
+  "inmobi.com",
+  "ironsrc.com",
+  "ironsrc.mobi",
+  "mopub.com",
+  "startappservice.com",
+  "supersonicads.com",
+  "tapjoy.com",
+  "unityads.unity3d.com",
+  "vungle.com",
+  // cheap popunder / redirect networks
+  "adcash.com",
+  "adsterra.com",
+  "exoclick.com",
+  "hilltopads.net",
+  "juicyads.com",
+  "onclickads.net",
+  "popads.net",
+  "popcash.net",
+  "propellerads.com",
+  "trafficjunky.com",
+  // audience / tracking side of the same stacks
+  "adsafeprotected.com",
+  "advertising.com",
+  "agkn.com",
+  "bluekai.com",
+  "demdex.net",
+  "everesttech.net",
+  "exelator.com",
+  "krxd.net",
+  "omtrdc.net",
+  "quantserve.com",
+  "rlcdn.com",
+  "scorecardresearch.com",
+  "serving-sys.com",
+  "tapad.com",
+  "yieldmanager.com",
+  "2mdn.net",
+]);
+
 function isadhost(host) {
-  if (!adhosts || !host || host === SITE_HOST) return false;
+  if (!host || host === SITE_HOST) return false;
   var h = host;
   while (h.indexOf(".") !== -1) {
-    if (adhosts.has(h)) return true;
+    if (AD_HOSTS_BUILTIN.has(h)) return true;
+    if (adhosts && adhosts.has(h)) return true;
     h = h.slice(h.indexOf(".") + 1);
   }
   return false;
@@ -1472,7 +1566,13 @@ self.addEventListener("fetch", function (event) {
       .then(function () {
         // the adblock check moved in here so a cold start can't block with
         // the blocker the user turned off (or slip past one they enabled)
-        if (adblockenabled && event.request.mode !== "navigate") {
+        // Subframe navigations are ads too (a game's ad iframe would
+        // otherwise always load, since top-level navigations are never
+        // blocked); the destination tells the two apart.
+        var adtargetable =
+          event.request.mode !== "navigate" ||
+          event.request.destination === "iframe";
+        if (adblockenabled && adtargetable) {
           if (!adhosts) loadadblocklist();
           var adtarget = proxiedtargethost(url);
           if (isadhost(adtarget)) return blockedresponse(adtarget);

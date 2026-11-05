@@ -26,7 +26,7 @@
     <!-- scramjet bundles are loaded on demand by scramjet-init.js the first
          time a proxied frame is needed; a noProxy item skips ~245KB of JS
          parsing. -->
-    <script src="/js/scramjet-init.js?v=20261105.3"></script>
+    <script src="/js/scramjet-init.js?v=20261105.4"></script>
     <script src="./js/dm-shared.js?v=20261007.1"></script>
 
     <script>
@@ -44,9 +44,11 @@
           var blockeddomains = [
             "doubleclick.net",
             "googlesyndication.com",
+            "googleadservices.com",
             "adservice.google",
             "googletagmanager.com",
             "googletagservices.com",
+            "imasdk.googleapis.com",
             "adnxs.com",
             "amazon-adsystem.com",
             "outbrain.com",
@@ -62,7 +64,6 @@
             "rlcdn.com",
             "casalemedia.com",
             "2mdn.net",
-            "imasdk.googleapis.com",
             "ads.yahoo.com",
             "adsymptotic.com",
             "serving-sys.com",
@@ -74,6 +75,34 @@
             "yieldmanager.com",
             "advertising.com",
             "adform.net",
+            "smartadserver.com",
+            "sharethrough.com",
+            "teads.tv",
+            "springserve.com",
+            "innovid.com",
+            "tremorhub.com",
+            "yieldmo.com",
+            "gumgum.com",
+            "loopme.me",
+            "smaato.net",
+            "applovin.com",
+            "unityads.unity3d.com",
+            "ironsrc.com",
+            "vungle.com",
+            "chartboost.com",
+            "adcolony.com",
+            "inmobi.com",
+            "startappservice.com",
+            "tapjoy.com",
+            "supersonicads.com",
+            "fyber.com",
+            "heyzap.com",
+            "adcash.com",
+            "popads.net",
+            "propellerads.com",
+            "onclickads.net",
+            "adsterra.com",
+            "hilltopads.net",
           ];
 
           var adselectors = [
@@ -118,6 +147,31 @@
                 } catch (e) {}
               }
             } catch (e) {}
+            // Ad iframes usually have no telltale id/class; match their src.
+            try {
+              var frames = root.querySelectorAll("iframe[src]");
+              for (var j = 0; j < frames.length; j++) {
+                if (isadurl(frames[j].getAttribute("src"))) {
+                  try {
+                    if (frames[j].parentNode)
+                      frames[j].parentNode.removeChild(frames[j]);
+                  } catch (e) {}
+                }
+              }
+            } catch (e) {}
+          }
+
+          // Ad SDKs open popunders through window.open; scramjet replaces the
+          // function inside a proxied frame, so patch whatever is current.
+          if (typeof win.open === "function") {
+            var origopen = win.open;
+            win.open = function (url) {
+              if (isadurl(url)) {
+                console.debug("[Aetheris] Blocked ad popup:", url);
+                return null;
+              }
+              return origopen.apply(win, arguments);
+            };
           }
 
           if (typeof win.fetch === "function") {
@@ -160,7 +214,11 @@
                 for (var j = 0; j < added.length; j++) {
                   var node = added[j];
                   if (node.nodeType !== 1) continue;
-                  if (node.matches && node.matches(adselectors)) {
+                  if (
+                    (node.matches && node.matches(adselectors)) ||
+                    (node.tagName === "IFRAME" &&
+                      isadurl(node.getAttribute("src")))
+                  ) {
                     try {
                       if (node.parentNode) node.parentNode.removeChild(node);
                     } catch (e) {}
@@ -350,7 +408,7 @@
 
     <script defer src="./register-sw.js?v=20260907.1"></script>
     <script defer src="./js/player-data.js?v=20261105.1"></script>
-    <script defer src="./js/load.js?v=20261105.5"></script>
+    <script defer src="./js/load.js?v=20261105.6"></script>
 
     <script>
       function refreshgame() {

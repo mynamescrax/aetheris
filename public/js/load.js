@@ -492,6 +492,42 @@
             } catch (_) {
               /* an uninspectable document is not something to fail on */
             }
+            // A cached copy of the proxy engine from before the same-origin
+            // guard was patched refuses local games; the controller answers
+            // with a text/plain "Internal Service Worker Error: …" document.
+            // The engine URL carries a version now, so one reload picks up the
+            // current bundle; only give up (or loop) if it happens again.
+            if (doc.contentType === "text/plain") {
+              try {
+                var text = (doc.body && doc.body.textContent) || "";
+                if (
+                  text.indexOf("attempted to fetch from same origin") !== -1
+                ) {
+                  try {
+                    var last = Number(
+                      sessionStorage.getItem("proxyEngineReload") || 0,
+                    );
+                    if (!last || Date.now() - last > 60000) {
+                      sessionStorage.setItem(
+                        "proxyEngineReload",
+                        String(Date.now()),
+                      );
+                      location.reload();
+                      return;
+                    }
+                  } catch (_) {
+                    /* storage is optional; fall through to the message */
+                  }
+                  fail(
+                    new Error(
+                      "The proxy engine is out of date. Reload the page to update it.",
+                    ),
+                  );
+                }
+              } catch (_) {
+                /* a body that can't be read is not a proxy error */
+              }
+            }
           }, EXTERNAL_SETTLE_MS);
         });
         // Proxied frames don't always fire load after go(); fall back to

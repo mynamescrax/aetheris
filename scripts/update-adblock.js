@@ -1,7 +1,8 @@
 // Refreshes the proxy ad/tracker blocklist used by public/sw.js.
 // Source: HaGeZi Multi LIGHT (GPL-3.0), domains-only wildcard format: each
 // entry also covers its subdomains. LIGHT is built from Top 1M/10M domains and
-// is meant not to break sites, which matters for games that wait on ad SDKs.
+// is meant not to break sites, so it stays conservative; sw.js adds the ad
+// networks that ad-funded games actually load (AD_HOSTS_BUILTIN) on top.
 //
 // After running, bump ADBLOCK_LIST_VERSION in public/sw.js so clients refetch.
 //   node scripts/update-adblock.js

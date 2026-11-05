@@ -15,6 +15,54 @@ test("popular games wrap using the shared responsive card grid", () => {
   assert.match(html, /games\.css\?v=\d{8}\.\d+/);
 });
 
+test("proxy engine URLs carry a version so a cached bundle can't outlive a deploy", () => {
+  const source = fs.readFileSync(
+    new URL("../public/js/scramjet-init.js", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /var PROXY_ENGINE_VERSION = "\d{8}\.\d+"/);
+  assert.match(source, /\/scramjet\/scramjet\.js\?v=" \+ PROXY_ENGINE_VERSION/);
+  assert.match(
+    source,
+    /\/controller\/controller\.api\.js\?v=" \+ PROXY_ENGINE_VERSION/,
+  );
+});
+
+test("proxied pages block ad networks the light list leaves out", () => {
+  const source = fs.readFileSync(
+    new URL("../public/sw.js", import.meta.url),
+    "utf8",
+  );
+  const from = source.indexOf("var AD_HOSTS_BUILTIN");
+  const to = source.indexOf("// /~/sj/<tab id>");
+  assert.ok(from !== -1 && to > from, "the built-in ad hosts are where we expect them");
+  const context = {
+    SITE_HOST: "aetheris.test",
+    adhosts: new Set(["tracker.example"]),
+  };
+  vm.runInNewContext(
+    "var adhosts = this.adhosts;\n" +
+      "var SITE_HOST = this.SITE_HOST;\n" +
+      source.slice(from, to) +
+      "\nthis.isadhost = isadhost;",
+    context,
+  );
+  const isadhost = context.isadhost;
+  for (const host of [
+    "securepubads.g.doubleclick.net",
+    "pagead2.googlesyndication.com",
+    "imasdk.googleapis.com",
+    "ads.pubmatic.com",
+    "cdn.applovin.com",
+    "x.tracker.example",
+    "analytics.tracker.example",
+  ])
+    assert.equal(isadhost(host), true, host);
+  assert.equal(isadhost("cdn.jsdelivr.net"), false);
+  assert.equal(isadhost("aetheris.test"), false);
+  assert.equal(isadhost("game-cdn.poki.com"), false);
+});
+
 function helpers(initial = {}, blocked = false) {
   const data = new Map(Object.entries(initial));
   const storage = {
