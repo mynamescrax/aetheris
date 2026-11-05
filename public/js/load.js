@@ -57,9 +57,15 @@
 
   function sourceurl(source) {
     if (!source) return null;
-    return (
-      Aetheris.httpUrl(source.url || source.html || source.iframe || "") || null
-    );
+    var url = Aetheris.httpUrl(source.url || source.html || source.iframe || "");
+    // Keep existing provider bookmarks working after repairing a broken wrapper.
+    var repaired = {
+      "https://truffled.lol/games/gta/index.html": "/assets/games/gta.html",
+      "https://gn-math.github.io/html/410-fix.html": "/assets/games/telekinesisdrive.html",
+      "https://velara.my/assets/games/onepiecefighting.html": "/assets/games/onepiecefighting.html",
+      "https://velara.my/assets/games/1on1tennis.html": "/assets/games/1on1tennis.html",
+    };
+    return (repaired[url] ? Aetheris.httpUrl(repaired[url]) : url) || null;
   }
 
   // Merged catalog records carry every provider that has this game. Fall back
@@ -227,6 +233,15 @@
           return String(g.id) === String(gameid);
         }) || null;
       if (byid) return byid;
+      if (/^https?:\/\//i.test(gameid)) {
+        var requested = sourceurl({ url: gameid });
+        var byurl = games.find(function (game) {
+          return itemsources(game).some(function (source) {
+            return sourceurl(source) === requested;
+          });
+        });
+        if (byurl) return byurl;
+      }
       // A card id can be re-keyed when later sources merge (a provider id that
       // collided, or a new source becoming primary). Favorites already match
       // any of those ids; a deep link should too.
@@ -449,6 +464,9 @@
           "autoplay; fullscreen; encrypted-media; picture-in-picture";
         frameel.style.cssText = "width:100%;height:100%;border:0;";
         frameel.addEventListener("load", hideLoading, { once: true });
+        frameel.addEventListener("load", function () {
+          if (!stale()) frameel.focus();
+        });
         iframe = backend.createFrame(frameel);
         container.appendChild(frameel);
         // Frame#go() returns void, so a failure is a thrown error or a frame
@@ -566,6 +584,9 @@
       });
 
       container.appendChild(frame);
+      frame.addEventListener("load", function () {
+        if (!stale()) frame.focus();
+      });
       syncuaspoof();
 
       if (wantsdesktopua()) {

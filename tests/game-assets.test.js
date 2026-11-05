@@ -231,6 +231,9 @@ test("Unity's compressed build type is a valid asset, not a poisoned body", () =
   assert.equal(validGameAsset("x.wasm.unityweb", compressed), true);
   assert.equal(validGameAsset("x.wasm.framework.unityweb", module), true);
   assert.equal(validGameAsset("x.wasm.framework.unityweb.part1", module), true);
+  const legacyFramework = Buffer.from("(function(Module) {\n" + " ".repeat(1024) + "});");
+  assert.equal(validGameAsset("x.wasm.framework.unityweb", legacyFramework), true);
+  assert.equal(validGameAsset("x.wasm.unityweb", legacyFramework), false);
   // the error bodies the check exists for are still refused
   assert.equal(validGameAsset("x.data.unityweb", Buffer.from("<!DOCTYPE html><html>")), false);
   assert.equal(validGameAsset("x.data.unityweb", Buffer.from("429: Too Many Requests")), false);

@@ -81,6 +81,18 @@
 
   <!-- Auto generated JS -->
   <script type="text/javascript" src="webapp/index.js"></script>
+  <script>
+    // A pointer can reach the game while its keyboard focus still belongs to the player toolbar.
+    document.addEventListener("pointerdown", function () {
+      window.focus();
+      var canvas = document.getElementById("canvas");
+      if (canvas) {
+        canvas.tabIndex = 0;
+        canvas.focus();
+      }
+      if (typeof setGameFocus === "function") setGameFocus(true);
+    });
+  </script>
 </body>
 
 </html>

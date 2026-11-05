@@ -187,7 +187,7 @@ var GAMES_CACHE_TTL = 60 * 60 * 1000;
 var GAMES_CACHE_PARTIAL_TTL = 10 * 60 * 1000;
 // Bump when the merge changes so clients do not keep a list built by the
 // previous rules.
-var GAMES_CACHE_SCHEMA = 20;
+var GAMES_CACHE_SCHEMA = 21;
 var GAMES_IDB = "aetheris-games-cache";
 var GAMES_STORE = "cache";
 var GAMES_IDB_KEY = "games";

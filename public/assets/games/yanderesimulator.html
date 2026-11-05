@@ -62,7 +62,10 @@
                         return;
                     }
                     fetch(fileParts[index])
-                        .then(r => r.arrayBuffer())
+                        .then(r => {
+                            if (!r.ok) throw new Error(`Download failed (${r.status}): ${fileParts[index]}`);
+                            return r.arrayBuffer();
+                        })
                         .then(b => {
                             buffers.push(b);
                             done++;
@@ -89,8 +92,8 @@
                 companyName: "YandereDev",
                 productName: "YandereSimulator",
                 dataUrl: dataUrl,
-                wasmCodeUrl: "YandereSim.wasm.code.unityweb",
-                wasmFrameworkUrl: "YandereSim.wasm.framework.unityweb",
+                wasmCodeUrl: new URL("Build/YandereSim.wasm.code.unityweb", document.baseURI).href,
+                wasmFrameworkUrl: new URL("Build/YandereSim.wasm.framework.unityweb", document.baseURI).href,
                 TOTAL_MEMORY: 268435456,
                 graphicsAPI: ["WebGL 2.0", "WebGL 1.0"],
                 webglContextAttributes: {
@@ -108,9 +111,10 @@
             });
             const blobUrl = URL.createObjectURL(blob);
 
-            const gameInstance = UnityLoader.instantiate("unityContainer", json, {
-                url: blobUrl,
+            const gameInstance = UnityLoader.instantiate("unityContainer", blobUrl, {
                 Module: {
+                    resolveBuildUrl: url => new URL(url, document.baseURI).href,
+                    streamingAssetsUrl: () => new URL("StreamingAssets", document.baseURI).href,
                     onRuntimeInitialized: () => {
                         const loadingText = document.querySelector("#loading-text");
                         if (loadingText) loadingText.remove();
@@ -125,6 +129,8 @@
             };
             window.addEventListener("resize", resize);
             resize();
+        }).catch(error => {
+            document.querySelector("#loading-text").textContent = error.message;
         });
     </script>
 </head>
@@ -138,7 +144,7 @@
 					margin-top: 20px;
 				">
         LOADING...
-    </div>LOADING...</div>
+    </div>
     <div id="unityContainer"></div>
 </body>
 

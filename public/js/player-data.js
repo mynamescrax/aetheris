@@ -4,7 +4,7 @@ window.playerDataReady = new Promise(function (resolve, reject) {
   var script = document.createElement("script");
   script.src = isApp
     ? "/assets/data/apps.js?v=20260907.1"
-    : "/assets/data/games.js?v=20261105.2";
+    : "/assets/data/games.js?v=20261105.3";
   script.onload = function () {
     var ready = isApp ? window.appsready : window.gamesready;
     if (!ready || typeof ready.then !== "function") {

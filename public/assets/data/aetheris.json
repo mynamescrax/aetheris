@@ -8542,5 +8542,41 @@
       "Action",
       "WASM"
     ]
+  },
+  {
+    "id": "onepiecefighting",
+    "title": "One Piece Fighting",
+    "html": "assets/games/onepiecefighting.html",
+    "image": "assets/images/icon.png",
+    "tags": [
+      "Action"
+    ]
+  },
+  {
+    "id": "1on1tennis",
+    "title": "1 On 1 Tennis",
+    "html": "assets/games/1on1tennis.html",
+    "image": "assets/images/icon.png",
+    "tags": [
+      "Sports"
+    ]
+  },
+  {
+    "id": "telekinesisdrive",
+    "title": "Telekinesis Drive",
+    "html": "assets/games/telekinesisdrive.html",
+    "image": "assets/images/icon.png",
+    "tags": [
+      "Action"
+    ]
+  },
+  {
+    "id": "gta",
+    "title": "GTA I",
+    "html": "assets/games/gta.html",
+    "image": "assets/images/icon.png",
+    "tags": [
+      "Action"
+    ]
   }
 ]

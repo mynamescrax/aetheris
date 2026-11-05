@@ -68,7 +68,7 @@
       dataUrl: buildUrl + "/Screw.data.unityweb",
       frameworkUrl: buildUrl + "/Screw.framework.js.unityweb",
         codeUrl: buildUrl + "/Screw.wasm.unityweb",
-      streamingAssetsUrl: "StreamingAssets",
+      streamingAssetsUrl: new URL("StreamingAssets", document.baseURI).href,
       companyName: "Joy Master",
       productName: "Pin Match 3D",
       productVersion: "1.0.0",
