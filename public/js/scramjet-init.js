@@ -10,7 +10,7 @@
   // edge node that cached the old copy keeps the old same-origin guard (which
   // aborts every local game) until its cache expires. The server marks a
   // versioned URL immutable and an unversioned one no-cache.
-  var PROXY_ENGINE_VERSION = "20261105.3";
+  var PROXY_ENGINE_VERSION = "20261105.4";
   var SCRAMJET_CORE_SRC =
     "/scramjet/scramjet.js?v=" + PROXY_ENGINE_VERSION;
   var SCRAMJET_CONTROLLER_SRC =
@@ -354,7 +354,41 @@
             });
           }
           var reg = await navigator.serviceWorker.ready;
-          var sw = navigator.serviceWorker.controller || reg.active;
+          var sw = navigator.serviceWorker.controller;
+          if (!sw && reg.active) {
+            // clients.claim() normally sets the controller while the worker
+            // activates. A page that is not controlled sends the game's
+            // /~/sj/ subresources straight to the origin, which 404s and
+            // leaves the frame blank (seen on iPad Safari), so give the claim
+            // a moment before falling back to the active worker.
+            sw = await new Promise(function (resolve) {
+              var timer = setTimeout(function () {
+                try {
+                  navigator.serviceWorker.removeEventListener(
+                    "controllerchange",
+                    onchange,
+                  );
+                } catch (_) {}
+                resolve(
+                  navigator.serviceWorker.controller || reg.active || null,
+                );
+              }, 3000);
+              function onchange() {
+                clearTimeout(timer);
+                resolve(navigator.serviceWorker.controller || reg.active || null);
+              }
+              try {
+                navigator.serviceWorker.addEventListener(
+                  "controllerchange",
+                  onchange,
+                  { once: true },
+                );
+              } catch (_) {
+                clearTimeout(timer);
+                resolve(navigator.serviceWorker.controller || reg.active || null);
+              }
+            });
+          }
           if (!sw) throw new Error("No active service worker is available.");
           return sw;
         })(),

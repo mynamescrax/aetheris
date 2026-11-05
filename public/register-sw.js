@@ -9,9 +9,19 @@ function registersw() {
     return Promise.resolve(null);
   if (registrationPromise) return registrationPromise;
   registrationPromise = installServiceWorker().catch(function (err) {
-    registrationPromise = null;
     console.error("sw registration failed:", err);
-    return null;
+    // A cancelled script load (the shell navigating over the first paint,
+    // Safari's stricter worker startup) is transient. Retry once instead of
+    // leaving the page uncontrolled for the rest of the session.
+    return new Promise(function (resolve) {
+      setTimeout(resolve, 500);
+    })
+      .then(installServiceWorker)
+      .catch(function (retryerr) {
+        registrationPromise = null;
+        console.error("sw registration retry failed:", retryerr);
+        return null;
+      });
   });
   return registrationPromise;
 }

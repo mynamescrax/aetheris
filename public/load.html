@@ -26,7 +26,7 @@
     <!-- scramjet bundles are loaded on demand by scramjet-init.js the first
          time a proxied frame is needed; a noProxy item skips ~245KB of JS
          parsing. -->
-    <script src="/js/scramjet-init.js?v=20261105.10"></script>
+    <script src="/js/scramjet-init.js?v=20261105.11"></script>
     <script src="./js/dm-shared.js?v=20261007.1"></script>
 
     <script>
@@ -40,6 +40,18 @@
             return;
           }
           if (!win || !doc) return;
+
+          // 1games pages store the signed verification payload in
+          // localStorage, but their Unity framework only checks
+          // window.GMSOFT_SIGNED and otherwise fetches it with a synchronous
+          // XHR. Seed it before Unity starts: the sync request is what used to
+          // lock the game (and it is unreliable in Safari).
+          try {
+            if (!win.GMSOFT_SIGNED) {
+              var signdomain = win.localStorage.getItem("gmsdksigndomain");
+              if (signdomain) win.GMSOFT_SIGNED = signdomain;
+            }
+          } catch (e) {}
 
           var blockeddomains = [
             "doubleclick.net",

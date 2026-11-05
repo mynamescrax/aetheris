@@ -1704,6 +1704,10 @@ self.addEventListener("activate", function (event) {
           }),
         );
       })
+      // Safari can reject a cache delete (quota, private browsing). Taking
+      // control matters more than cleanup: without clients.claim() a page is
+      // uncontrolled and every /~/sj/ subresource hits the origin and 404s.
+      .catch(function () {})
       .then(function () {
         return self.clients.claim();
       }),
