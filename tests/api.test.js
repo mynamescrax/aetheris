@@ -443,6 +443,9 @@ test("served proxy bundles carry the legacy-Safari compat prefix", async () => {
   const coretext = await core.text();
   assert.ok(coretext.startsWith(prefix));
   assert.match(coretext, /BroadcastChannel/);
+  // aetheris-served games are proxied too, so the guard that aborts a fetch
+  // to the proxy's own origin must be gone (see public/js/scramjet-init.js).
+  assert.doesNotMatch(coretext, /attempted to fetch from same origin/);
 
   const controller = await fetch(base + "/controller/controller.api.js");
   assert.equal(controller.status, 200);

@@ -690,7 +690,9 @@ var cookieenabledshim =
 // time through Date, so that is where the offset goes. The offset lives in
 // localStorage and is re-read about once a second, so changing it in Settings
 // reaches an already open game without a reload. Only game pages get this;
-// proxy pages keep the real clock.
+// proxy pages keep the real clock. A proxied game frame gets the offset as
+// window.__aetherisGameClockOffset instead, because localStorage is
+// virtualized per proxied origin inside scramjet (see scramjet-init.js).
 var GAMECLOCK_KEY = "gameClockOffsetMs";
 var gameclockshim =
   "<script>" +
@@ -706,6 +708,8 @@ var gameclockshim =
   "  var checked = -1e15;" +
   "  function read(){" +
   "    try {" +
+  "      var injected = Number(window.__aetherisGameClockOffset);" +
+  "      if (isFinite(injected) && injected > 0) return injected;" +
   "      var value = Number(localStorage.getItem(KEY)) || 0;" +
   "      return isFinite(value) && value > 0 ? value : 0;" +
   "    } catch(e){ return 0; }" +

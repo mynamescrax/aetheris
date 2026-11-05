@@ -426,12 +426,13 @@
     try {
       countplay(source);
 
-      var isexternal = new URL(url, location.href).origin !== location.origin;
-
-      if (isexternal && !item.noProxy) {
-        // Every provider page goes through the proxy, so the visitor's network
-        // never talks to the provider directly: a filtered domain would
-        // otherwise take the whole source offline.
+      // Every source goes through the proxy, aetheris copies included: the
+      // game's own network traffic (multiplayer servers, SDKs, CDNs) is then
+      // reached by the proxy instead of the visitor's network, so a filtered
+      // domain can't take it offline. The local game file itself is still
+      // served by the page (see scramjet-init.js), so its cache and shims
+      // keep working.
+      if (!item.noProxy) {
         // Never probe the provider from the page itself: this network usually
         // can't reach it directly (that is what the proxy is for), so a failed
         // probe would swap away from a copy that proxies perfectly well.
@@ -474,8 +475,23 @@
             }
             // no document means it navigated somewhere cross-origin, which is
             // not something this can judge
-            if (!doc || doc.URL !== "about:blank") return;
-            fail(new Error("The game page never loaded from this source."));
+            if (!doc) return;
+            if (doc.URL === "about:blank") {
+              fail(new Error("The game page never loaded from this source."));
+              return;
+            }
+            // A missing aetheris game reaches the proxy as the site's 404
+            // page; treat it like the direct branch does.
+            try {
+              if (
+                doc.querySelector(
+                  'meta[name="aetheris-error"][content="404"]',
+                )
+              )
+                fail(new Error("The game file was not found on this source."));
+            } catch (_) {
+              /* an uninspectable document is not something to fail on */
+            }
           }, EXTERNAL_SETTLE_MS);
         });
         // Proxied frames don't always fire load after go(); fall back to

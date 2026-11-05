@@ -249,7 +249,162 @@
 
   // every call site navigates through here so there's one place to hook later
   function safego(frame, url) {
+    try {
+      // An aetheris-served game (same origin) is what enables the CDN relay
+      // path below; provider pages keep talking to their own CDNs.
+      frame.aetherisLocal =
+        new URL(url, location.href).origin === location.origin;
+    } catch (_) {
+      frame.aetherisLocal = false;
+    }
     return frame.go(url);
+  }
+
+  // Static CDN hosts the service worker relays through /s/ (the MIRROR_HOSTS
+  // map in sw.js, plus GitHub's own raw links). A local game page hardcodes
+  // these, and jsDelivr refuses some of the split files a game asks for, so
+  // the relay mirrors them from the GitHub/AWS source instead. Keep in sync
+  // with MIRROR_HOSTS in sw.js.
+  var RELAYED_HOSTS = {
+    "cdn.jsdelivr.net": true,
+    "fastly.jsdelivr.net": true,
+    "gcore.jsdelivr.net": true,
+    "cdn.statically.io": true,
+    "raw.githubusercontent.com": true,
+    "raw.githack.com": true,
+    "rawcdn.githack.com": true,
+    "cdn.githack.com": true,
+    "bbcdn.githack.com": true,
+    "raw.github.com": true,
+    "cdnjs.cloudflare.com": true,
+    "github.com": true,
+    "www.github.com": true,
+    "gist.github.com": true,
+  };
+
+  function relayedhost(host) {
+    host = String(host || "").toLowerCase();
+    return !!RELAYED_HOSTS[host] || /\.githubusercontent\.com$/.test(host);
+  }
+
+  // Same-origin requests (the aetheris game page, its relative assets and the
+  // /game-assets relay) are served by the page itself, not by the transport:
+  // wisp cannot reach loopback, so a local dev server would be unreachable,
+  // and in production it would have to fetch our own public host back through
+  // Cloudflare. The service worker's game-page cache and shims also only run
+  // on the page's own fetch. The response still goes through the rest of
+  // scramjet's fetch path, so the document is rewritten and everything the
+  // game itself asks other servers for is proxied.
+  var FORWARDED_LOCAL_HEADERS = { range: true };
+
+  // Only the site's static files are served this way. Anything else on our
+  // origin (/api/, /auth/, …) stays on the transport, so a proxied page can
+  // never use the player page's cookies to read an authenticated answer.
+  var LOCAL_PATHS = ["/assets/", "/game-assets/", "/s/", "/js/", "/css/"];
+
+  function localpath(url) {
+    var path = url.pathname;
+    if (path === "/favicon.ico" || path === "/img") return true;
+    for (var i = 0; i < LOCAL_PATHS.length; i++)
+      if (path.indexOf(LOCAL_PATHS[i]) === 0) return true;
+    return false;
+  }
+
+  function servelocally(frame) {
+    if (!frame || !frame.hooks || !frame.hooks.fetch || !$scramjet.Tap) return;
+    $scramjet.Tap.tap(frame.hooks.fetch.request, function (context, props) {
+      var request = context && context.request;
+      var url = context && context.parsed && context.parsed.url;
+      if (!request || !url) return;
+      if (request.method !== "GET" && request.method !== "HEAD") return;
+      if (!frame.aetherisLocal) return;
+
+      var sameorigin = url.origin === location.origin && localpath(url);
+      // A local game's CDN files are fetched from the page too: the service
+      // worker answers them with a redirect into the /s/ relay, which is what
+      // makes split files and jsDelivr's refusals work. The response still
+      // goes back through scramjet, so scripts are rewritten as usual.
+      var relayed =
+        url.origin !== location.origin && relayedhost(url.hostname);
+      if (!sameorigin && !relayed) return;
+
+      var init = { method: request.method };
+      if (sameorigin) {
+        try {
+          request.initialHeaders.toRawHeaders().forEach(function (pair) {
+            if (!FORWARDED_LOCAL_HEADERS[String(pair[0]).toLowerCase()]) return;
+            if (!init.headers) init.headers = {};
+            init.headers[pair[0]] = pair[1];
+          });
+        } catch (_) {
+          /* headers are optional, a missing Range still returns the whole file */
+        }
+      }
+
+      // Without an active service worker the relay redirect never happens, so
+      // a cross-origin fetch would just fail; let the transport handle it.
+      if (relayed && !navigator.serviceWorker.controller) return;
+
+      return fetch(url.href, init)
+        .then(function (response) {
+          props.earlyResponse = response;
+        })
+        .catch(function (error) {
+          // the transport may still reach it; don't fail the whole request here
+          console.warn(
+            "[init] local fetch failed, letting the proxy try:",
+            url.href,
+            error,
+          );
+        });
+    });
+  }
+
+  // The service worker's game-clock shim (sw.js) shifts Date inside aetheris
+  // game pages, but it reads localStorage, which scramjet virtualizes per
+  // proxied origin: inside the frame the setting is invisible. This callback
+  // runs in the player page's realm, so it can read the real value and hand
+  // it to the shim through a window global. The shim re-reads it about once a
+  // second, so a change made in Settings still reaches an open game.
+  var GAMECLOCK_KEY = "gameClockOffsetMs";
+  var GAMECLOCK_MAX = 3650 * 24 * 60 * 60 * 1000;
+
+  function clockoffset() {
+    try {
+      var value = Number(Aetheris.storage.getItem(GAMECLOCK_KEY));
+      return isFinite(value) && value > 0 ? Math.min(value, GAMECLOCK_MAX) : 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  function installclock(frame) {
+    if (!frame || !frame.hooks || !frame.hooks.init || !$scramjet.Tap) return;
+    $scramjet.Tap.tap(frame.hooks.init.pre, function (context) {
+      if (!frame.aetherisLocal || !context || !context.window) return;
+      var win = context.window;
+      win.__aetherisGameClockOffset = clockoffset();
+      var timer = setInterval(function () {
+        try {
+          // removing the iframe does not reliably fire pagehide in every
+          // browser, so stop polling once the frame is gone
+          if (!frame.element || !frame.element.isConnected) {
+            clearInterval(timer);
+            return;
+          }
+          win.__aetherisGameClockOffset = clockoffset();
+        } catch (_) {
+          clearInterval(timer);
+        }
+      }, 1000);
+      try {
+        win.addEventListener("pagehide", function () {
+          clearInterval(timer);
+        });
+      } catch (_) {
+        clearInterval(timer);
+      }
+    });
   }
 
   var controllerpromise = null;
@@ -297,6 +452,8 @@
         controller.createFrame = function (element, frameoptions) {
           var frame = nativecreate(element, frameoptions);
           rememberframe(frame);
+          servelocally(frame);
+          installclock(frame);
           return frame;
         };
         return controller;

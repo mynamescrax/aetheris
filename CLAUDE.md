@@ -276,6 +276,25 @@ header change fixes it.
   in `movie-report.json` (gitignored).
 - Scramjet runs with `allowFailedIntercepts` + `allowInvalidJs` (scripts the
   rewriter can't parse pass through instead of failing).
+- Every source is proxied, aetheris game pages included (`load.js`; only an
+  item with `noProxy` is iframed directly). A same-origin game page is what
+  scramjet normally refuses (`parseRequest` aborts "attempted to fetch from
+  same origin"), so `index.js` drops that guard with a `patchsource` patch and
+  `scramjet-init.js` answers the page's same-origin GET/HEAD requests from the
+  page itself instead of the transport. That keeps wisp out of loopback (a
+  local dev server is unreachable) and off our own public host/Cloudflare,
+  and it is the only path where the service worker's game-page cache and
+  shims run. The same hook fetches a local game's CDN files (`RELAYED_HOSTS`,
+  kept in sync with `MIRROR_HOSTS` in `sw.js` by a test) from the page, so
+  the worker's `/s/` mirror redirect still applies: jsDelivr 403s some split
+  files (`.part2`, …) that the GitHub mirror serves. If a dependency bump
+  makes the guard patch miss, every aetheris game fails with the same-origin
+  error; `tests/api.test.js` fails in that case.
+- A proxied game frame's `localStorage` is virtualized per proxied origin, so
+  the game-clock shim gets its offset from
+  `window.__aetherisGameClockOffset`, set by the frame init hook in
+  `scramjet-init.js` (it reads the real localStorage from the player page and
+  refreshes it once a second).
 - `index.js` serves the pinned scramjet/controller bundles with serve-time
   patches (`patchsource`) for fixes that landed upstream after alpha.2 but
   were never published: history's undefined-url, SRI/integrity stripping,
@@ -353,7 +372,10 @@ instead of the CDN.
   rewards, streaks) can be claimed again. `sw.js` injects the shim at the top
   of `<head>` after the page caches, so no cache version bump is needed. It
   re-reads the offset about once a second, so an open game follows a change
-  made in another tab. Proxy pages are not patched and keep the real clock.
+  made in another tab. Other proxy pages are not patched and keep the real
+  clock. Aetheris pages are proxied now, so the shim gets the offset from
+  `window.__aetherisGameClockOffset` (scramjet virtualizes `localStorage` in
+  the frame); `scramjet-init.js` keeps it current.
 
 ## Production access
 

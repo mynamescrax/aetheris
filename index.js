@@ -2683,6 +2683,20 @@ fastify.get("/scramjet/scramjet.js", (_req, reply) => {
       "blob/data path",
     );
 
+    // Aetheris-served games are proxied as well (see load.js), so the page's
+    // own requests reach the multiplayer/SDK servers through wisp. scramjet
+    // refuses any fetch whose target is the proxy's own origin, which is
+    // exactly what a local game page is. The frame hook in
+    // public/js/scramjet-init.js answers those requests from the page itself,
+    // so the transport never dials our public host; dropping the guard only
+    // lets the virtual origin match the real one.
+    raw = patchsource(
+      raw,
+      'if(u.origin===new i.xP(e.rawUrl).origin)throw new i.$D("attempted to fetch from same origin - this means the site has obtained a reference to the real origin, aborting");',
+      "",
+      "fetch/parse.ts same-origin guard",
+    );
+
     // The four fixes below are unpublished upstream commits newer than the
     // pinned 2.0.67-alpha.2 release, ported to the minified bundle.
 

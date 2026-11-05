@@ -329,6 +329,36 @@ test("the worker only redirects hosts the relay has a mirror for", () => {
     assert.ok(context.hosts[host], `${host} is not relayed`);
 });
 
+test("proxied aetheris games relay every host the worker mirrors", () => {
+  // A proxied game fetches its CDN files from the page so the worker can
+  // redirect them into /s/ (see scramjet-init.js). That only happens for the
+  // hosts in RELAYED_HOSTS, so it must cover the worker's map.
+  const swsource = readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
+  const swfrom = swsource.indexOf("var MIRROR_HOSTS =");
+  const swto = swsource.indexOf("// One path segment of a relayed asset path");
+  assert.ok(swfrom !== -1 && swto > swfrom, "the worker host map is where we expect it");
+  const swcontext = {};
+  vm.runInNewContext(
+    swsource.slice(swfrom, swto) + "\nthis.hosts = MIRROR_HOSTS;",
+    swcontext,
+  );
+
+  const source = readFileSync(
+    new URL("../public/js/scramjet-init.js", import.meta.url),
+    "utf8",
+  );
+  const from = source.indexOf("var RELAYED_HOSTS =");
+  const to = source.indexOf("function relayedhost");
+  assert.ok(from !== -1 && to > from, "the client host map is where we expect it");
+  const context = {};
+  vm.runInNewContext(
+    source.slice(from, to) + "\nthis.hosts = RELAYED_HOSTS;",
+    context,
+  );
+  for (const host of Object.keys(swcontext.hosts))
+    assert.ok(context.hosts[host], `${host} is missing from RELAYED_HOSTS`);
+});
+
 test("every GitHub user-content host and GitHub raw link is relayed", () => {
   const source = readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
   const from = source.indexOf("function isproxiedurl");
