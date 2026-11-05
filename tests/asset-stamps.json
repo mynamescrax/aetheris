@@ -16,8 +16,8 @@
     "hash": "236ab19ec1c1aefb"
   },
   "css/games.css": {
-    "stamp": "20261102.1",
-    "hash": "067ec347bb8febff"
+    "stamp": "20261105.2",
+    "hash": "4d56ca6543037fa8"
   },
   "css/load.css": {
     "stamp": "20261103.2",
@@ -80,12 +80,12 @@
     "hash": "f463fb597693bd41"
   },
   "js/games.js": {
-    "stamp": "20261103.1",
-    "hash": "322331c7aa60b3ec"
+    "stamp": "20261105.1",
+    "hash": "cf0e6ed633b48d7a"
   },
   "js/load.js": {
-    "stamp": "20261104.3",
-    "hash": "d93f53198e1f304d"
+    "stamp": "20261105.2",
+    "hash": "3ea0a81630b70e54"
   },
   "js/movie-proxy-client.js": {
     "stamp": "20261102.1",
@@ -104,8 +104,8 @@
     "hash": "977a45488dafadbe"
   },
   "js/player-data.js": {
-    "stamp": "20261104.1",
-    "hash": "c399520e5ce39551"
+    "stamp": "20261105.1",
+    "hash": "eb6ecbd677c7b8eb"
   },
   "js/preload.js": {
     "stamp": "20261008.1",

@@ -156,10 +156,18 @@ function normalizegame(rawgame, fallbacksource) {
 
   if (!game.source) game.source = fallbacksource || "unknown";
 
-  if (Array.isArray(game.tags))
+  if (Array.isArray(game.tags)) {
+    // Providers spell the same tag differently ("Action" / "action"); keep one
+    // spelling per tag so the library filter does not split into two chips.
+    var seentags = Object.create(null);
     game.tags = game.tags.filter(function (tag) {
-      return typeof tag !== "string" || tag.toLowerCase() !== "epstein";
+      if (typeof tag !== "string") return false;
+      var key = tag.trim().toLowerCase();
+      if (!key || key === "epstein" || seentags[key]) return false;
+      seentags[key] = true;
+      return true;
     });
+  }
 
   if (game.id === undefined || game.id === null || game.id === "") {
     game.id = game.url || game.html || game.source + "-" + slugify(game.title);
@@ -173,6 +181,13 @@ function normalizegame(rawgame, fallbacksource) {
 // an hour: the catalogs change rarely, and the merged list is cached as one
 // blob so a return visit doesn't re-download and re-parse every provider.
 var GAMES_CACHE_TTL = 60 * 60 * 1000;
+// A list built while a provider was down is still worth keeping: without it a
+// single dead provider makes every visit re-download every catalog. Retry it
+// sooner, and keep the failures so the library can offer its retry button.
+var GAMES_CACHE_PARTIAL_TTL = 10 * 60 * 1000;
+// Bump when the merge changes so clients do not keep a list built by the
+// previous rules.
+var GAMES_CACHE_SCHEMA = 20;
 var GAMES_IDB = "aetheris-games-cache";
 var GAMES_STORE = "cache";
 var GAMES_IDB_KEY = "games";
@@ -234,14 +249,16 @@ async function getcachedgames() {
       var get = tx.objectStore(GAMES_STORE).get(GAMES_IDB_KEY);
       get.onsuccess = function () {
         var v = get.result;
+        var errors = v && Array.isArray(v.errors) ? v.errors : [];
+        var ttl = errors.length ? GAMES_CACHE_PARTIAL_TTL : GAMES_CACHE_TTL;
         finish(
           v &&
-            v.schema === 19 &&
+            v.schema === GAMES_CACHE_SCHEMA &&
             Array.isArray(v.data) &&
             v.data.length &&
             Date.now() - v.ts >= 0 &&
-            Date.now() - v.ts < GAMES_CACHE_TTL
-            ? v.data
+            Date.now() - v.ts < ttl
+            ? { data: v.data, errors: errors.slice() }
             : null,
         );
       };
@@ -257,15 +274,18 @@ async function getcachedgames() {
   });
 }
 
-async function setcachedgames(data) {
+async function setcachedgames(data, errors) {
   var db = await opengamecache();
   if (!db) return;
   try {
     var tx = db.transaction(GAMES_STORE, "readwrite");
     tx.objectStore(GAMES_STORE).put(
-      // Bump the schema when the merge changes so clients do not keep an
-      // hour-old card list built by the previous rules.
-      { schema: 19, ts: Date.now(), data: data },
+      {
+        schema: GAMES_CACHE_SCHEMA,
+        ts: Date.now(),
+        data: data,
+        errors: Array.isArray(errors) ? errors.slice() : [],
+      },
       GAMES_IDB_KEY,
     );
     tx.oncomplete = function () {
@@ -569,6 +589,22 @@ function loosecore(title) {
   );
 }
 
+// Two expanded titles that only share initials are usually different games
+// ("Five Nights At Freddy's 3" / "Five Nights at Frickbear's 3",
+// "…: Rebirth" / "…: Repentance"). Only trust initials when one spelling is
+// shorter than the other (the abbreviation) or the words line up.
+function dedupeacronymaligned(a, b) {
+  var ta = dedupetokens(a.title);
+  var tb = dedupetokens(b.title);
+  if (ta.length !== tb.length || ta.length < 2) return true;
+  for (var i = 0; i < ta.length; i++) {
+    var x = ta[i];
+    var y = tb[i];
+    if (x !== y && x.indexOf(y) !== 0 && y.indexOf(x) !== 0) return false;
+  }
+  return true;
+}
+
 // Two cards are the same game when they resolve to the same provider file and
 // their titles agree. The title rules are deliberately strict: sequels, DLC
 // and remastered builds keep separate cards.
@@ -591,7 +627,7 @@ function deduperelated(a, b, slug) {
   // "Btd 3" / "Bloons Tower Defense 3": one name is the file, the other
   // spells the same initials.
   if ((anorm && bslug) || (bnorm && aslug)) return true;
-  if (aslug && bslug) return true;
+  if (aslug && bslug) return dedupeacronymaligned(a, b);
 
   // "Quake" / "Quake 1": the provider numbers the first entry.
   if (ca === cb + "1" || cb === ca + "1") return true;
@@ -643,15 +679,18 @@ function deduperelated(a, b, slug) {
 // Second pass: providers often ship one game under different titles and the
 // same file path ("Bloons Tower Defense 3", "Bloon TD3", "Btd 3"). Fold those
 // copies into one card so the player can fall back between them.
-function foldgroups(cards, groups, remove) {
+function foldgroups(cards, groups, remove, compare) {
   for (var key in groups) {
     var list = groups[key];
     if (list.length < 2) continue;
-    list.sort(function (a, b) {
-      var priority = gamesourceorder(a.source) - gamesourceorder(b.source);
-      if (priority !== 0) return priority;
-      return (a.title || "").localeCompare(b.title || "");
-    });
+    list.sort(
+      compare ||
+        function (a, b) {
+          var priority = gamesourceorder(a.source) - gamesourceorder(b.source);
+          if (priority !== 0) return priority;
+          return (a.title || "").localeCompare(b.title || "");
+        },
+    );
     var target = list[0];
     for (var j = 1; j < list.length; j++) {
       var other = list[j];
@@ -712,6 +751,41 @@ function foldacronymcopies(cards) {
   });
 }
 
+function dedupebarecore(title) {
+  var core = dedupecore(title);
+  return core.charAt(core.length - 1) === "1" ? core.slice(0, -1) : core;
+}
+
+// Fourth pass: providers number the first entry ("Slope 1", "Vex 1", "Run 1")
+// while others use the bare name, and the file names differ, so neither of the
+// earlier passes sees them together. Only the trailing "1" may differ. The bare
+// spelling wins as the card title; remastered builds stay in their own group.
+function foldfirstentries(cards) {
+  var groups = Object.create(null);
+  for (var i = 0; i < cards.length; i++) {
+    var core = dedupecore(cards[i].title);
+    if (core.length < 3) continue;
+    var base = dedupebarecore(cards[i].title);
+    if (base.length < 3) continue;
+    var key = base + "|" + dedupeeditions(cards[i].title).join(",");
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(cards[i]);
+  }
+  var removed = [];
+  foldgroups(cards, groups, removed, function (a, b) {
+    var abare = dedupebarecore(a.title) === dedupecore(a.title);
+    var bbare = dedupebarecore(b.title) === dedupecore(b.title);
+    if (abare !== bbare) return abare ? -1 : 1;
+    var priority = gamesourceorder(a.source) - gamesourceorder(b.source);
+    if (priority !== 0) return priority;
+    return (a.title || "").localeCompare(b.title || "");
+  });
+  if (!removed.length) return cards;
+  return cards.filter(function (card) {
+    return removed.indexOf(card) === -1;
+  });
+}
+
 function gamesdedupekey(game) {
   var title = game.title || game.name || "";
   var core = dedupecore(title);
@@ -739,8 +813,11 @@ function addalternate(entry, source, game) {
   if (!entry.image && source.image) entry.image = source.image;
   if (Array.isArray(game.tags))
     game.tags.forEach(function (tag) {
-      if (typeof tag === "string" && entry.tags.indexOf(tag) === -1)
-        entry.tags.push(tag);
+      if (typeof tag !== "string" || !tag.trim()) return;
+      var key = tag.toLowerCase();
+      for (var t = 0; t < entry.tags.length; t++)
+        if (entry.tags[t].toLowerCase() === key) return;
+      entry.tags.push(tag);
     });
   return true;
 }
@@ -803,6 +880,7 @@ function mergegames(lists) {
   // file path; fold those copies into the card the title pass built.
   merged = foldfilecopies(merged);
   merged = foldacronymcopies(merged);
+  merged = foldfirstentries(merged);
 
   merged.sort(function (a, b) {
     return (a.title || "").localeCompare(b.title || "");
@@ -831,6 +909,9 @@ window.gamehasid = gamehasid;
 
 var gamelistbyload = new Array(gamesources.length);
 var gameloadpromises = new Array(gamesources.length);
+// True while the library is the merged list read from IndexedDB: there are no
+// per-source records, so a retry has to reload every catalog.
+var gamesfromcache = false;
 // No source is currently deferred: every catalog is small enough to load up
 // front. Keep the mechanism in case a large source is added again.
 var gamessourcesdeferred = [];
@@ -848,17 +929,18 @@ function publishgames() {
   window.dispatchEvent(new Event("gamesupdated"));
 }
 
+// Cache the merged list once every source has settled, including a partial
+// list built while a provider was down. The missing/failed catalog URLs are
+// stored with it so the next visit can show the retry button (and a partial
+// list expires quickly).
 function maybecachegames() {
-  var complete = gamelistbyload.every(function (list) {
-    return !!list;
+  if (!window.games || !window.games.length) return;
+  var errors = window.gamesLoadErrors.slice();
+  gamesources.forEach(function (source, index) {
+    if (!gamelistbyload[index] && errors.indexOf(source.url) === -1)
+      errors.push(source.url);
   });
-  if (
-    complete &&
-    !window.gamesLoadErrors.length &&
-    window.games &&
-    window.games.length
-  )
-    setcachedgames(window.games);
+  setcachedgames(window.games, errors);
 }
 
 function catalogitems(data) {
@@ -908,7 +990,6 @@ function loadgamesource(source, index) {
       var errorindex = window.gamesLoadErrors.indexOf(source.url);
       if (errorindex !== -1) window.gamesLoadErrors.splice(errorindex, 1);
       publishgames();
-      maybecachegames();
       return list;
     })
     .catch(function (reason) {
@@ -920,6 +1001,9 @@ function loadgamesource(source, index) {
     .finally(function () {
       gameloadpromises[index] = null;
       updategamesloading();
+      // Wait for every source to settle before writing the cache, so a list
+      // that is still filling in is never stored as if it were complete.
+      if (!window.gamesLoading) maybecachegames();
     });
 
   gameloadpromises[index] = promise;
@@ -930,7 +1014,11 @@ function loadgamesource(source, index) {
 async function loadgamesdata() {
   var cached = await getcachedgames();
   if (cached) {
-    window.games = cached;
+    gamesfromcache = true;
+    window.games = cached.data;
+    // The list may have been built while a provider was down. Keep those
+    // failures so the library can show (and act on) the retry button.
+    window.gamesLoadErrors = cached.errors.slice();
     window.gamesloaded = true;
     window.dispatchEvent(new Event("gamesloaded"));
     return window.games;
@@ -945,10 +1033,14 @@ async function loadgamesdata() {
         }),
       );
   });
-  await Promise.all(initial);
-
-  window.gamesloaded = true;
-  window.dispatchEvent(new Event("gamesloaded"));
+  // Resolve as soon as the first catalog is in, so the player can open a game
+  // carried by it without waiting for a slow provider. The rest keep merging
+  // in the background (gamesupdated); gamesloaded still marks the end.
+  var settled = Promise.all(initial).then(function () {
+    window.gamesloaded = true;
+    window.dispatchEvent(new Event("gamesloaded"));
+  });
+  await Promise.race(initial.concat([settled]));
   return window.games;
 }
 
@@ -975,6 +1067,16 @@ window.gamesloadall = function () {
 };
 
 window.gamesretryfailed = function () {
+  if (gamesfromcache) {
+    // A cached list has no per-source records to merge a retried catalog into,
+    // so start the whole merge over instead of replacing the library with the
+    // one source that answered.
+    gamesfromcache = false;
+    gamelistbyload = new Array(gamesources.length);
+    window.games = [];
+    window.gamesLoadErrors = [];
+    return window.gamesloadall();
+  }
   var failed = [];
   gamesources.forEach(function (source, index) {
     if (

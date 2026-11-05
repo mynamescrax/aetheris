@@ -484,3 +484,110 @@ test("acronyms and subtitles fold; sequels and different games stay apart", () =
   assert.ok(bytitle["Moto X3M 2"]);
   assert.equal(merged.length, 6);
 });
+
+test("different games that only share initials stay apart", () => {
+  const game = catalog();
+  const list = (source, records) =>
+    records.map((record) => game.normalize(record, source));
+
+  // A fan game whose title has the same initials as FNAF 3.
+  const fnaf = game.merge([
+    list("aetheris", [
+      { title: "Five Nights At Freddy's 3", html: "assets/games/FNAF3.html" },
+    ]),
+    list("gnmath", [
+      {
+        title: "Five Nights at Frickbear's 3",
+        url: "https://gn-math.github.io/html/813-f3.html",
+      },
+    ]),
+  ]);
+  assert.equal(fnaf.length, 2);
+
+  // Two installments whose initials match because both subtitles start with R.
+  const isaac = game.merge([
+    list("truffled", [
+      {
+        title: "The Binding Of Issac: Rebirth",
+        url: "https://truffled.lol/games/psp/tboir/index.html",
+      },
+      {
+        title: "The Binding Of Issac: Repentance",
+        url: "https://truffled.lol/games/boi/index.html",
+      },
+    ]),
+  ]);
+  assert.equal(isaac.length, 2);
+});
+
+test("a bare title and its numbered first entry fold across providers", () => {
+  const game = catalog();
+  const list = (source, records) =>
+    records.map((record) => game.normalize(record, source));
+
+  const merged = game.merge([
+    list("aetheris", [
+      { title: "Slope", html: "assets/games/slope.html" },
+      { title: "Vex 1", html: "assets/games/vex1.html" },
+      { title: "Slope 2", html: "assets/games/slope2.html" },
+    ]),
+    list("velara", [
+      {
+        title: "Slope 1",
+        url: "https://velara.my/assets/games/slope1.html",
+      },
+    ]),
+    list("truffled", [
+      { title: "Vex", url: "https://truffled.lol/games/vex/index.html" },
+    ]),
+  ]);
+
+  const bytitle = {};
+  for (const card of merged) bytitle[card.title] = card;
+  assert.ok(bytitle["Slope"]);
+  assert.ok(bytitle["Slope 2"]);
+  assert.ok(bytitle["Vex"]);
+  assert.equal(bytitle["Slope"].sources.length, 2);
+  assert.equal(bytitle["Vex"].sources.length, 2);
+  assert.equal(bytitle["Slope 2"].sources.length, 1);
+  assert.equal(merged.length, 3);
+});
+
+test("tags fold case-insensitively across providers", () => {
+  const game = catalog();
+  const list = (source, records) =>
+    records.map((record) => game.normalize(record, source));
+
+  const merged = game.merge([
+    list("aetheris", [
+      {
+        title: "Alpha",
+        html: "assets/games/alpha.html",
+        tags: ["Action", "Skill"],
+      },
+    ]),
+    list("selenite", [
+      {
+        title: "Alpha",
+        url: "https://selenite.cc/resources/semag/alpha/index.html",
+        tags: ["action", "platformer"],
+      },
+    ]),
+  ]);
+
+  assert.equal(merged.length, 1);
+  assert.deepEqual(
+    Array.from(merged[0].tags, (tag) => tag.toLowerCase()).sort(),
+    ["action", "platformer", "skill"],
+  );
+});
+
+test("the catalog script version matches in both loaders", () => {
+  const read = (file) => readFileSync(new URL(file, import.meta.url), "utf8");
+  const pick = (text) => /assets\/data\/games\.js\?v=([\w.-]+)/.exec(text);
+  const maths = pick(read("../public/maths.html"));
+  const player = pick(read("../public/js/player-data.js"));
+  assert.ok(maths, "maths.html loads the catalog script");
+  assert.ok(player, "player-data.js loads the catalog script");
+  assert.equal(player[1], maths[1]);
+});

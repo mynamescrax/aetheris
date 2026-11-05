@@ -588,26 +588,76 @@
     return true;
   }
 
+  // Watch the catalogs that are still merging in. The loader publishes each
+  // source as it arrives (and the player's promise resolves with the first
+  // one), so a deep link to a provider game may arrive a moment later.
+  function watchcatalogs() {
+    var done = false;
+    var ticks = 0;
+    var poll = null;
+    function notfound() {
+      return (
+        "This " +
+        (appid ? "app" : "game") +
+        " could not be found in the catalog. Check the link or retry loading."
+      );
+    }
+    function stopevents() {
+      window.removeEventListener("gamesupdated", check);
+      window.removeEventListener("gamesloaded", check);
+      window.removeEventListener("appsloaded", check);
+    }
+    function stop() {
+      if (done) return;
+      done = true;
+      if (poll) clearInterval(poll);
+      stopevents();
+    }
+    function check() {
+      if (done) return;
+      if (tryload()) {
+        stop();
+        return;
+      }
+      // Every catalog has settled and the item is still not here: no amount
+      // of waiting will help. (The library's retry button can reload them.)
+      if (appid ? window.appsloaded : window.gamesloaded) {
+        stop();
+        if (!started) message(notfound(), true);
+      }
+    }
+    window.addEventListener("gamesupdated", check);
+    window.addEventListener("gamesloaded", check);
+    window.addEventListener("appsloaded", check);
+    poll = setInterval(function () {
+      ticks++;
+      check();
+      if (done) return;
+      if (ticks > 200) {
+        stop();
+        if (!started) message(notfound(), true);
+      }
+    }, 100);
+    check();
+  }
+
   async function boot() {
     message("Loading " + (appid ? "app" : "game") + "…");
     if (window.playerDataReady) {
       try {
         await window.playerDataReady;
-        if (!tryload())
-          message(
-            "This " +
-              (appid ? "app" : "game") +
-              " could not be found in the catalog. Check the link or retry loading.",
-            true,
-          );
       } catch (error) {
         // playerDataReady is created once and never recreated: once the
         // catalog loader fails, boot() would just await the same rejection
         // forever. Only a reload re-downloads it.
         message(error.message, true, { reload: true });
+        return;
       }
+      if (tryload()) return;
+      watchcatalogs();
       return;
     }
+
     var pending = [];
     if (window.gamesready && typeof window.gamesready.then === "function")
       pending.push(window.gamesready);
@@ -621,21 +671,7 @@
       if (tryload()) return;
     }
 
-    window.addEventListener("gamesloaded", tryload, { once: true });
-    window.addEventListener("appsloaded", tryload, { once: true });
-
-    var ticks = 0;
-    var poll = setInterval(function () {
-      ticks++;
-      if (tryload() || ticks > 100) {
-        clearInterval(poll);
-        if (!started)
-          message(
-            "This item could not be found. Check the link or retry loading.",
-            true,
-          );
-      }
-    }, 100);
+    watchcatalogs();
   }
 
   boot();

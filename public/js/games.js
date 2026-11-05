@@ -52,9 +52,13 @@
     if (typeof s.q === "string") search.value = s.q;
     if (Array.isArray(s.tags))
       activeTags = new Set(
-        s.tags.filter(function (t) {
-          return typeof t === "string";
-        }),
+        s.tags
+          .filter(function (t) {
+            return typeof t === "string";
+          })
+          .map(function (t) {
+            return t.toLowerCase();
+          }),
       );
     if (typeof s.sort === "boolean") {
       sortByPlays = s.sort;
@@ -194,7 +198,14 @@
             .includes(query)) &&
         (!tags.length ||
           tags.some(function (tag) {
-            return Array.isArray(game.tags) && game.tags.includes(tag);
+            return (
+              Array.isArray(game.tags) &&
+              game.tags.some(function (value) {
+                return (
+                  typeof value === "string" && value.toLowerCase() === tag
+                );
+              })
+            );
           }))
       );
     });
@@ -210,42 +221,47 @@
   }
 
   function renderTags() {
-    var tags = new Set();
+    // Sources spell tags differently ("Action" / "action"). One chip per tag,
+    // matched case-insensitively: activeTags holds the lowercase keys.
+    var tags = new Map();
     catalog.forEach(function (game) {
       if (Array.isArray(game.tags))
         game.tags.forEach(function (tag) {
           if (typeof tag !== "string") return;
-          if (tag.toLowerCase() === "epstein") return;
-          tags.add(tag);
+          var key = tag.trim().toLowerCase();
+          if (!key || key === "epstein" || tags.has(key)) return;
+          tags.set(key, tag);
         });
     });
     activeTags.forEach(function (tag) {
       if (!tags.has(tag)) activeTags.delete(tag);
     });
     tagContainer.replaceChildren();
-    Array.from(tags)
+    Array.from(tags.entries())
       .sort(function (a, b) {
-        return a.localeCompare(b);
+        return a[1].localeCompare(b[1]);
       })
-      .forEach(function (tag) {
+      .forEach(function (entry) {
+        var key = entry[0];
+        var label = entry[1];
         var button = document.createElement("button");
         button.type = "button";
         button.className = "tag-chip";
-        button.classList.toggle("active", activeTags.has(tag));
-        button.setAttribute("aria-pressed", String(activeTags.has(tag)));
-        button.textContent = tag;
+        button.classList.toggle("active", activeTags.has(key));
+        button.setAttribute("aria-pressed", String(activeTags.has(key)));
+        button.textContent = label;
         button.addEventListener("click", function () {
-          if (activeTags.has(tag)) activeTags.delete(tag);
-          else activeTags.add(tag);
-          button.classList.toggle("active", activeTags.has(tag));
-          button.setAttribute("aria-pressed", String(activeTags.has(tag)));
+          if (activeTags.has(key)) activeTags.delete(key);
+          else activeTags.add(key);
+          button.classList.toggle("active", activeTags.has(key));
+          button.setAttribute("aria-pressed", String(activeTags.has(key)));
           document.getElementById("clear-all-tags-btn").style.display =
             activeTags.size ? "" : "none";
           applyFilters();
         });
         tagContainer.appendChild(button);
       });
-    if (!tags.size) tagContainer.textContent = "No tags for this source";
+    if (!tags.size) tagContainer.textContent = "No tags yet";
     document.getElementById("clear-all-tags-btn").style.display =
       activeTags.size ? "" : "none";
   }

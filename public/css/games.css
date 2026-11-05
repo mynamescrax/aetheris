@@ -263,62 +263,6 @@ html.in-iframe .tag-bar {
   opacity: 0.75;
 }
 
-#source-filter {
-  width: 100%;
-  min-height: 56px;
-  margin: 0;
-  text-align: left;
-  padding: 14px 46px 14px 16px;
-  border-radius: 16px;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.04)),
-    color-mix(in srgb, var(--games-panel-strong) 92%, transparent);
-  border: 1px solid color-mix(in srgb, var(--games-border) 88%, rgba(255,255,255,0.05));
-  color: var(--text-color);
-  font-size: 15px;
-  line-height: 1.3;
-  outline: none;
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.05),
-    0 10px 24px rgba(0,0,0,0.18);
-  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, transform 0.18s ease;
-}
-
-#source-filter:hover {
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.05)),
-    color-mix(in srgb, var(--games-panel) 94%, transparent);
-  border-color: color-mix(in srgb, var(--games-accent-strong) 30%, rgba(255,255,255,0.16));
-}
-
-#source-filter:focus {
-  border-color: color-mix(in srgb, var(--games-accent-strong) 58%, rgba(255,255,255,0.18));
-  box-shadow:
-    0 0 0 4px color-mix(in srgb, var(--games-accent) 16%, transparent),
-    0 14px 30px rgba(0,0,0,0.22);
-}
-
-#source-filter option,
-#source-filter optgroup {
-  background: #1a1f2e;
-  color: #f4f5fb;
-}
-
-:root[theme="dark"] #source-filter option,
-:root[theme="dark-blue"] #source-filter option,
-:root[theme="dark"] #source-filter optgroup,
-:root[theme="dark-blue"] #source-filter optgroup,
-body[theme="dark"] #source-filter option,
-body[theme="dark-blue"] #source-filter option,
-body[theme="dark"] #source-filter optgroup,
-body[theme="dark-blue"] #source-filter optgroup {
-  background: #0f1726;
-  color: #eef2f8;
-}
-
 .chip-row {
   display: flex;
   flex-wrap: wrap;

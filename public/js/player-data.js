@@ -1,13 +1,10 @@
 // Load only the relevant catalog; apps no longer download the entire game list.
 window.playerDataReady = new Promise(function (resolve, reject) {
   var isApp = new URLSearchParams(location.search).has("app");
-  // Deep links can point at any game source, so the player always loads the
-  // full list.
-  if (!isApp) window.gamesLoadAll = true;
   var script = document.createElement("script");
   script.src = isApp
     ? "/assets/data/apps.js?v=20260907.1"
-    : "/assets/data/games.js?v=20261105.1";
+    : "/assets/data/games.js?v=20261105.2";
   script.onload = function () {
     var ready = isApp ? window.appsready : window.gamesready;
     if (!ready || typeof ready.then !== "function") {

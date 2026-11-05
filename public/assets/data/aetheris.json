@@ -710,7 +710,7 @@
   },
   {
     "id": "papaspizeria",
-    "title": "Papa's Pizeria",
+    "title": "Papa's Pizzeria",
     "html": "assets/games/papaspizeria.html",
     "image": "assets/images/thumbs/papaspizeria.webp",
     "source": "aetheris",
@@ -5834,7 +5834,7 @@
   },
   {
     "id": "rainbowobby",
-    "title": "Rainbow Oobby",
+    "title": "Rainbow Obby",
     "html": "assets/games/rainbowobby.html",
     "image": "assets/images/thumbs/rainbowobby.webp",
     "source": "aetheris",
@@ -6678,7 +6678,7 @@
   },
   {
     "id": "gladdihoppers",
-    "title": "Gladdihoppers",
+    "title": "Gladihoppers",
     "html": "assets/games/gladdihoppers.html",
     "image": "assets/images/gladdihoppers.jpg",
     "source": "aetheris",
@@ -8215,7 +8215,7 @@
   },
   {
     "id": "adventurecapatalist",
-    "title": "Adventure Capatalist",
+    "title": "Adventure Capitalist",
     "html": "assets/games/adventurecapatalist.html",
     "image": "assets/images/ac.webp",
     "source": "aetheris",
