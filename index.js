@@ -2704,6 +2704,33 @@ fastify.get("/scramjet/scramjet.js", (_req, reply) => {
       "fetch/parse.ts same-origin guard",
     );
 
+    // A synchronous XHR never reaches the service worker, so a rewritten
+    // /~/sj/ URL can never answer one. Some games depend on it: 1games' GM SDK
+    // fetches its keysigned verification signature that way and locks the game
+    // ("Game is locked: Get Veryfied Signature is not called") when it fails,
+    // and Unity's lazy/streaming file loader uses sync HEAD/GET too. The pinned
+    // bundle also guards the path with the non-existent client.getFlag(), so
+    // send() threw a TypeError first.
+    //
+    // For every sync request, resolve the real absolute URL (rewrite then
+    // unrewrite keeps the query and applies the document/base URL) and send it
+    // natively instead of through the proxy. A remote proxied page must never
+    // reach our own origin that way: those requests stay rewritten and keep the
+    // old ignore-and-warn behaviour. An aetheris-served game is the exception -
+    // our origin is its actual static host.
+    raw = patchsource(
+      raw,
+      'e.Proxy("XMLHttpRequest.prototype.open",{apply(t){t.args[1]&&(t.args[1]=e.rewriteUrl(t.args[1])),void 0===t.args[2]&&(t.args[2]=!0),t.this[i]=t.args}})',
+      'e.Proxy("XMLHttpRequest.prototype.open",{apply(t){if(t.args[1]){if(t.args[2]===!1){let u=t.args[1];try{u=e.unrewriteUrl(e.rewriteUrl(u))}catch(_){}if((""+u).indexOf(self.location.origin+"/")===0&&e.url.origin!==self.location.origin)u=e.rewriteUrl(t.args[1]);t.args[1]=u}else t.args[1]=e.rewriteUrl(t.args[1])}void 0===t.args[2]&&(t.args[2]=!0),t.this[i]=t.args}})',
+      "xmlhttprequest.ts sync open",
+    );
+    raw = patchsource(
+      raw,
+      'if(!e.getFlag("syncxhr"))return console.warn("ignoring request - sync xhr disabled in flags"),t.return(void 0);',
+      'if(!e.flagEnabled("syncxhr")&&(!s[1]||(""+s[1]).indexOf(e.context.prefix.href)===0))return console.warn("ignoring request - sync xhr disabled in flags"),t.return(void 0);if(!e.flagEnabled("syncxhr"))return;',
+      "xmlhttprequest.ts sync xhr flag",
+    );
+
     // The runtime base used to rewrite URLs a script builds (s.src = "./x")
     // resolved a relative <base href> against the origin, not the document
     // URL, so everything landed on the site root. Pages at a subdirectory

@@ -451,6 +451,15 @@ test("served proxy bundles carry the legacy-Safari compat prefix", async () => {
   // URL from "./Build", which used to land on the site root (404).
   assert.match(coretext, /new g\.xP\(t,r\.url\)/);
   assert.doesNotMatch(coretext, /new g\.xP\(t,r\.url\.origin\)/);
+  // 1games' GM SDK fetches its verification signature with a sync XHR. The
+  // pinned bundle called a non-existent client.getFlag() there, so send()
+  // threw and the game locked ("Get Veryfied Signature is not called"). Every
+  // sync request must resolve its real URL and go native; a remote proxied
+  // page must still not reach our own origin.
+  assert.doesNotMatch(coretext, /getFlag\("syncxhr"\)/);
+  assert.match(coretext, /flagEnabled\("syncxhr"\)/);
+  assert.match(coretext, /e\.unrewriteUrl\(e\.rewriteUrl\(/);
+  assert.match(coretext, /e\.url\.origin!==self\.location\.origin/);
 
   const controller = await fetch(base + "/controller/controller.api.js");
   assert.equal(controller.status, 200);

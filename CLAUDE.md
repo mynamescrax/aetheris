@@ -290,6 +290,17 @@ header change fixes it.
   files (`.part2`, …) that the GitHub mirror serves. If a dependency bump
   makes the guard patch miss, every aetheris game fails with the same-origin
   error; `tests/api.test.js` fails in that case.
+- A synchronous XHR never reaches the service worker, so a rewritten `/~/sj/`
+  URL can never answer one. Some games depend on it: 1games' GM SDK fetches
+  its `keysigned` signature that way and locks the game ("Game is locked: Get
+  Veryfied Signature is not called") when it fails, and Unity's lazy file
+  loader uses sync HEAD/GET too; the pinned bundle also guarded the path with a
+  non-existent `client.getFlag()`, so `send()` threw. The serve-time patch
+  resolves every sync request to its real absolute URL (rewrite+unrewrite
+  keeps the query and applies `<base>`) and sends it natively. A remote proxied
+  page must not reach our own origin that way, so those requests stay rewritten
+  and keep the old ignore-and-warn behaviour; an aetheris-served game may use
+  our origin, which is its static host.
 - A proxied game frame's `localStorage` is virtualized per proxied origin, so
   the game-clock shim gets its offset from
   `window.__aetherisGameClockOffset`, set by the frame init hook in
