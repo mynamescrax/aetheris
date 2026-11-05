@@ -14,7 +14,10 @@ test("CSS URL regex works without scoped modifiers and keeps other tokens case-s
   for (const value of ["url(asset.png)", "URL(asset.png)", "uRl(asset.png)"]) {
     assert.equal([...value.matchAll(expression)][0][1], "asset.png");
   }
-  const server = fs.readFileSync(new URL("../index.js", import.meta.url), "utf8");
+  const server = fs.readFileSync(
+    new URL("../index.js", import.meta.url),
+    "utf8",
+  );
   assert.ok(server.includes('patchsource(raw, "(?i:url)", "[uU][rR][lL]"'));
 });
 function deferred() {
@@ -78,6 +81,26 @@ function bootstrap() {
   );
   return context;
 }
+
+test("worker bodies run after bootstrap without another synchronous proxy import", async () => {
+  const c = bootstrap();
+  let init;
+  c.$scramjetController.Controller = class {
+    constructor(options) {
+      init = options;
+    }
+    wait() {
+      return Promise.resolve();
+    }
+    createFrame() {}
+  };
+  c.window.internals.setFactory(async () => ({
+    transport: {},
+    name: "libcurl",
+  }));
+  await c.window.aetherisProxy.getController();
+  assert.equal(init.scramjetConfig.flags.encapsulateWorkers, false);
+});
 
 test("reset during controller.wait cannot clear or replace the next startup", async () => {
   const c = bootstrap();

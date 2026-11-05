@@ -2875,6 +2875,14 @@ fastify.get("/controller/controller.api.js", (_req, reply) => {
       join(scramjetControllerPath, "controller.api.js"),
       "utf8",
     );
+    // A worker's synchronous importScripts must not round-trip through the
+    // page/controller RPC to get WASM: Firefox can deadlock on that request.
+    raw = patchsource(
+      raw,
+      "s+=r(this.prefix+this.controller.config.virtualWasmPath),",
+      's+=r(this.controller.wasmPayload?"data:text/javascript;charset=utf-8;base64,"+btoa(this.controller.wasmPayload):this.prefix+this.controller.config.virtualWasmPath),',
+      "controller worker WASM bootstrap",
+    );
     raw = patchsource(
       raw,
       "return[{body:s.body,status:s.status,statusText:s.statusText,headers:s.headers.toRawHeaders()},s.body instanceof ReadableStream||s.body instanceof ArrayBuffer?[s.body]:[]]",

@@ -10,7 +10,7 @@
   // edge node that cached the old copy keeps the old same-origin guard (which
   // aborts every local game) until its cache expires. The server marks a
   // versioned URL immutable and an unversioned one no-cache.
-  var PROXY_ENGINE_VERSION = "20261105.7";
+  var PROXY_ENGINE_VERSION = "20261105.8";
   var SCRAMJET_CORE_SRC = "/scramjet/scramjet.js?v=" + PROXY_ENGINE_VERSION;
   var SCRAMJET_CONTROLLER_SRC =
     "/controller/controller.api.js?v=" + PROXY_ENGINE_VERSION;
@@ -655,7 +655,13 @@
           // allowInvalidJs: scripts the rewriter can't parse are passed
           // through instead of failing, so more sites keep working.
           scramjetConfig: {
-            flags: { allowFailedIntercepts: true, allowInvalidJs: true },
+            flags: {
+              allowFailedIntercepts: true,
+              allowInvalidJs: true,
+              // A second, synchronous import of the worker body deadlocks
+              // Firefox through the controller. Append it after bootstrap.
+              encapsulateWorkers: false,
+            },
           },
         });
         await withtimeout(

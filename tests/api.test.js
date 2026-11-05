@@ -15,6 +15,7 @@ import { fileURLToPath } from "node:url";
 import { randomBytes } from "node:crypto";
 import { createServer, get as httpGet } from "node:http";
 import { WebSocket } from "ws";
+import vm from "node:vm";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 let child, base, runtime, provider, alice, bob, legacyToken;
@@ -64,7 +65,9 @@ before(async () => {
       const fault = /"model":"upstream-(\d+)"/.exec(body);
       if (fault) {
         res.writeHead(Number(fault[1]), { "content-type": "application/json" });
-        return res.end(JSON.stringify({ error: { message: "Invalid API key" } }));
+        return res.end(
+          JSON.stringify({ error: { message: "Invalid API key" } }),
+        );
       }
       if (req.url === "/v1/chat/completions") {
         res.writeHead(200, { "content-type": "text/event-stream" });
@@ -467,6 +470,54 @@ test("served proxy bundles carry the legacy-Safari compat prefix", async () => {
   const controllertext = await controller.text();
   assert.ok(controllertext.startsWith(prefix));
   assert.match(controllertext, /BroadcastChannel/);
+  const workerStart =
+    controllertext.indexOf("getWorkerInjectScripts:") +
+    "getWorkerInjectScripts:".length;
+  const workerEnd = controllertext.indexOf("},codecEncode:", workerStart) + 1;
+  assert.ok(
+    workerStart > "getWorkerInjectScripts:".length && workerEnd > workerStart,
+  );
+  const workerScripts = vm.runInNewContext(
+    "(" +
+      controllertext
+        .slice(workerStart, workerEnd)
+        .replace("(e,t,r)=>", "function(e,t,r)") +
+      ")",
+    { btoa, TextEncoder },
+  );
+  const frame = {
+    prefix: "/~/sj/controller/frame/",
+    controller: {
+      config: {
+        scramjetPath: "/scramjet/scramjet.js",
+        virtualWasmPath: "scramjet.wasm.js",
+        codec: { encode: encodeURIComponent, decode: decodeURIComponent },
+      },
+      scramjetConfig: { flags: { encapsulateWorkers: false } },
+      wasmPayload: "self.WASM = 'AA==';",
+    },
+  };
+  const imports = [];
+  workerScripts.call(frame, {}, false, (url) => {
+    imports.push(url);
+    return "";
+  });
+  assert.equal(imports[0], "/scramjet/scramjet.js");
+  assert.equal(
+    Buffer.from(imports[1].split(",")[1], "base64").toString(),
+    frame.controller.wasmPayload,
+  );
+  assert.ok(
+    !imports.some((url) => url.includes("/~/sj/")),
+    "worker startup must not synchronously fetch its WASM through the controller",
+  );
+  frame.controller.wasmPayload = null;
+  const fallback = [];
+  workerScripts.call(frame, {}, false, (url) => {
+    fallback.push(url);
+    return "";
+  });
+  assert.equal(fallback[1], frame.prefix + "scramjet.wasm.js");
 });
 
 test("lc-relay accepts any origin (open relay) and same-origin hosts", async () => {
@@ -681,7 +732,9 @@ test("polling a DM thread does not use up the send limit", async () => {
   const a = await register("PollerA");
   const b = await register("PollerB");
   for (let i = 0; i < 125; i++) {
-    const res = await api("/api/dm/PollerB", { headers: headers(a.data.token) });
+    const res = await api("/api/dm/PollerB", {
+      headers: headers(a.data.token),
+    });
     assert.equal(res.status, 200);
   }
   const sent = await api("/api/dm/PollerB", {
@@ -789,7 +842,11 @@ test("failed logins from one IP cannot lock the account out elsewhere", async ()
   }
   assert.equal(limited, true);
   // even the right password is refused from the attacking IP
-  const blocked = await login("TestAlice", "local-test-password", "203.0.113.7");
+  const blocked = await login(
+    "TestAlice",
+    "local-test-password",
+    "203.0.113.7",
+  );
   assert.equal(blocked.status, 429);
   const victim = await login(
     "TestAlice",
@@ -921,7 +978,10 @@ test("group chats: create, message, unread, add, leave and account deletion", as
   assert.equal(entry.unread, 0);
 
   // outsiders can't read, post or add themselves
-  assert.equal((await api(path, { headers: headers(d.data.token) })).status, 404);
+  assert.equal(
+    (await api(path, { headers: headers(d.data.token) })).status,
+    404,
+  );
   assert.equal((await post(d, path, { message: "let me in" })).status, 404);
   assert.equal(
     (await post(d, path + "/members", { username: "GroupD" })).status,
@@ -936,10 +996,16 @@ test("group chats: create, message, unread, add, leave and account deletion", as
     (await post(b, path + "/members", { username: "GroupD" })).status,
     400,
   );
-  assert.equal((await api(path, { headers: headers(d.data.token) })).status, 200);
+  assert.equal(
+    (await api(path, { headers: headers(d.data.token) })).status,
+    200,
+  );
 
   assert.equal((await post(d, path + "/leave")).status, 200);
-  assert.equal((await api(path, { headers: headers(d.data.token) })).status, 404);
+  assert.equal(
+    (await api(path, { headers: headers(d.data.token) })).status,
+    404,
+  );
   assert.equal((await post(d, path + "/leave")).status, 404);
 
   // deleting an account removes it from its groups and hands over ownership
