@@ -687,11 +687,15 @@
     var transport = activetransport;
     return Promise.resolve()
       .then(function () {
+        // Transports read `remote.href` and iterate `headers`, so the probe
+        // must use the same shapes the controller sends: a URL object and an
+        // iterable of pairs. A plain string and `{}` threw inside epoxy/libcurl
+        // ("Invalid URL input: undefined") and made a healthy session look dead.
         return transport.request(
-          location.origin + "/online-count?proxy-probe=" + Date.now(),
+          new URL(location.origin + "/online-count?proxy-probe=" + Date.now()),
           "GET",
           null,
-          {},
+          [],
           AbortSignal.timeout(8000),
         );
       })
