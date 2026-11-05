@@ -289,6 +289,7 @@ var AD_HOSTS_BUILTIN = new Set([
   "onclickads.net",
   "popads.net",
   "popcash.net",
+  "profitablecpmratenetwork.com",
   "propellerads.com",
   "trafficjunky.com",
   // audience / tracking side of the same stacks

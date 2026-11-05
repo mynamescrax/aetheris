@@ -2704,6 +2704,18 @@ fastify.get("/scramjet/scramjet.js", (_req, reply) => {
       "fetch/parse.ts same-origin guard",
     );
 
+    // The runtime base used to rewrite URLs a script builds (s.src = "./x")
+    // resolved a relative <base href> against the origin, not the document
+    // URL, so everything landed on the site root. Pages at a subdirectory
+    // only worked while they were loaded directly; our proxied games live at
+    // /assets/games/<game>/, and 2v2.io sets <base href="./">.
+    raw = patchsource(
+      raw,
+      "return new g.xP(t,r.url.origin)",
+      "return new g.xP(t,r.url)",
+      "snapshot.ts relative base href",
+    );
+
     // The four fixes below are unpublished upstream commits newer than the
     // pinned 2.0.67-alpha.2 release, ported to the minified bundle.
 

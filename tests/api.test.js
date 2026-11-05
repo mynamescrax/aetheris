@@ -446,6 +446,11 @@ test("served proxy bundles carry the legacy-Safari compat prefix", async () => {
   // aetheris-served games are proxied too, so the guard that aborts a fetch
   // to the proxy's own origin must be gone (see public/js/scramjet-init.js).
   assert.doesNotMatch(coretext, /attempted to fetch from same origin/);
+  // a relative <base href> must resolve against the document URL at runtime,
+  // not the origin: a proxied game at /assets/games/2v2io/ builds its loader
+  // URL from "./Build", which used to land on the site root (404).
+  assert.match(coretext, /new g\.xP\(t,r\.url\)/);
+  assert.doesNotMatch(coretext, /new g\.xP\(t,r\.url\.origin\)/);
 
   const controller = await fetch(base + "/controller/controller.api.js");
   assert.equal(controller.status, 200);

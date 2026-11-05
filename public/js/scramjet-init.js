@@ -10,7 +10,7 @@
   // edge node that cached the old copy keeps the old same-origin guard (which
   // aborts every local game) until its cache expires. The server marks a
   // versioned URL immutable and an unversioned one no-cache.
-  var PROXY_ENGINE_VERSION = "20261105.1";
+  var PROXY_ENGINE_VERSION = "20261105.2";
   var SCRAMJET_CORE_SRC =
     "/scramjet/scramjet.js?v=" + PROXY_ENGINE_VERSION;
   var SCRAMJET_CONTROLLER_SRC =
@@ -181,6 +181,13 @@
   // read), 80 (SSL shutdown), 90 (pinned key), 91 (SSL invalid cert status).
   var TLSERROR = /(SSL|TLS|certificate|error code (35|51|58|60|77|80|90|91))/i;
 
+  // Hosts that already forced one transport swap. A host neither transport
+  // accepts (a dead ad beacon, a reset handshake) failed on both sides and
+  // would bounce the session between transports on every retry: the old
+  // wrapper was reinstalled with a clean `switched` flag after each swap, so
+  // it alternated forever and flooded the console.
+  var tlsswappedhosts = Object.create(null);
+
   // YouTube's HTML pages send a response header block larger than the 16 KB
   // SETTINGS_MAX_HEADER_LIST_SIZE hyper advertises for HTTP/2. h2 then treats
   // the response as a protocol error, resets the stream and the frame renders
@@ -285,12 +292,21 @@
       return native(url, method, body, headers, signal).catch(function (err) {
         var message = String((err && err.message) || err);
         if (!TLSERROR.test(message) || switched) throw err;
+        // One swap per host: the replacement transport gets a fresh wrapper,
+        // so without this the same bad host could swap back and forth forever.
+        var host = hostnameof(url);
+        if (host && tlsswappedhosts[host]) throw err;
         if (
           typeof ReadableStream === "function" &&
           body instanceof ReadableStream
         )
           throw err; // a consumed request stream cannot be replayed
         switched = true;
+        if (host) {
+          var seen = Object.keys(tlsswappedhosts).length;
+          if (seen > 500) tlsswappedhosts = Object.create(null);
+          tlsswappedhosts[host] = true;
+        }
         console.warn(
           "[init] " +
             name +

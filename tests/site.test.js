@@ -143,6 +143,7 @@ test("proxied pages block ad networks the light list leaves out", () => {
     "imasdk.googleapis.com",
     "ads.pubmatic.com",
     "cdn.applovin.com",
+    "pl28758395.profitablecpmratenetwork.com",
     "x.tracker.example",
     "analytics.tracker.example",
   ])
