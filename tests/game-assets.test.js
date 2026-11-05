@@ -1038,6 +1038,22 @@ test("jsDelivr package-size 403 falls back to the GitHub raw mirror", async () =
   } finally { await app.close(); }
 });
 
+test("alternate jsDelivr hosts also fall back to GitHub when their edge refuses a file", async () => {
+  for (const mirror of ["fastly", "gcore"]) {
+    const urls = [];
+    const app = fixture({ fetchimpl: async (url) => {
+      urls.push(url);
+      return url.includes("jsdelivr.net") ? new Response("blocked", { status: 403 }) : new Response(binary);
+    }});
+    try {
+      const result = await app.inject(`/game-assets/m/${mirror}/gh/bubblfan/fnaf@main/4/resources.zip.part10`);
+      assert.equal(result.statusCode, 200);
+      assert.deepEqual(await bodyOf(result), binary);
+      assert.equal(urls.at(-1), "https://raw.githubusercontent.com/bubblfan/fnaf/main/4/resources.zip.part10");
+    } finally { await app.close(); }
+  }
+});
+
 test("every relay answer varies on Origin, and one without an Origin still passes a CORS check", async () => {
   // A <script> tag sends no Origin and a fetch() does. A cache that keeps the
   // first answer under the bare URL would hand it to the second, which is

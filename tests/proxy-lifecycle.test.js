@@ -75,13 +75,46 @@ function bootstrap() {
     active: function() { return activetransport; },
     install: installtransportfailover,
     wait: waitforserviceworker,
-    installSaves: installlocalsaves
+    installSaves: installlocalsaves,
+    installLocalFetch: servelocally
   }; window.aetherisProxy = {`,
     ),
     context,
   );
   return context;
 }
+
+test("local game assets use visitor CORS access and retain the proxy fallback", async () => {
+  const c = bootstrap();
+  c.Headers = Headers;
+  c.Response = Response;
+  c.AbortController = AbortController;
+  let hook;
+  c.$scramjet.Tap = { tap(_, callback) { hook = callback; } };
+  const frame = { aetherisLocal: true, hooks: { fetch: { request: {} } } };
+  c.window.internals.installLocalFetch(frame);
+  const url = new URL("https://static.example.org/media/scenes/game.babylon");
+  const request = { method: "GET", initialHeaders: { toRawHeaders: () => [["Range", "bytes=10-"], ["Cookie", "private"]] } };
+  const context = { request, parsed: { url, destination: "" } };
+  const calls = [];
+  c.fetch = async (target, init) => { calls.push({ target, init }); return new Response("asset"); };
+  const props = {};
+  await hook(context, props);
+  assert.equal(await props.earlyResponse.text(), "asset");
+  assert.equal(calls[0].init.credentials, "omit");
+  assert.equal(calls[0].init.headers.Range, "bytes=10-");
+  assert.equal(calls[0].init.headers.Cookie, undefined);
+  for (const fetcher of [async () => { throw new TypeError("CORS denied"); }, async () => new Response("blocked", { status: 403 })]) {
+    c.fetch = fetcher;
+    const fallback = {};
+    await hook(context, fallback);
+    assert.equal(fallback.earlyResponse, undefined);
+  }
+  c.fetch = async () => { throw new Error("must stay on transport"); };
+  assert.equal(hook({ request, parsed: { url, destination: "iframe" } }, {}), undefined);
+  frame.aetherisLocal = false;
+  assert.equal(hook(context, {}), undefined);
+});
 
 test("worker bodies run after bootstrap without another synchronous proxy import", async () => {
   const c = bootstrap();
