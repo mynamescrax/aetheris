@@ -222,11 +222,21 @@
     var games = Array.isArray(window.games) ? window.games : [];
 
     if (gameid) {
-      return (
+      var byid =
         games.find(function (g) {
           return String(g.id) === String(gameid);
-        }) || null
-      );
+        }) || null;
+      if (byid) return byid;
+      // A card id can be re-keyed when later sources merge (a provider id that
+      // collided, or a new source becoming primary). Favorites already match
+      // any of those ids; a deep link should too.
+      if (typeof window.gamehasid === "function")
+        return (
+          games.find(function (g) {
+            return window.gamehasid(g, gameid);
+          }) || null
+        );
+      return null;
     }
 
     if (srcsource && srctitle) {
@@ -325,10 +335,37 @@
     }
   }
 
+  // The catalogs merge in after the player opens (the first source is enough
+  // to start), so a card can gain provider copies later. Re-read the card from
+  // the current list and extend the swap cycle without restarting the frame.
+  function refreshsources() {
+    if (!started) return;
+    var fresh = finditem();
+    var next = fresh ? itemsources(fresh) : [];
+    if (!next.length) return;
+    var current = attempts[attemptindex];
+    var currenturl = sourceurl(current);
+    item = fresh;
+    attempts = next;
+    var index = -1;
+    if (currenturl)
+      for (var i = 0; i < attempts.length; i++)
+        if (sourceurl(attempts[i]) === currenturl) {
+          index = i;
+          break;
+        }
+    attemptindex = index === -1 ? 0 : index;
+    updateswapbutton();
+  }
+  window.addEventListener("gamesupdated", refreshsources);
+  window.addEventListener("gamesloaded", refreshsources);
+
   // Next playable copy for this game. Wraps around, so a broken source can be
   // cycled past and a better one picked back up later.
   window.swapsource = function () {
-    if (!started || attempts.length < 2) return false;
+    if (!started) return false;
+    refreshsources();
+    if (attempts.length < 2) return false;
     if (window.dismissshaphint) window.dismissshaphint();
     attemptindex = (attemptindex + 1) % attempts.length;
     attempt("Switching to " + sourcelabel(attempts[attemptindex].name) + "…");
@@ -336,6 +373,9 @@
   };
 
   function fail(reason) {
+    // A source that failed early may have been the only one loaded so far.
+    // Take the copies that arrived since before giving up on the game.
+    refreshsources();
     var failed = attempts[attemptindex];
     if (failed) console.warn("Game source failed:", failed.name, reason);
     if (attemptindex + 1 < attempts.length) {

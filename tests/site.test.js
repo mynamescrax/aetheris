@@ -143,6 +143,23 @@ test("player accepts iframe-only catalog entries", () => {
   assert.match(source, /iframe: entry\.iframe/);
 });
 
+test("the player refreshes its source list as catalogs merge in", () => {
+  const source = fs.readFileSync(
+    new URL("../public/js/load.js", import.meta.url),
+    "utf8",
+  );
+  // The catalog promise resolves after the first source, so a game can gain
+  // provider copies later. The player must extend the swap cycle instead of
+  // freezing the sources it happened to have at that moment.
+  assert.match(source, /addEventListener\("gamesupdated", refreshsources\)/);
+  assert.match(source, /addEventListener\("gamesloaded", refreshsources\)/);
+  assert.match(source, /attempts = next/);
+  assert.match(
+    source,
+    /refreshsources\(\);\s+var failed = attempts\[attemptindex\]/,
+  );
+});
+
 // Loads the real service worker in a VM with just enough of the worker
 // global to evaluate its top-level code, so its string builders and helpers
 // can be exercised without a browser.
