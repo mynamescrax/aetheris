@@ -295,6 +295,29 @@
     return !!RELAYED_HOSTS[host] || /\.githubusercontent\.com$/.test(host);
   }
 
+  // A Response from the page's own fetch has already been decoded (gzip/br)
+  // but still carries the upstream Content-Encoding, and its Content-Length
+  // then describes the compressed bytes. Scramjet would hand both headers to
+  // the frame; Firefox is stricter about them than Chrome. Keep the length
+  // when the body was not encoded (Unity's .unityweb progress bar needs it).
+  function decodedresponse(response) {
+    try {
+      if (!response || !response.headers) return response;
+      var headers = new Headers(response.headers);
+      var encoded = headers.has("content-encoding");
+      if (!encoded) return response;
+      headers.delete("content-encoding");
+      headers.delete("content-length");
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: headers,
+      });
+    } catch (_) {
+      return response;
+    }
+  }
+
   // Same-origin requests (the aetheris game page, its relative assets and the
   // /game-assets relay) are served by the page itself, not by the transport:
   // wisp cannot reach loopback, so a local dev server would be unreachable,
@@ -365,7 +388,7 @@
 
       return fetch(url.href, init)
         .then(function (response) {
-          props.earlyResponse = response;
+          props.earlyResponse = decodedresponse(response);
         })
         .catch(function (error) {
           // the transport may still reach it; don't fail the whole request here

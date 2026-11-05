@@ -295,6 +295,15 @@ header change fixes it.
   `window.__aetherisGameClockOffset`, set by the frame init hook in
   `scramjet-init.js` (it reads the real localStorage from the player page and
   refreshes it once a second).
+- Firefox enforces `Content-Length` on responses a service worker hands back;
+  Chrome ignores it. Scramjet rewrites document/script/style/worker bodies
+  (a Unity framework worker blob grows from ~92KB to ~160KB) but forwards the
+  upstream length, so on Firefox that worker was truncated mid-code and the
+  game hung after its assets had loaded. `sw.js` drops `content-length` from
+  rewritten destinations (and `blob:`/`data:` targets), and
+  `scramjet-init.js` drops `content-encoding`/`content-length` from the page's
+  own fetch responses (their bodies are already decoded). Binary passthrough
+  (`.unityweb`) keeps its length so Unity's progress bar still works.
 - `index.js` serves the pinned scramjet/controller bundles with serve-time
   patches (`patchsource`) for fixes that landed upstream after alpha.2 but
   were never published: history's undefined-url, SRI/integrity stripping,

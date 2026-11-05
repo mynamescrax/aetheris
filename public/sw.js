@@ -1091,6 +1091,45 @@ function injecthtmlshims(response, options) {
 }
 
 // route() never rejects: controller failures come back as a 500 text/plain
+// scramjet rewrites document/script/style/worker bodies, which changes their
+// length, but it hands the upstream Content-Length through unchanged. Firefox
+// trusts that header and cuts the rewritten body to it: a Unity game's worker
+// (the rewritten framework blob) is truncated before its code, the worker
+// never starts, and the game hangs (Chrome ignores the header). Binary
+// fetches such as .unityweb are passed through untouched, so their length
+// stays valid and keeps the loader's progress bar.
+var EMPTY_STATUS = { 101: true, 204: true, 205: true, 304: true };
+var REWRITTEN_DESTINATIONS = {
+  document: true,
+  iframe: true,
+  frame: true,
+  script: true,
+  style: true,
+  worker: true,
+  sharedworker: true,
+};
+
+function stripcontentlength(response, request) {
+  try {
+    if (!response || !response.headers || !request) return response;
+    var rewritten =
+      REWRITTEN_DESTINATIONS[request.destination || ""] ||
+      /(?:%2F|\/)(?:blob|data)(?:%3A|:)/i.test(request.url);
+    if (!rewritten) return response;
+    if (EMPTY_STATUS[response.status]) return response;
+    if (!response.headers.has("content-length")) return response;
+    var headers = new Headers(response.headers);
+    headers.delete("content-length");
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: headers,
+    });
+  } catch (e) {
+    return response;
+  }
+}
+
 // "Internal Service Worker Error: ..." body. Detect that shape and log the
 // real reason instead of letting pages choke on it as JSON.
 var SW_ERROR_PREFIX = "Internal Service Worker Error";
@@ -1580,6 +1619,9 @@ self.addEventListener("fetch", function (event) {
         return buildrouteevent(event)
           .then(function (re) {
             return $scramjetController.route(re);
+          })
+          .then(function (r) {
+            return stripcontentlength(r, event.request);
           })
           .then(function (r) {
             return surfacerouteerror(r, event.request);

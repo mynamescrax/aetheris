@@ -28,6 +28,61 @@ test("proxy engine URLs carry a version so a cached bundle can't outlive a deplo
   );
 });
 
+test("a rewritten proxied body never keeps a stale content-length", async () => {
+  const source = fs.readFileSync(
+    new URL("../public/sw.js", import.meta.url),
+    "utf8",
+  );
+  const from = source.indexOf("var EMPTY_STATUS =");
+  const to = source.indexOf('// "Internal Service Worker Error');
+  assert.ok(from !== -1 && to > from, "the length helper is where we expect it");
+  const context = { Response, Headers };
+  vm.runInNewContext(
+    source.slice(from, to) + "\nthis.strip = stripcontentlength;",
+    context,
+  );
+  const strip = context.strip;
+
+  // Worker/script bodies are rewritten and grow; the upstream length is a
+  // lie, and Firefox truncates the body to it (the Unity worker then never
+  // starts). Chrome ignores the header, which is why only Firefox broke.
+  const worker = new Response("importScripts(...); more code", {
+    headers: { "content-length": "5", "content-type": "text/javascript" },
+  });
+  const stripped = strip(worker, {
+    destination: "worker",
+    url: "https://aetheris.test/~/sj/t/f/blob:https://aetheris.test/uuid",
+  });
+  assert.equal(stripped.headers.has("content-length"), false);
+  assert.equal(await stripped.text(), "importScripts(...); more code");
+
+  // A blob script is rewritten even when the browser reports no destination.
+  const blob = new Response("code", {
+    headers: { "content-length": "1" },
+  });
+  assert.equal(
+    strip(blob, {
+      destination: "",
+      url: "https://aetheris.test/~/sj/t/f/blob:https://aetheris.test/uuid",
+    }).headers.has("content-length"),
+    false,
+  );
+
+  // Binary passthrough keeps its length so Unity can show progress.
+  const binary = new Response("unityweb", {
+    headers: { "content-length": "8", "content-type": "application/vnd.unity" },
+  });
+  const kept = strip(binary, {
+    destination: "",
+    url: "https://aetheris.test/s/x/y",
+  });
+  assert.equal(kept, binary);
+  assert.equal(kept.headers.get("content-length"), "8");
+
+  const empty = new Response(null, { status: 204 });
+  assert.equal(strip(empty, { destination: "script", url: "x" }), empty);
+});
+
 test("proxied pages block ad networks the light list leaves out", () => {
   const source = fs.readFileSync(
     new URL("../public/sw.js", import.meta.url),
