@@ -2848,12 +2848,37 @@ fastify.get("/scramjet/scramjet.js", (_req, reply) => {
 // expected when a frame is torn down with requests in flight, so stop it
 // logging a stack trace each time.
 let patchedcontrollerapi = null;
+// Safari cannot transfer streams over MessagePort. Probe the capability rather
+// than the UA, and buffer responses only when streaming cannot cross the RPC.
+function cantransferstream() {
+  let channel;
+  try {
+    channel = new MessageChannel();
+    const stream = new ReadableStream({ start(controller) { controller.close(); } });
+    channel.port1.postMessage(stream, [stream]);
+    return true;
+  } catch {
+    return false;
+  } finally {
+    if (channel) {
+      channel.port1.close();
+      channel.port2.close();
+    }
+  }
+}
 fastify.get("/controller/controller.api.js", (_req, reply) => {
   if (!patchedcontrollerapi) {
     let raw = readFileSync(
       join(scramjetControllerPath, "controller.api.js"),
       "utf8",
     );
+    raw = patchsource(
+      raw,
+      "return[{body:s.body,status:s.status,statusText:s.statusText,headers:s.headers.toRawHeaders()},s.body instanceof ReadableStream||s.body instanceof ArrayBuffer?[s.body]:[]]",
+      "if(!aetherisCanTransferStream&&s.body instanceof ReadableStream){let b=await new Response(s.body).arrayBuffer();return[{body:b,status:s.status,statusText:s.statusText,headers:s.headers.toRawHeaders()},[b]]}return[{body:s.body,status:s.status,statusText:s.statusText,headers:s.headers.toRawHeaders()},s.body instanceof ReadableStream||s.body instanceof ArrayBuffer?[s.body]:[]]",
+      "controller Safari response stream transfer",
+    );
+    raw = "var aetherisCanTransferStream=(" + cantransferstream.toString() + ")();\n" + raw;
     raw = patchsource(
       raw,
       't.suppressError||console.error("Error in controller request handler:",o)',

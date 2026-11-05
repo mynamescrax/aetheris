@@ -10,9 +10,8 @@
   // edge node that cached the old copy keeps the old same-origin guard (which
   // aborts every local game) until its cache expires. The server marks a
   // versioned URL immutable and an unversioned one no-cache.
-  var PROXY_ENGINE_VERSION = "20261105.4";
-  var SCRAMJET_CORE_SRC =
-    "/scramjet/scramjet.js?v=" + PROXY_ENGINE_VERSION;
+  var PROXY_ENGINE_VERSION = "20261105.5";
+  var SCRAMJET_CORE_SRC = "/scramjet/scramjet.js?v=" + PROXY_ENGINE_VERSION;
   var SCRAMJET_CONTROLLER_SRC =
     "/controller/controller.api.js?v=" + PROXY_ENGINE_VERSION;
   // Keep this in sync with settings.js's transport default. Apple devices
@@ -25,6 +24,8 @@
   function loadscript(src) {
     return new Promise(function (resolve, reject) {
       var timer = setTimeout(function () {
+        var script = document.querySelector('script[src="' + src + '"]');
+        if (script) script.remove();
         reject(
           new Error(
             "Timed out loading " + src + ". Check your connection and retry.",
@@ -37,6 +38,8 @@
       }
       function failed() {
         clearTimeout(timer);
+        var script = document.querySelector('script[src="' + src + '"]');
+        if (script) script.remove();
         reject(new Error("Failed to load " + src));
       }
       var existing = document.querySelector('script[src="' + src + '"]');
@@ -222,6 +225,7 @@
         return Promise.reject(new Error("libcurl transport unavailable"));
       }
       if (!starting) {
+        var token = starttoken;
         starting = (async function () {
           var mod = await import("/libcurl/index.mjs");
           var extra = new mod.default({ wisp: wispurl });
@@ -234,6 +238,10 @@
           } catch (err) {
             closequietly(extra);
             throw err;
+          }
+          if (token !== starttoken) {
+            closequietly(extra);
+            throw new Error("Proxy startup was reset. Try again.");
           }
           auxiliarytransport = extra;
           return extra;
@@ -287,6 +295,7 @@
     if (typeof controller.setTransport !== "function") return;
     var native = transport.request.bind(transport);
     var switched = false;
+    var token = starttoken;
 
     transport.request = function (url, method, body, headers, signal) {
       return native(url, method, body, headers, signal).catch(function (err) {
@@ -314,6 +323,10 @@
           message,
         );
         return createtransport(wispurl, name).then(function (picked) {
+          if (token !== starttoken || activetransport !== transport) {
+            closequietly(picked.transport);
+            throw err;
+          }
           activetransport = picked.transport;
           routeoversizedheaders(picked.transport, wispurl, picked.name);
           installtransportfailover(
@@ -369,13 +382,11 @@
                     onchange,
                   );
                 } catch (_) {}
-                resolve(
-                  navigator.serviceWorker.controller || reg.active || null,
-                );
+                resolve(navigator.serviceWorker.controller || null);
               }, 3000);
               function onchange() {
                 clearTimeout(timer);
-                resolve(navigator.serviceWorker.controller || reg.active || null);
+                resolve(navigator.serviceWorker.controller || null);
               }
               try {
                 navigator.serviceWorker.addEventListener(
@@ -385,11 +396,14 @@
                 );
               } catch (_) {
                 clearTimeout(timer);
-                resolve(navigator.serviceWorker.controller || reg.active || null);
+                resolve(navigator.serviceWorker.controller || null);
               }
             });
           }
-          if (!sw) throw new Error("No active service worker is available.");
+          if (!sw)
+            throw new Error(
+              "The service worker is not controlling this page. Reload or use /recover.html.",
+            );
           return sw;
         })(),
         new Promise(function (_, reject) {
@@ -517,8 +531,7 @@
       // worker answers them with a redirect into the /s/ relay, which is what
       // makes split files and jsDelivr's refusals work. The response still
       // goes back through scramjet, so scripts are rewritten as usual.
-      var relayed =
-        url.origin !== location.origin && relayedhost(url.hostname);
+      var relayed = url.origin !== location.origin && relayedhost(url.hostname);
       if (!sameorigin && !relayed) return;
 
       var init = { method: request.method };
@@ -645,7 +658,14 @@
             flags: { allowFailedIntercepts: true, allowInvalidJs: true },
           },
         });
-        await controller.wait();
+        await withtimeout(
+          controller.wait(),
+          15000,
+          "Proxy controller did not become ready. Reload or use /recover.html.",
+        );
+        if (token !== starttoken) {
+          throw new Error("Proxy startup was reset. Try again.");
+        }
         installtransportfailover(controller, transport, wispurl, picked.name);
         // Track frames so the resume handler below can tell whether anything
         // is actually running in this page (Frame#element is the iframe the
@@ -664,12 +684,14 @@
         // would otherwise build another one on top of it.
         closequietly(transport);
         if (activetransport === transport) activetransport = null;
-        closequietly(auxiliarytransport);
-        auxiliarytransport = null;
+        if (token === starttoken) {
+          closequietly(auxiliarytransport);
+          auxiliarytransport = null;
+        }
         throw error;
       }
     })().catch(function (err) {
-      controllerpromise = null;
+      if (token === starttoken) controllerpromise = null;
       throw err;
     });
 

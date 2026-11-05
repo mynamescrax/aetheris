@@ -289,7 +289,7 @@
     }
 
     // getController() caches and resets itself; a local cache would pin a dead transport.
-    if (!backend) backend = await window.aetherisProxy.getController();
+    backend = await window.aetherisProxy.getController();
     syncuaspoof();
   }
 
@@ -321,9 +321,7 @@
         ? "Source: " +
           sourcelabel(source.name) +
           " — click to switch to " +
-          sourcelabel(
-            attempts[(attemptindex + 1) % attempts.length].name,
-          )
+          sourcelabel(attempts[(attemptindex + 1) % attempts.length].name)
         : "Only one source for this game (" + sourcelabel(source.name) + ")";
     button.setAttribute("aria-label", button.title);
 
@@ -412,8 +410,14 @@
     }
 
     var token = ++attempttoken;
+    var failed = false;
     function stale() {
-      return token !== attempttoken;
+      return failed || token !== attempttoken;
+    }
+    function failattempt(error) {
+      if (stale()) return;
+      failed = true;
+      fail(error);
     }
 
     setgameinfo(item);
@@ -453,7 +457,7 @@
         try {
           window.aetherisProxy.go(iframe, url);
         } catch (error) {
-          fail(error);
+          failattempt(error);
           return;
         }
         if (stale()) return;
@@ -477,18 +481,20 @@
             // not something this can judge
             if (!doc) return;
             if (doc.URL === "about:blank") {
-              fail(new Error("The game page never loaded from this source."));
+              failattempt(
+                new Error("The game page never loaded from this source."),
+              );
               return;
             }
             // A missing aetheris game reaches the proxy as the site's 404
             // page; treat it like the direct branch does.
             try {
               if (
-                doc.querySelector(
-                  'meta[name="aetheris-error"][content="404"]',
-                )
+                doc.querySelector('meta[name="aetheris-error"][content="404"]')
               )
-                fail(new Error("The game file was not found on this source."));
+                failattempt(
+                  new Error("The game file was not found on this source."),
+                );
             } catch (_) {
               /* an uninspectable document is not something to fail on */
             }
@@ -518,7 +524,7 @@
                   } catch (_) {
                     /* storage is optional; fall through to the message */
                   }
-                  fail(
+                  failattempt(
                     new Error(
                       "The proxy engine is out of date. Reload the page to update it.",
                     ),
@@ -589,7 +595,11 @@
       }
 
       frame.src = url;
-      await withtimeout(loaded, LOAD_TIMEOUT, "The game file took too long to load.");
+      await withtimeout(
+        loaded,
+        LOAD_TIMEOUT,
+        "The game file took too long to load.",
+      );
       if (stale()) return;
       hideLoading();
 
@@ -599,7 +609,7 @@
             'meta[name="aetheris-error"][content="404"]',
           )
         ) {
-          fail(new Error("The game file was not found on this source."));
+          failattempt(new Error("The game file was not found on this source."));
           return;
         }
       } catch (_) {
@@ -607,7 +617,7 @@
       }
     } catch (error) {
       if (stale()) return;
-      fail(error);
+      failattempt(error);
     }
   }
 
