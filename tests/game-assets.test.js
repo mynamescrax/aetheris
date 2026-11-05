@@ -1054,6 +1054,25 @@ test("alternate jsDelivr hosts also fall back to GitHub when their edge refuses 
   }
 });
 
+test("raw links missing a branch retry the same asset on the default branch", async () => {
+  for (const mirror of ["ghraw", "githack"]) {
+    const urls = [];
+    const app = fixture({ fetchimpl: async (url) => {
+      urls.push(url);
+      return url.includes("/HEAD/") ? new Response(binary) : new Response("missing", { status: 404 });
+    }});
+    try {
+      const result = await app.inject(`/game-assets/m/${mirror}/gn-math/assets/187/187.swf`);
+      assert.equal(result.statusCode, 200);
+      assert.deepEqual(await bodyOf(result), binary);
+      assert.deepEqual(urls, [
+        "https://raw.githubusercontent.com/gn-math/assets/187/187.swf",
+        "https://raw.githubusercontent.com/gn-math/assets/HEAD/187/187.swf",
+      ]);
+    } finally { await app.close(); }
+  }
+});
+
 test("every relay answer varies on Origin, and one without an Origin still passes a CORS check", async () => {
   // A <script> tag sends no Origin and a fetch() does. A cache that keeps the
   // first answer under the bare URL would hand it to the second, which is
