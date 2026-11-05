@@ -1058,7 +1058,9 @@ function isproxiedurl(url) {
 
 // Static CDN mirrors relayed same-origin through /game-assets/m/ (see
 // MIRRORS in lib/game-assets.js). Keys must stay in sync with that map:
-// unknown hosts are never relayed, so this can't become an open proxy.
+// unknown hosts are never relayed, so this can't become an open proxy. Other
+// *.githubusercontent.com hosts are relayed through the ghuc mirror, which
+// carries the host in the path (see isgithubusercontent below).
 var MIRROR_HOSTS = {
   "cdn.jsdelivr.net": "jsdelivr",
   "fastly.jsdelivr.net": "fastly",
@@ -1107,6 +1109,46 @@ function assettoken(mirror, dir) {
     .replace(/=+$/, "");
 }
 
+// GitHub's own Raw/blame links are redirects to the user-content hosts.
+// Translate them here so the browser never leaves for github.com:
+//   github.com/u/r/raw/ref/file       -> raw.githubusercontent.com/u/r/ref/file
+//   github.com/u/r/blob/ref/file?raw  -> raw.githubusercontent.com/u/r/ref/file
+//   gist.github.com/u/id/raw/file     -> gist.githubusercontent.com/u/id/raw/file
+// (Release downloads redirect to a signed objects.githubusercontent.com URL
+// that cannot be constructed without following that redirect.)
+function githubtranslate(parsed) {
+  var host = parsed.hostname.toLowerCase();
+  var path = parsed.pathname;
+  if (host === "github.com" || host === "www.github.com") {
+    var raw = /^\/([^/]+)\/([^/]+)\/raw\/(.+)$/.exec(path);
+    if (raw)
+      return {
+        host: "raw.githubusercontent.com",
+        path: "/" + raw[1] + "/" + raw[2] + "/" + raw[3],
+        search: "",
+      };
+    var blob = /^\/([^/]+)\/([^/]+)\/blob\/(.+)$/.exec(path);
+    if (blob && parsed.searchParams.get("raw") === "true")
+      return {
+        host: "raw.githubusercontent.com",
+        path: "/" + blob[1] + "/" + blob[2] + "/" + blob[3],
+        search: "",
+      };
+  } else if (host === "gist.github.com") {
+    var gist = /^\/([^/]+)\/([^/]+)\/raw\/(.+)$/.exec(path);
+    if (gist)
+      return { host: "gist.githubusercontent.com", path: path, search: "" };
+  }
+  return null;
+}
+
+// Any GitHub user-content host is relayed (objects., media., gist.,
+// user-images., private-user-images., …): the host travels in the path and the
+// server validates it, see GITHUB_USERCONTENT in lib/game-assets.js.
+function isgithubusercontent(host) {
+  return /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.githubusercontent\.com$/.test(host);
+}
+
 // Absolute CDN URLs hardcoded in game pages (hundreds of them) bypass the
 // relay on their own. Redirect them same-origin so every mirror fetch gets
 // the relay's poisoned-body validation and shows as localhost/our domain.
@@ -1123,24 +1165,47 @@ function mirrorredirecturl(url, method) {
   }
   if (parsed.origin === SITE_ORIGIN) return null;
   if (parsed.username || parsed.password) return null;
-  var mirror = MIRROR_HOSTS[parsed.hostname.toLowerCase()];
+  var host = parsed.hostname.toLowerCase();
+  var pathname = parsed.pathname;
+  var search = parsed.search;
+  var translated = githubtranslate(parsed);
+  if (translated) {
+    host = translated.host;
+    pathname = translated.path;
+    search = translated.search;
+  }
+  // Signed GitHub URLs carry a long query; anything larger is not a file link.
+  if (search.length > 4096) return null;
+  var mirror = MIRROR_HOSTS[host];
+  if (!mirror && isgithubusercontent(host)) mirror = "ghuc";
   if (!mirror) return null;
   // Visitor path only: strict charset, no traversal, no credential smuggling.
-  // Client query strings are dropped; the relay ignores them anyway.
-  var path = parsed.pathname;
+  // Client query strings are dropped for every mirror but ghuc, where they are
+  // part of the signature.
+  var path = pathname;
   if (path.length > 512) return null;
   // pathname always starts with "/"; skip that empty first segment.
   var segments = path.split("/").slice(1);
   for (var i = 0; i < segments.length; i++) {
     if (!validsegment(segments[i])) return null;
   }
-  // The directory travels in the token, the file name stays readable.
+  // The directory travels in the token, the file name stays readable. For a
+  // user-content host the host is the first directory segment, so the server
+  // knows which upstream to fetch.
   var relative = path.slice(1);
+  if (mirror === "ghuc") relative = host + "/" + relative;
   var slash = relative.lastIndexOf("/");
   if (slash <= 0) return null;
   var dir = relative.slice(0, slash);
   var file = relative.slice(slash + 1);
-  return SITE_ORIGIN + "/s/" + assettoken(mirror, dir) + "/" + file;
+  return (
+    SITE_ORIGIN +
+    "/s/" +
+    assettoken(mirror, dir) +
+    "/" +
+    file +
+    (mirror === "ghuc" ? search : "")
+  );
 }
 
 // The redirect for a cross-origin fetch() is itself CORS-checked: the browser

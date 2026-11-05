@@ -329,6 +329,99 @@ test("the worker only redirects hosts the relay has a mirror for", () => {
     assert.ok(context.hosts[host], `${host} is not relayed`);
 });
 
+test("every GitHub user-content host and GitHub raw link is relayed", () => {
+  const source = readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
+  const from = source.indexOf("function isproxiedurl");
+  const to = source.indexOf("function mirrorredirectresponse");
+  assert.ok(from !== -1 && to > from, "the worker redirect helpers are where we expect them");
+  const context = {
+    SITE_ORIGIN: "https://aetheris.test",
+    URL,
+    btoa,
+    decodeURIComponent,
+  };
+  vm.runInNewContext(
+    source.slice(from, to) + "\nthis.redirect = mirrorredirecturl;",
+    context,
+  );
+  const redirect = context.redirect;
+  const tokenof = (value) => {
+    const match = /^https:\/\/aetheris\.test\/s\/([^/]+)\//.exec(value || "");
+    assert.ok(match, `${value} is not an opaque relay URL`);
+    return Buffer.from(match[1].replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8");
+  };
+
+  const raw = redirect("https://raw.githubusercontent.com/u/r/main/a/file.js", "GET");
+  assert.equal(tokenof(raw), "ghraw:u/r/main/a");
+  assert.ok(raw.endsWith("/file.js"));
+
+  const object = redirect(
+    "https://objects.githubusercontent.com/prod/a/b/chunk.1?X-Amz-Signature=abc%2Fdef",
+    "GET",
+  );
+  assert.equal(tokenof(object), "ghuc:objects.githubusercontent.com/prod/a/b");
+  assert.ok(object.endsWith("/chunk.1?X-Amz-Signature=abc%2Fdef"));
+
+  const media = redirect("https://media.githubusercontent.com/u/r/main/big.bin", "GET");
+  assert.equal(tokenof(media), "ghuc:media.githubusercontent.com/u/r/main");
+
+  const images = redirect("https://user-images.githubusercontent.com/1/2.png", "GET");
+  assert.equal(tokenof(images), "ghuc:user-images.githubusercontent.com/1");
+
+  const github = redirect("https://github.com/u/r/raw/main/a/file.js", "GET");
+  assert.equal(tokenof(github), "ghraw:u/r/main/a");
+
+  const blob = redirect("https://github.com/u/r/blob/main/a/file.js?raw=true", "GET");
+  assert.equal(tokenof(blob), "ghraw:u/r/main/a");
+
+  const gist = redirect("https://gist.githubusercontent.com/u/1/raw/file.txt", "GET");
+  assert.equal(tokenof(gist), "ghuc:gist.githubusercontent.com/u/1/raw");
+
+  const jsdelivr = redirect("https://cdn.jsdelivr.net/gh/u/r@main/file.js?v=2", "GET");
+  assert.ok(jsdelivr && !jsdelivr.includes("?v=2"), "other mirrors keep dropping the query");
+
+  assert.equal(redirect("https://example.com/a/b/file.js", "GET"), null);
+  assert.equal(redirect("https://raw.githubusercontent.com/u/r/main/f", "POST"), null);
+});
+
+test("the relay forwards signed GitHub queries and rejects other hosts", async () => {
+  const urls = [];
+  const app = fixture({ fetchimpl: async (url) => {
+    urls.push(url);
+    return new Response("ok");
+  }});
+  try {
+    const signed =
+      "https://objects.githubusercontent.com/github-production-release-asset-2e65be/1/2?X-Amz-Signature=abc%2Fdef&response-content-type=application%2Foctet-stream";
+    const mirror = await app.inject(
+      "/game-assets/m/ghuc/objects.githubusercontent.com/github-production-release-asset-2e65be/1/2?X-Amz-Signature=abc%2Fdef&response-content-type=application%2Foctet-stream",
+    );
+    assert.equal(mirror.statusCode, 200);
+    assert.equal(urls.at(-1), signed);
+
+    const opaque =
+      "/s/" + assetToken("ghuc", "media.githubusercontent.com/user/repo/main") + "/file.bin?X-Amz-Signature=1";
+    assert.equal((await app.inject(opaque)).statusCode, 200);
+    assert.equal(
+      urls.at(-1),
+      "https://media.githubusercontent.com/user/repo/main/file.bin?X-Amz-Signature=1",
+    );
+
+    const gist =
+      "/s/" + assetToken("ghuc", "gist.githubusercontent.com/u/1/raw") + "/file.txt";
+    assert.equal((await app.inject(gist)).statusCode, 200);
+    assert.equal(urls.at(-1), "https://gist.githubusercontent.com/u/1/raw/file.txt");
+
+    const before = urls.length;
+    assert.equal((await app.inject("/game-assets/m/ghuc/evil.com/a/file")).statusCode, 400);
+    assert.equal(
+      (await app.inject("/game-assets/m/ghuc/objects.githubusercontent.com/a/b/c?x=" + "a".repeat(4200))).statusCode,
+      400,
+    );
+    assert.equal(urls.length, before, "nothing is fetched for a refused host or query");
+  } finally { await app.close(); }
+});
+
 test("an opaque URL carries the mirror and the directory, not the CDN layout", async () => {
   const urls = [];
   const app = fixture({ fetchimpl: async (url) => {

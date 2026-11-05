@@ -325,6 +325,15 @@ instead of the CDN.
   browser stops pulling 30MB every five minutes.
 - `HEAD` never downloads the body: split-file loaders ask for the size of
   every part first, and buffering that cost 160MB of pointless traffic.
+- GitHub links are relayed like jsDelivr: `raw.githubusercontent.com` uses the
+  `ghraw` mirror, and every other `*.githubusercontent.com` host
+  (`objects.`/`media.`/`gist.`/`user-images.`/`private-user-images.`, …) uses
+  `ghuc`, which carries the host in the relayed path. Signed release/private
+  URLs keep their query string (it is part of the cache key). The worker also
+  translates `github.com/<u>/<r>/raw/…`, the `blob/…?raw=true` form and
+  `gist.github.com/…/raw/…` before redirecting, so those never leave for
+  github.com. Release *download* URLs still rely on GitHub's 302, so the relay
+  does not follow those.
 
 ## Game pages
 
