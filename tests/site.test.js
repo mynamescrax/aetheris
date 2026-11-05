@@ -420,6 +420,59 @@ test("game clock shim shifts Date and follows the stored offset", () => {
   assert.ok(Math.abs(instanceShift - (2 * 86400000 + 3600000)) < 5000);
 });
 
+test("audio unlock shim only logs when debugging is switched on", () => {
+  const sw = loadswRuntime("Mozilla/5.0 Chrome/150.0.0.0 Safari/537.36");
+  const body = sw.audiounlockshim
+    .replace(/^<script>/, "")
+    .replace(/<\/script>$/, "");
+
+  function runshim(store) {
+    const logged = [];
+    function AudioContext() {
+      this.state = "suspended";
+      this.sampleRate = 48000;
+      this.destination = {};
+    }
+    AudioContext.prototype.createBuffer = () => ({});
+    AudioContext.prototype.createBufferSource = function () {
+      return { buffer: null, connect() {}, start() {} };
+    };
+    AudioContext.prototype.resume = () => Promise.resolve();
+    AudioContext.prototype.addEventListener = function () {};
+    const document = {
+      addEventListener() {},
+      querySelectorAll: () => [],
+      documentElement: {},
+      visibilityState: "visible",
+      hidden: false,
+    };
+    const window = { AudioContext, addEventListener() {} };
+    vm.runInNewContext(body, {
+      window,
+      document,
+      navigator: { userAgent: "Mozilla/5.0 Chrome/150.0.0.0" },
+      localStorage: { getItem: (key) => store[key] ?? null },
+      console: { log: (...args) => logged.push(args) },
+      setInterval: () => 0,
+      clearInterval() {},
+      MutationObserver: class {
+        observe() {}
+      },
+    });
+    return { logged, window };
+  }
+
+  const quiet = runshim({});
+  assert.equal(quiet.window.__aetherisAudioUnlockInstalled, true);
+  assert.equal(quiet.logged.length, 0, "no [audio-dbg] noise by default");
+
+  const loud = runshim({ aetherisAudioDebug: "1" });
+  assert.ok(
+    loud.logged.some((args) => String(args[0]).includes("[audio-dbg]")),
+    "the opt-in flag brings the trace back",
+  );
+});
+
 test("html shim injection streams and inserts at the same point", async () => {
   const adspoofSource = "(function(){window.__adSpoofInstalled=true})();";
   const sw = loadswRuntime(

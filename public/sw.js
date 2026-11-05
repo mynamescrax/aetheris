@@ -619,11 +619,15 @@ var audiounlockshim =
   "  var issafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);" +
   "  var contexts = new Set();" +
   "  var unlocked = false;" +
+  // Diagnostics are off unless asked for, so a game page does not fill the
+  // console with our own logging. Set localStorage "aetherisAudioDebug" to "1"
+  // and reload to get the [audio-dbg] trace back.
+  "  var debug = false;" +
+  '  try { debug = localStorage.getItem("aetherisAudioDebug") === "1"; } catch(e){}' +
   "  function dbg(){" +
-  "    if (console && console.log) {" +
+  "    if (!debug || !console || !console.log) return;" +
   '      var args = ["[audio-dbg]"].concat(Array.prototype.slice.call(arguments));' +
   "      console.log.apply(console, args);" +
-  "    }" +
   "  }" +
   "  function silentping(ctx){" +
   "    try {" +
@@ -1286,6 +1290,22 @@ function isgithubusercontent(host) {
   return /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.githubusercontent\.com$/.test(host);
 }
 
+// A service worker script may not be answered with a redirect at all, and a
+// request that asked for "manual"/"error" redirect handling refuses one by
+// definition. Firefox surfaces both as "Failed to load ''" from respondWith(),
+// so those requests stay on the direct CDN path instead of the mirror relay.
+var NOREDIRECTDESTINATIONS = {
+  serviceworker: true,
+  worker: true,
+  sharedworker: true,
+  manifest: true,
+};
+
+function canmirrorredirect(request) {
+  if (request.redirect === "manual" || request.redirect === "error") return false;
+  return !NOREDIRECTDESTINATIONS[request.destination || ""];
+}
+
 // Absolute CDN URLs hardcoded in game pages (hundreds of them) bypass the
 // relay on their own. Redirect them same-origin so every mirror fetch gets
 // the relay's poisoned-body validation and shows as localhost/our domain.
@@ -1550,7 +1570,9 @@ self.addEventListener("fetch", function (event) {
   // Universal mirror relay: any absolute static-CDN URL becomes a same-origin
   // /game-assets/m/ request before the bypass below can let it through direct.
   if (!proxied) {
-    var mirrorurl = mirrorredirecturl(url, event.request.method);
+    var mirrorurl =
+      canmirrorredirect(event.request) &&
+      mirrorredirecturl(url, event.request.method);
     if (mirrorurl) {
       event.respondWith(mirrorredirectresponse(mirrorurl));
       return;
