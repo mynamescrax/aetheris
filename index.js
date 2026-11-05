@@ -2503,14 +2503,15 @@ fastify.addHook("onSend", async (req, reply, payload) => {
   } else if (/^\/(scramjet|controller|libcurl|epoxy)\//.test(path)) {
     // Proxy engine bundles. The client asks for them with a ?v= that changes
     // with the serve-time patches (PROXY_ENGINE_VERSION in
-    // scramjet-init.js); an unversioned URL is still requested by older
-    // clients, so it must revalidate instead of pinning a copy Cloudflare
-    // would keep serving after a deploy.
+    // scramjet-init.js). An unversioned URL is still requested by clients that
+    // cached the old bundle, so it must never be stored: Cloudflare's Browser
+    // Cache TTL rewrites max-age and would otherwise hand out a pre-patch
+    // copy for hours.
     reply.header(
       "Cache-Control",
       /[?&]v=/.test(req.url)
         ? "public, max-age=31536000, immutable"
-        : "no-cache",
+        : "no-store",
     );
   } else if (
     String(reply.getHeader("content-type") || "").includes("text/html")

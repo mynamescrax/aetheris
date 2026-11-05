@@ -321,8 +321,9 @@ header change fixes it.
   without it a browser or Cloudflare copy cached before the deploy keeps the
   old bundle (the same-origin guard then breaks every aetheris game until the
   cache expires). Versioned bundle URLs are served `immutable`; unversioned
-  ones `no-cache`. `load.js` also reloads once if a frame shows the
-  same-origin error, so an already-cached client recovers.
+  ones `no-store`, because Cloudflare's Browser Cache TTL would otherwise
+  give an old copy a 4-hour life. `load.js` also reloads once if a frame
+  shows the same-origin error, so an already-cached client recovers.
 
 ## Game asset relay
 
