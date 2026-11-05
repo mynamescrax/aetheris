@@ -136,13 +136,13 @@ test("local games reopen legacy saves and keep proxy-only database names", () =>
     },
   };
   c.location.host = "example.com";
-  let install;
+  const installs = [];
   c.$scramjet.Tap = {
     tap(hook, callback) {
-      install = callback;
+      installs.push(callback);
     },
   };
-  const frame = { aetherisLocal: true, hooks: { init: { post: {} } } };
+  const frame = { aetherisLocal: true, hooks: { init: { pre: {}, post: {} } } };
   c.window.internals.installSaves(frame, {
     names: [
       "/idbfs",
@@ -151,11 +151,35 @@ test("local games reopen legacy saves and keep proxy-only database names", () =>
     ],
     prefix: "https://example.com@",
   });
-  const win = { indexedDB: {} };
-  install({
+  const win = { indexedDB: {}, localStorage: storage, sessionStorage: storage };
+  const context = {
     window: win,
-    client: { url: new URL("https://example.com/assets/games/trackdash.html") },
-  });
+    client: {
+      url: new URL("https://example.com/assets/games/trackdash.html"),
+      Proxy(name, handler) {
+        win.indexedDB[name.split(".").pop()] = function (...args) {
+          let result;
+          handler.apply({
+            args,
+            this: win.indexedDB,
+            return(value) {
+              result = value;
+            },
+          });
+          return result;
+        };
+      },
+      natives: {
+        call(name, receiver, ...args) {
+          return c.window.indexedDB[name.split(".").pop()](...args);
+        },
+      },
+    },
+  };
+  installs[0](context);
+  win.localStorage = {};
+  win.sessionStorage = {};
+  installs[1](context);
   assert.equal(win.indexedDB.open("/idbfs", 21), "request");
   win.indexedDB.open("new-game");
   assert.deepEqual(calls, [["/idbfs", 21], ["https://example.com@new-game"]]);
@@ -173,7 +197,7 @@ test("remote pages and non-game local pages retain proxy storage isolation", () 
       install = callback;
     },
   };
-  const frame = { aetherisLocal: true, hooks: { init: { post: {} } } };
+  const frame = { aetherisLocal: true, hooks: { init: { pre: {}, post: {} } } };
   c.window.internals.installSaves(frame, {
     names: [],
     prefix: "https://example.com@",

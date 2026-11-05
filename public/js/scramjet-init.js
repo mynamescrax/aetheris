@@ -751,17 +751,31 @@
 
   function installlocalsaves(frame, saves) {
     if (!frame || !frame.hooks || !frame.hooks.init || !$scramjet.Tap) return;
-    $scramjet.Tap.tap(frame.hooks.init.post, function (context) {
+    var nativeStorage = new WeakMap();
+    function localgame(context) {
       var url = context && context.client && context.client.url;
-      if (
-        !frame.aetherisLocal ||
-        !url ||
-        url.origin !== location.origin ||
-        url.pathname.indexOf("/assets/games/") !== 0
-      )
-        return;
+      return (
+        frame.aetherisLocal &&
+        url &&
+        url.origin === location.origin &&
+        url.pathname.indexOf("/assets/games/") === 0
+      );
+    }
+    $scramjet.Tap.tap(frame.hooks.init.pre, function (context) {
+      if (!localgame(context)) return;
+      var storage = {};
+      for (var name of ["localStorage", "sessionStorage"]) {
+        try {
+          storage[name] = context.window[name];
+        } catch (_) {}
+      }
+      nativeStorage.set(context.window, storage);
+    });
+    $scramjet.Tap.tap(frame.hooks.init.post, function (context) {
+      if (!localgame(context)) return;
       var win = context.window;
-      // The parent factory is outside Scramjet's per-frame prototype hooks.
+      var client = context.client;
+      var captured = nativeStorage.get(win) || {};
       // A database that exists only under the newer name keeps that name.
       function savename(name) {
         name = String(name);
@@ -771,22 +785,28 @@
           : name;
       }
       if (window.indexedDB && win.indexedDB) {
-        win.indexedDB.open = function (name, version) {
-          return arguments.length > 1
-            ? window.indexedDB.open(savename(name), version)
-            : window.indexedDB.open(savename(name));
-        };
-        win.indexedDB.deleteDatabase = function (name) {
-          return window.indexedDB.deleteDatabase(savename(name));
-        };
+        // WebKit can return different wrappers for the same IDBFactory.
+        // Hook the prototype and call this frame's original native function.
+        for (var method of ["open", "deleteDatabase"]) {
+          (function (name) {
+            client.Proxy("IDBFactory.prototype." + name, {
+              apply: function (request) {
+                request.args[0] = savename(request.args[0]);
+                request.return(
+                  client.natives.call(
+                    "IDBFactory.prototype." + name,
+                    request.this,
+                    ...request.args,
+                  ),
+                );
+              },
+            });
+          })(method);
+        }
       }
       for (var storageName of ["localStorage", "sessionStorage"]) {
-        var storage;
-        try {
-          storage = window[storageName];
-        } catch (_) {
-          continue;
-        }
+        var storage = captured[storageName];
+        if (!storage) continue;
         var keys = Object.keys(storage);
         var storagePrefix = location.host + "@";
         for (var key of keys) {
