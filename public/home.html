@@ -132,11 +132,16 @@
     >
       <div class="update-modal">
         <h2 id="updatemodaltitle">What's new</h2>
+        <p>
+          Sorry about all the recent game bugs and broken games. Reworking the
+          proxy broke more than we expected, and we're sorry for the trouble.
+        </p>
         <ul class="update-list">
-          <li>YouTube now works when the epoxy transport is selected</li>
-          <li>Proxied pages and Unity games no longer get cut off in Firefox</li>
-          <li>Game ad networks are blocked in the proxy, and proxy updates apply on the next reload</li>
-          <li>Duplicate game cards are merged, and the source picker stays in sync as catalogs load</li>
+          <li>We're working on better games and more reliable sources</li>
+          <li>Performance is getting a serious pass</li>
+          <li>
+            Most importantly, we're working on keeping everything unblocked
+          </li>
         </ul>
         <div class="update-modal-footer">
           <button id="updatemodalclose" type="button">Got it</button>
@@ -588,7 +593,7 @@
     </style>
 
     <script>
-      var UPDATE_VERSION = "27";
+      var UPDATE_VERSION = "28";
 
       async function loadquote() {
         try {
