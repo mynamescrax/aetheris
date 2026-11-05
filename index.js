@@ -2642,6 +2642,9 @@ fastify.get("/scramjet/scramjet.js", (_req, reply) => {
   if (!patchedscramjetcore) {
     let raw = readFileSync(join(scramjetPath, "scramjet.js"), "utf8");
 
+    // Scoped regexp modifiers are too new for Safari and older Firefox.
+    raw = patchsource(raw, "(?i:url)", "[uU][rR][lL]", "CSS regexp compatibility");
+
     // history.replaceState(state, title) without a url became a navigation to
     // "/undefined". Fixed upstream in scramjet@98c1864 but never published.
     raw = patchsource(

@@ -8,6 +8,15 @@ const source = fs.readFileSync(
   new URL("../public/js/scramjet-init.js", import.meta.url),
   "utf8",
 );
+
+test("CSS URL regex works without scoped modifiers and keeps other tokens case-sensitive", () => {
+  const expression = /[uU][rR][lL]\(([^)]+)\)/g;
+  for (const value of ["url(asset.png)", "URL(asset.png)", "uRl(asset.png)"]) {
+    assert.equal([...value.matchAll(expression)][0][1], "asset.png");
+  }
+  const server = fs.readFileSync(new URL("../index.js", import.meta.url), "utf8");
+  assert.ok(server.includes('patchsource(raw, "(?i:url)", "[uU][rR][lL]"'));
+});
 function deferred() {
   let resolve;
   const promise = new Promise((r) => {
