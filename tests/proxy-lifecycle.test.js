@@ -74,7 +74,8 @@ function bootstrap() {
     setActive: function(transport) { activetransport = transport; },
     active: function() { return activetransport; },
     install: installtransportfailover,
-    wait: waitforserviceworker
+    wait: waitforserviceworker,
+    installSaves: installlocalsaves
   }; window.aetherisProxy = {`,
     ),
     context,
@@ -100,6 +101,92 @@ test("worker bodies run after bootstrap without another synchronous proxy import
   }));
   await c.window.aetherisProxy.getController();
   assert.equal(init.scramjetConfig.flags.encapsulateWorkers, false);
+});
+
+test("local games reopen legacy saves and keep proxy-only database names", () => {
+  const c = bootstrap();
+  const calls = [];
+  const data = {
+    score: "old-progress",
+    "example.com@score": "reset-progress",
+    "example.com@newSave": "new-progress",
+  };
+  const storage = { ...data };
+  Object.defineProperties(storage, {
+    getItem: {
+      value(key) {
+        return Object.hasOwn(this, key) ? this[key] : null;
+      },
+    },
+    setItem: {
+      value(key, value) {
+        this[key] = value;
+      },
+    },
+  });
+  c.window.localStorage = storage;
+  c.window.sessionStorage = storage;
+  c.window.indexedDB = {
+    open(...args) {
+      calls.push(args);
+      return "request";
+    },
+    deleteDatabase(name) {
+      calls.push(["delete", name]);
+    },
+  };
+  c.location.host = "example.com";
+  let install;
+  c.$scramjet.Tap = {
+    tap(hook, callback) {
+      install = callback;
+    },
+  };
+  const frame = { aetherisLocal: true, hooks: { init: { post: {} } } };
+  c.window.internals.installSaves(frame, {
+    names: [
+      "/idbfs",
+      "https://example.com@/idbfs",
+      "https://example.com@new-game",
+    ],
+    prefix: "https://example.com@",
+  });
+  const win = { indexedDB: {} };
+  install({
+    window: win,
+    client: { url: new URL("https://example.com/assets/games/trackdash.html") },
+  });
+  assert.equal(win.indexedDB.open("/idbfs", 21), "request");
+  win.indexedDB.open("new-game");
+  assert.deepEqual(calls, [["/idbfs", 21], ["https://example.com@new-game"]]);
+  assert.equal(win.localStorage.getItem("score"), "old-progress");
+  assert.equal(win.localStorage.getItem("newSave"), "new-progress");
+  assert.equal(storage["example.com@score"], "reset-progress");
+  assert.equal(storage["example.com@newSave"], "new-progress");
+});
+
+test("remote pages and non-game local pages retain proxy storage isolation", () => {
+  const c = bootstrap();
+  let install;
+  c.$scramjet.Tap = {
+    tap(hook, callback) {
+      install = callback;
+    },
+  };
+  const frame = { aetherisLocal: true, hooks: { init: { post: {} } } };
+  c.window.internals.installSaves(frame, {
+    names: [],
+    prefix: "https://example.com@",
+  });
+  for (const url of [
+    "https://remote.example/assets/games/test.html",
+    "https://example.com/api/private",
+  ]) {
+    const win = { indexedDB: {} };
+    install({ window: win, client: { url: new URL(url) } });
+    assert.equal(win.indexedDB.open, undefined);
+    assert.equal(win.localStorage, undefined);
+  }
 });
 
 test("reset during controller.wait cannot clear or replace the next startup", async () => {

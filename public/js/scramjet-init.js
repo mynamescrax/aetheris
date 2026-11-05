@@ -613,6 +613,197 @@
     });
   }
 
+  // Local games used these stores before they were proxied. Keep both copies:
+  // old saves win conflicts; saves created only after proxying are added.
+  function openexistingsave(name) {
+    return new Promise(function (resolve, reject) {
+      var request = window.indexedDB.open(name);
+      var missing = false;
+      request.onupgradeneeded = function () {
+        missing = true;
+        request.transaction.abort();
+      };
+      request.onsuccess = function () {
+        resolve(request.result);
+      };
+      request.onerror = function () {
+        if (missing) resolve(null);
+        else reject(request.error);
+      };
+    });
+  }
+
+  function addmissingsave(db, storeName, key, value) {
+    return new Promise(function (resolve, reject) {
+      var tx = db.transaction(storeName, "readwrite");
+      var store = tx.objectStore(storeName);
+      var lookup = store.getKey(key);
+      lookup.onsuccess = function () {
+        if (lookup.result !== undefined) return;
+        if (store.keyPath === null) store.add(value, key);
+        else store.add(value);
+      };
+      tx.oncomplete = resolve;
+      tx.onabort = function () {
+        reject(tx.error || new Error("Could not preserve a game save."));
+      };
+      tx.onerror = function () {};
+    });
+  }
+
+  async function mergemissingsaves(legacyName, proxyName) {
+    var legacy = null;
+    var proxied = null;
+    try {
+      legacy = await openexistingsave(legacyName);
+      proxied = await openexistingsave(proxyName);
+      if (!legacy || !proxied) return;
+      for (var storeName of Array.from(proxied.objectStoreNames)) {
+        if (!legacy.objectStoreNames.contains(storeName)) continue;
+        var oldStore = legacy.transaction(storeName).objectStore(storeName);
+        var newStore = proxied.transaction(storeName).objectStore(storeName);
+        if (
+          JSON.stringify(oldStore.keyPath) !== JSON.stringify(newStore.keyPath)
+        )
+          continue;
+        var writes = [];
+        await new Promise(function (resolve, reject) {
+          var tx = proxied.transaction(storeName);
+          var cursor = tx.objectStore(storeName).openCursor();
+          cursor.onsuccess = function () {
+            if (!cursor.result) return;
+            // Catch immediately: the read cursor can outlive a failed write.
+            writes.push(
+              addmissingsave(
+                legacy,
+                storeName,
+                cursor.result.key,
+                cursor.result.value,
+              ).then(
+                function () {
+                  return null;
+                },
+                function (error) {
+                  return error;
+                },
+              ),
+            );
+            cursor.result.continue();
+          };
+          tx.oncomplete = resolve;
+          tx.onabort = function () {
+            reject(
+              tx.error || new Error("Could not read the newer game saves."),
+            );
+          };
+        });
+        var errors = await Promise.all(writes);
+        for (var error of errors) if (error) throw error;
+      }
+    } finally {
+      if (legacy) legacy.close();
+      if (proxied) proxied.close();
+    }
+  }
+
+  async function preparelocalsaves() {
+    var names = [];
+    var prefix = location.origin + "@";
+    if (window.indexedDB) {
+      if (typeof window.indexedDB.databases === "function") {
+        try {
+          names = (await window.indexedDB.databases()).map(function (db) {
+            return db.name;
+          });
+        } catch (_) {}
+      }
+      // Older Safari cannot enumerate databases. Abort missing probes instead
+      // of creating empty stores that could hide the surviving save copy.
+      var probes = ["/idbfs", "/userfs", "localforage"];
+      if (typeof Aetheris.readList === "function") {
+        for (var hint of Aetheris.readList("idbNames")) {
+          if (typeof hint !== "string" || !hint) continue;
+          if (hint.indexOf(prefix) === 0) hint = hint.slice(prefix.length);
+          else if (hint.indexOf("@") !== -1) continue;
+          if (probes.indexOf(hint) === -1) probes.push(hint);
+        }
+      }
+      for (var name of probes) {
+        for (var candidate of [name, prefix + name]) {
+          if (names.indexOf(candidate) !== -1) continue;
+          var db = await openexistingsave(candidate);
+          if (db) {
+            names.push(candidate);
+            db.close();
+          }
+        }
+      }
+      for (var proxyName of names) {
+        if (proxyName.indexOf(prefix) !== 0) continue;
+        var legacyName = proxyName.slice(prefix.length);
+        if (/cache/i.test(legacyName) || legacyName === "gameFilesDB") continue;
+        if (names.indexOf(legacyName) !== -1)
+          await mergemissingsaves(legacyName, proxyName);
+      }
+    }
+    return { names: names, prefix: prefix };
+  }
+
+  function installlocalsaves(frame, saves) {
+    if (!frame || !frame.hooks || !frame.hooks.init || !$scramjet.Tap) return;
+    $scramjet.Tap.tap(frame.hooks.init.post, function (context) {
+      var url = context && context.client && context.client.url;
+      if (
+        !frame.aetherisLocal ||
+        !url ||
+        url.origin !== location.origin ||
+        url.pathname.indexOf("/assets/games/") !== 0
+      )
+        return;
+      var win = context.window;
+      // The parent factory is outside Scramjet's per-frame prototype hooks.
+      // A database that exists only under the newer name keeps that name.
+      function savename(name) {
+        name = String(name);
+        return saves.names.indexOf(name) === -1 &&
+          saves.names.indexOf(saves.prefix + name) !== -1
+          ? saves.prefix + name
+          : name;
+      }
+      if (window.indexedDB && win.indexedDB) {
+        win.indexedDB.open = function (name, version) {
+          return arguments.length > 1
+            ? window.indexedDB.open(savename(name), version)
+            : window.indexedDB.open(savename(name));
+        };
+        win.indexedDB.deleteDatabase = function (name) {
+          return window.indexedDB.deleteDatabase(savename(name));
+        };
+      }
+      for (var storageName of ["localStorage", "sessionStorage"]) {
+        var storage;
+        try {
+          storage = window[storageName];
+        } catch (_) {
+          continue;
+        }
+        var keys = Object.keys(storage);
+        var storagePrefix = location.host + "@";
+        for (var key of keys) {
+          if (key.indexOf(storagePrefix) !== 0) continue;
+          var oldKey = key.slice(storagePrefix.length);
+          if (storage.getItem(oldKey) === null)
+            storage.setItem(oldKey, storage.getItem(key));
+        }
+        Object.defineProperty(win, storageName, {
+          value: storage,
+          configurable: true,
+          writable: true,
+        });
+      }
+    });
+  }
+
   var controllerpromise = null;
   // bumped by reset() so a startup that was already in flight can close its
   // own transport instead of publishing it as the active one after reset.
@@ -625,6 +816,7 @@
     controllerpromise = (async function () {
       await ensureloaded();
       var sw = await waitforserviceworker();
+      var saves = await preparelocalsaves();
 
       var wispurl =
         (location.protocol === "https:" ? "wss" : "ws") +
@@ -682,6 +874,7 @@
           rememberframe(frame);
           servelocally(frame);
           installclock(frame);
+          installlocalsaves(frame, saves);
           return frame;
         };
         return controller;
