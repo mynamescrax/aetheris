@@ -882,6 +882,9 @@
             flags: {
               allowFailedIntercepts: true,
               allowInvalidJs: true,
+              // Libraries derive asset folders from Error.stack, which must
+              // name the original script rather than its encoded proxy URL.
+              debugSourceURL: true,
               // A second, synchronous import of the worker body deadlocks
               // Firefox through the controller. Append it after bootstrap.
               encapsulateWorkers: false,

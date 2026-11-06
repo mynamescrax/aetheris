@@ -134,6 +134,7 @@ test("worker bodies run after bootstrap without another synchronous proxy import
   }));
   await c.window.aetherisProxy.getController();
   assert.equal(init.scramjetConfig.flags.encapsulateWorkers, false);
+  assert.equal(init.scramjetConfig.flags.debugSourceURL, true);
 });
 
 test("local games reopen legacy saves and keep proxy-only database names", () => {
