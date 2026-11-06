@@ -4,6 +4,20 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 const read = path => readFileSync(new URL(path, import.meta.url), "utf8");
 
+test("Escape Road City 2 stays a cross-origin publisher embed under the proxied player", () => {
+  const html = read("../public/assets/games/erc2.html");
+  const frame = /<iframe\b[^>]*\bsrc="([^"]+)"/i.exec(html);
+  assert.ok(frame, "the publisher SDK must see an embedded game, not a locally hosted Unity build");
+  const url = new URL(frame[1]);
+  assert.equal(url.origin, "https://game.azgame.io");
+  assert.equal(url.pathname, "/escape-road-city-2/");
+  assert.doesNotMatch(html, /tung-sahur|createUnityInstance|\/\/script&gt;/i);
+  const catalog = JSON.parse(read("../public/assets/data/aetheris.json"));
+  const entry = catalog.find(item => item.id === "escaperoadcity2");
+  assert.equal(entry.html, "assets/games/erc2.html");
+  assert.notEqual(entry.noProxy, true);
+});
+
 test("repaired provider bookmarks resolve locally even when the provider catalog is unavailable", () => {
   const source = read("../public/js/load.js");
   const repairs = [

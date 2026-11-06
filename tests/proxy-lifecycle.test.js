@@ -20,6 +20,38 @@ test("CSS URL regex works without scoped modifiers and keeps other tokens case-s
   );
   assert.ok(server.includes('patchsource(raw, "(?i:url)", "[uU][rR][lL]"'));
 });
+test("new proxied iframes retain their embedding referrer without exposing cross-origin paths", () => {
+  const server = fs.readFileSync(new URL("../index.js", import.meta.url), "utf8");
+  const core = fs.readFileSync(new URL("../node_modules/@mercuryworkshop/scramjet/dist/scramjet.js", import.meta.url), "utf8");
+  const start = server.indexOf('    // A new iframe has no previous navigation');
+  const patchStart = server.indexOf('    raw = patchsource(', start);
+  const patchEnd = server.indexOf('\n    );', patchStart) + '\n    );'.length;
+  assert.ok(start > 0 && patchEnd > patchStart);
+  const trapStart = core.indexOf('e.Trap("Document.prototype.referrer"');
+  const trapEnd = core.indexOf(',e.Proxy("Document.prototype.writeln"', trapStart);
+  let getter;
+  const context = {
+    raw: core.slice(trapStart, trapEnd),
+    patchsource(raw, old, replacement) { assert.ok(raw.includes(old)); return raw.replace(old, replacement); },
+    e: {
+      history: [], url: new URL("https://game.azgame.io/escape-road-city-2/"),
+      unrewriteUrl: () => "https://aetheris.win/assets/games/erc2.html",
+      Trap(_name, descriptor) { getter = descriptor.get; },
+    },
+    n: { xP: URL },
+    s: { tV(url, target, policy) {
+      assert.equal(policy, "strict-origin-when-cross-origin");
+      return url.origin === target.origin ? url.href : url.origin + "/";
+    } },
+  };
+  vm.runInNewContext(server.slice(patchStart, patchEnd), context);
+  vm.runInNewContext(context.raw, context);
+  assert.equal(getter({ get: () => "" }), "");
+  assert.equal(getter({ get: () => "https://aetheris.win/~/sj/session/encoded" }), "https://aetheris.win/");
+  context.e.history = [{ url: "https://game.azgame.io/previous", refererPolicy: "strict-origin-when-cross-origin" }, {}];
+  assert.equal(getter({ get: () => { throw new Error("History should win"); } }), "https://game.azgame.io/previous");
+});
+
 function deferred() {
   let resolve;
   const promise = new Promise((r) => {

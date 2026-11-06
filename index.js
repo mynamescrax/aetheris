@@ -2700,6 +2700,15 @@ fastify.get("/scramjet/scramjet.js", (_req, reply) => {
     // Scoped regexp modifiers are too new for Safari and older Firefox.
     raw = patchsource(raw, "(?i:url)", "[uU][rR][lL]", "CSS regexp compatibility");
 
+    // A new iframe has no previous navigation, but still has an embedding
+    // referrer. Keep native no-referrer decisions and strip cross-origin paths.
+    raw = patchsource(
+      raw,
+      'e.Trap("Document.prototype.referrer",{get(){if(!e.history||e.history.length<2)return"";',
+      'e.Trap("Document.prototype.referrer",{get(a){if(!e.history||e.history.length<2){let t=a.get();if(!t)return"";try{return(0,s.tV)(new n.xP(e.unrewriteUrl(t)),e.url,"strict-origin-when-cross-origin")}catch{return""}}',
+      "document.ts initial iframe referrer",
+    );
+
     // Compile the wrapper with ordinary Function, even when the requested
     // constructor is async/generator: calling those wrappers returns an object.
     raw = patchsource(
