@@ -2866,6 +2866,29 @@ fastify.get("/scramjet/scramjet.js", (_req, reply) => {
       );
     }
 
+    // Static module imports resolve against <base href>, which may be a CDN.
+    // A path-only prefix sends the proxy request to that CDN instead of us.
+    raw = patchsource(
+      raw,
+      "prefix:r.prefix.pathname",
+      "prefix:r.prefix.href",
+      "JavaScript rewriter absolute module prefix",
+    );
+    // Unproxied URLs (referrers, DOM attributes) need no decoding. They are
+    // normal inputs, and logging every read floods the console with stacks.
+    raw = patchsource(
+      raw,
+      'return""==e||o.error("unrewriteurl: unexpected url",e),e',
+      'return e',
+      "URL decoder unproxied relative input",
+    );
+    raw = patchsource(
+      raw,
+      'return o.error("unrewriteurl: unexpected url",e),e',
+      'return e',
+      "URL decoder unproxied absolute input",
+    );
+
     patchedscramjetcore = legacybrowsercompat + raw;
   }
   reply.type("application/javascript").send(patchedscramjetcore);

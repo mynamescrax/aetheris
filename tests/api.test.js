@@ -481,6 +481,60 @@ test("served proxy bundles carry the legacy-Safari compat prefix", async () => {
     factory({}, exports, require);
     return exports;
   }
+  // Exercise the actual WASM rewriter, including its string and byte paths.
+  const wasmStart = coretext.indexOf("5469(e,t,r){");
+  const wasmEnd = coretext.indexOf("},l={}", wasmStart);
+  assert.ok(wasmStart > 0 && wasmEnd > wasmStart);
+  const wasmFactory = vm.runInNewContext(
+    "(function" + coretext.slice(wasmStart + 4, wasmEnd) + ")",
+    { TextEncoder, TextDecoder, WebAssembly, URL, console, Object },
+  );
+  const wasm = {};
+  const wasmRequire = () => ({ N: () => "test" });
+  wasmRequire.d = (target, definitions) => {
+    for (const [key, get] of Object.entries(definitions))
+      Object.defineProperty(target, key, { get });
+  };
+  wasmFactory({}, wasm, wasmRequire);
+  const wasmResponse = await fetch(base + "/scramjet/scramjet.wasm");
+  wasm.QR({ module: new WebAssembly.Module(await wasmResponse.arrayBuffer()) });
+  const rewriter = new wasm.LW();
+  const javascript = engineModule(6549, 5657, {
+    4000: { U5: () => false },
+    3430: { n: () => [rewriter, () => {}] },
+    5994: { BR: Object.keys, wU: () => 0, hS: bytes => new TextDecoder().decode(bytes) },
+    7742: { A: console },
+  });
+  const proxyPrefix = new URL("https://proxy.test/~/sj/controller/frame/");
+  const rewriteContext = {
+    prefix: proxyPrefix,
+    config: { globals: vm.runInNewContext("(" + coretext.match(/globals:(\{wrapfn:[^}]+\})/)[1] + ")"), flags: vm.runInNewContext("(" + coretext.match(/flags:(\{syncxhr:[^}]+\})/)[1] + ")") },
+    interface: { codecEncode: encodeURIComponent },
+  };
+  for (const baseUrl of ["https://cdn.jsdelivr.net/game/", "https://other.test/subdir/"]) {
+    const input = 'import "https://www.gstatic.com/firebasejs/test.js";';
+    for (const code of [input, new TextEncoder().encode(input)]) {
+      const result = javascript.g(code, "module.js", rewriteContext, { base: new URL(baseUrl) }, true);
+      const output = typeof result.js === "string" ? result.js : new TextDecoder().decode(result.js);
+      assert.ok(output.includes(proxyPrefix.href + encodeURIComponent("https://www.gstatic.com/firebasejs/test.js")), output);
+      assert.ok(!output.includes('"/~/sj/'), "imports must use an absolute proxy URL");
+    }
+  }
+  rewriter.free();
+  const errors = [];
+  const urls = engineModule(5657, 3430, {
+    6549: {}, 7492: {},
+    5994: { Qf: String, xP: URL, AeSw: (value, prefix) => value.startsWith(prefix) },
+    7742: { A: { error: (...args) => errors.push(args) } },
+  });
+  const urlContext = { prefix: proxyPrefix, interface: { codecDecode: decodeURIComponent } };
+  for (const url of ["/relative/file.js", "https://cdn.test/file.js", "https://proxy.test/load.html?game=test"]) {
+    for (let i = 0; i < 50; i++) assert.equal(urls.v2(url, urlContext), url);
+  }
+  const original = "https://cdn.test/module.js?q=1";
+  assert.equal(urls.v2(proxyPrefix.href + encodeURIComponent(original), urlContext), original);
+  assert.deepEqual(errors, [], "ordinary URL reads must not spam error stacks");
+
   const constructors = engineModule(2284, 8201, { 6549: { o: (s) => s } });
   let functionProxy;
   const fakeClient = {
