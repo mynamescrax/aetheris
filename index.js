@@ -2645,6 +2645,30 @@ fastify.get("/scramjet/scramjet.js", (_req, reply) => {
     // Scoped regexp modifiers are too new for Safari and older Firefox.
     raw = patchsource(raw, "(?i:url)", "[uU][rR][lL]", "CSS regexp compatibility");
 
+    // Compile the wrapper with ordinary Function, even when the requested
+    // constructor is async/generator: calling those wrappers returns an object.
+    raw = patchsource(
+      raw,
+      "e.return(e.fn(n)())",
+      'e.return(t.natives.call("Function",null,n)())',
+      "function.ts async/generator constructors",
+    );
+
+    // Reuse the wrapper for repeated registrations and match capture on remove,
+    // as native EventTarget does. Distinct wrappers defeat browser deduplication.
+    raw = patchsource(
+      raw,
+      "let r=t.args[1],i=a(r);t.args[1]=i;let n=e.eventcallbacks.get(t.this);(n||=[]).push({event:t.args[0],originalCallback:r,proxiedCallback:i}),e.eventcallbacks.set(t.this,n)",
+      'let r=t.args[1],c=typeof t.args[2]==="boolean"?t.args[2]:!!t.args[2]?.capture,n=e.eventcallbacks.get(t.this)||[],o=n.find(e=>e.event===t.args[0]&&e.originalCallback===r&&e.capture===c),i=o?o.proxiedCallback:a(r);t.args[1]=i;if(!o)n.push({event:t.args[0],originalCallback:r,proxiedCallback:i,capture:c});e.eventcallbacks.set(t.this,n)',
+      "event.ts duplicate listener",
+    );
+    raw = patchsource(
+      raw,
+      "let i=r.findIndex(e=>e.event===t.args[0]&&e.originalCallback===t.args[1]);",
+      'let c=typeof t.args[2]==="boolean"?t.args[2]:!!t.args[2]?.capture,i=r.findIndex(e=>e.event===t.args[0]&&e.originalCallback===t.args[1]&&e.capture===c);',
+      "event.ts capture removal",
+    );
+
     // history.replaceState(state, title) without a url became a navigation to
     // "/undefined". Fixed upstream in scramjet@98c1864 but never published.
     raw = patchsource(

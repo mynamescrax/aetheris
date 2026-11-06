@@ -464,6 +464,99 @@ test("served proxy bundles carry the legacy-Safari compat prefix", async () => {
   assert.match(coretext, /e\.unrewriteUrl\(e\.rewriteUrl\(/);
   assert.match(coretext, /e\.url\.origin!==self\.location\.origin/);
 
+  function engineModule(id, next, imports) {
+    const start = coretext.indexOf(id + "(e,t,r){");
+    const end = coretext.indexOf("}," + next + "(e,t,r){", start);
+    assert.ok(start > 0 && end > start, "pinned engine module must exist");
+    const factory = vm.runInNewContext(
+      "(function" + coretext.slice(start + String(id).length, end + 1) + ")",
+    );
+    const exports = {};
+    const require = (key) => imports[key];
+    require.r = () => {};
+    require.d = (target, definitions) => {
+      for (const [key, get] of Object.entries(definitions))
+        Object.defineProperty(target, key, { get });
+    };
+    factory({}, exports, require);
+    return exports;
+  }
+  const constructors = engineModule(2284, 8201, { 6549: { o: (s) => s } });
+  let functionProxy;
+  const fakeClient = {
+    context: {},
+    meta: {},
+    Proxy(_, proxy) {
+      functionProxy = proxy;
+    },
+    RawProxy() {},
+    natives: {
+      call(name, receiver, ...args) {
+        return Reflect.apply(name === "eval" ? eval : Function, receiver, args);
+      },
+    },
+  };
+  constructors.default(fakeClient, {});
+  for (const Constructor of [
+    Function,
+    (async () => {}).constructor,
+    function* () {}.constructor,
+    async function* () {}.constructor,
+  ]) {
+    let result;
+    functionProxy.apply({
+      call: () => Constructor("return 42"),
+      fn: Constructor,
+      return(value) {
+        result = value;
+      },
+    });
+    assert.equal(typeof result, "function", Constructor.name);
+    const value = result();
+    if (Constructor.name.includes("Generator"))
+      assert.equal((await value.next()).value, 42);
+    else assert.equal(await value, 42);
+  }
+
+  const handlers = {};
+  const events = engineModule(1762, 2284, {
+    7530: { iswindow: false },
+    1171: {},
+    5994: { Rq: Symbol, lK: Reflect.ownKeys, pS: Object.defineProperty, z$: Reflect.apply },
+  });
+  events.default(
+    {
+      eventcallbacks: new WeakMap(),
+      Proxy(name, handler) {
+        handlers[name] = handler;
+      },
+    },
+    {
+      self: {},
+      MessagePort: { prototype: {} },
+      BroadcastChannel: { prototype: {} },
+    },
+  );
+  const target = new EventTarget();
+  let calls = 0;
+  const callback = () => calls++;
+  function listen(action, capture) {
+    const ctx = { this: target, args: ["probe", callback, capture] };
+    handlers["EventTarget.prototype." + action].apply(ctx);
+    target[action](...ctx.args);
+  }
+  listen("addEventListener", false);
+  listen("addEventListener", false);
+  target.dispatchEvent(new Event("probe"));
+  assert.equal(calls, 1, "duplicate listeners run once");
+  listen("addEventListener", true);
+  listen("removeEventListener", { capture: true });
+  target.dispatchEvent(new Event("probe"));
+  assert.equal(calls, 2, "capture removal leaves the bubbling listener");
+  listen("removeEventListener", false);
+  target.dispatchEvent(new Event("probe"));
+  assert.equal(calls, 2, "both listeners can be removed");
+
   const controller = await fetch(base + "/controller/controller.api.js");
   assert.equal(controller.status, 200);
   assert.match(controller.headers.get("content-type") || "", /javascript/);

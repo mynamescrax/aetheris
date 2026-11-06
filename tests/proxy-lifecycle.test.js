@@ -90,28 +90,53 @@ test("local game assets use visitor CORS access and retain the proxy fallback", 
   c.Response = Response;
   c.AbortController = AbortController;
   let hook;
-  c.$scramjet.Tap = { tap(_, callback) { hook = callback; } };
+  c.$scramjet.Tap = {
+    tap(_, callback) {
+      hook = callback;
+    },
+  };
   const frame = { aetherisLocal: true, hooks: { fetch: { request: {} } } };
   c.window.internals.installLocalFetch(frame);
   const url = new URL("https://static.example.org/media/scenes/game.babylon");
-  const request = { method: "GET", initialHeaders: { toRawHeaders: () => [["Range", "bytes=10-"], ["Cookie", "private"]] } };
+  const request = {
+    method: "GET",
+    initialHeaders: {
+      toRawHeaders: () => [
+        ["Range", "bytes=10-"],
+        ["Cookie", "private"],
+      ],
+    },
+  };
   const context = { request, parsed: { url, destination: "" } };
   const calls = [];
-  c.fetch = async (target, init) => { calls.push({ target, init }); return new Response("asset"); };
+  c.fetch = async (target, init) => {
+    calls.push({ target, init });
+    return new Response("asset");
+  };
   const props = {};
   await hook(context, props);
   assert.equal(await props.earlyResponse.text(), "asset");
   assert.equal(calls[0].init.credentials, "omit");
   assert.equal(calls[0].init.headers.Range, "bytes=10-");
   assert.equal(calls[0].init.headers.Cookie, undefined);
-  for (const fetcher of [async () => { throw new TypeError("CORS denied"); }, async () => new Response("blocked", { status: 403 })]) {
+  for (const fetcher of [
+    async () => {
+      throw new TypeError("CORS denied");
+    },
+    async () => new Response("blocked", { status: 403 }),
+  ]) {
     c.fetch = fetcher;
     const fallback = {};
     await hook(context, fallback);
     assert.equal(fallback.earlyResponse, undefined);
   }
-  c.fetch = async () => { throw new Error("must stay on transport"); };
-  assert.equal(hook({ request, parsed: { url, destination: "iframe" } }, {}), undefined);
+  c.fetch = async () => {
+    throw new Error("must stay on transport");
+  };
+  assert.equal(
+    hook({ request, parsed: { url, destination: "iframe" } }, {}),
+    undefined,
+  );
   frame.aetherisLocal = false;
   assert.equal(hook(context, {}), undefined);
 });
@@ -327,6 +352,69 @@ test("TLS failover completing after reset closes its replacement", async () => {
   assert.equal(swaps, 0);
   assert.equal(replacement.closed, true);
   assert.equal(c.window.internals.active(), null);
+});
+
+test("concurrent TLS failures share a replacement and replay every download", async () => {
+  const c = bootstrap();
+  const next = deferred();
+  let starts = 0;
+  const transport = {
+    request: async () => {
+      throw new Error("TLS rejected");
+    },
+    close() {},
+  };
+  const replacement = { request: async (url) => url.href };
+  c.window.internals.setActive(transport);
+  c.window.internals.setFactory(() => {
+    starts++;
+    return next.promise;
+  });
+  c.window.internals.install(
+    { setTransport() {} },
+    transport,
+    "wss://example.com/wisp/",
+    "libcurl",
+  );
+  const urls = [
+    new URL("https://cdn.example/a"),
+    new URL("https://cdn.example/b"),
+  ];
+  const requests = urls.map((url) => transport.request(url, "GET", null, []));
+  await new Promise(setImmediate);
+  assert.equal(starts, 1);
+  next.resolve({ transport: replacement, name: "epoxy" });
+  assert.deepEqual(
+    await Promise.all(requests),
+    urls.map((url) => url.href),
+  );
+});
+
+test("a failed replacement startup does not permanently disable TLS recovery", async () => {
+  const c = bootstrap();
+  let starts = 0;
+  const transport = {
+    request: async () => {
+      throw new Error("TLS rejected");
+    },
+    close() {},
+  };
+  const replacement = { request: async () => "asset" };
+  c.window.internals.setActive(transport);
+  c.window.internals.setFactory(async () => {
+    if (++starts === 1) throw new Error("temporarily offline");
+    return { transport: replacement, name: "epoxy" };
+  });
+  c.window.internals.install(
+    { setTransport() {} },
+    transport,
+    "wss://example.com/wisp/",
+    "libcurl",
+  );
+  const url = new URL("https://cdn.example/a");
+  await assert.rejects(transport.request(url, "GET", null, []), /offline/);
+  assert.equal(await transport.request(url, "GET", null, []), "asset");
+  assert.equal(starts, 2);
 });
 
 test("an active worker without page control is rejected before opening a frame", async () => {

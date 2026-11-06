@@ -10,7 +10,7 @@
   // edge node that cached the old copy keeps the old same-origin guard (which
   // aborts every local game) until its cache expires. The server marks a
   // versioned URL immutable and an unversioned one no-cache.
-  var PROXY_ENGINE_VERSION = "20261105.8";
+  var PROXY_ENGINE_VERSION = "20261106.2";
   var SCRAMJET_CORE_SRC = "/scramjet/scramjet.js?v=" + PROXY_ENGINE_VERSION;
   var SCRAMJET_CONTROLLER_SRC =
     "/controller/controller.api.js?v=" + PROXY_ENGINE_VERSION;
@@ -294,23 +294,28 @@
   function installtransportfailover(controller, transport, wispurl, name) {
     if (typeof controller.setTransport !== "function") return;
     var native = transport.request.bind(transport);
-    var switched = false;
+    var switching = null;
     var token = starttoken;
 
     transport.request = function (url, method, body, headers, signal) {
       return native(url, method, body, headers, signal).catch(function (err) {
         var message = String((err && err.message) || err);
-        if (!TLSERROR.test(message) || switched) throw err;
-        // One swap per host: the replacement transport gets a fresh wrapper,
-        // so without this the same bad host could swap back and forth forever.
-        var host = hostnameof(url);
-        if (host && tlsswappedhosts[host]) throw err;
+        if (!TLSERROR.test(message)) throw err;
         if (
           typeof ReadableStream === "function" &&
           body instanceof ReadableStream
         )
           throw err; // a consumed request stream cannot be replayed
-        switched = true;
+        // Downloads failing together must wait for the same replacement.
+        if (switching) {
+          return switching.then(function (replacement) {
+            return replacement.request(url, method, body, headers, signal);
+          });
+        }
+        // One swap per host: the replacement transport gets a fresh wrapper,
+        // so without this the same bad host could swap back and forth forever.
+        var host = hostnameof(url);
+        if (host && tlsswappedhosts[host]) throw err;
         if (host) {
           var seen = Object.keys(tlsswappedhosts).length;
           if (seen > 500) tlsswappedhosts = Object.create(null);
@@ -322,22 +327,31 @@
             " transport was rejected by TLS, switching to the other transport:",
           message,
         );
-        return createtransport(wispurl, name).then(function (picked) {
-          if (token !== starttoken || activetransport !== transport) {
-            closequietly(picked.transport);
-            throw err;
-          }
-          activetransport = picked.transport;
-          routeoversizedheaders(picked.transport, wispurl, picked.name);
-          installtransportfailover(
-            controller,
-            picked.transport,
-            wispurl,
-            picked.name,
-          );
-          controller.setTransport(picked.transport);
-          closequietly(transport);
-          return picked.transport.request(url, method, body, headers, signal);
+        switching = createtransport(wispurl, name)
+          .then(function (picked) {
+            if (token !== starttoken || activetransport !== transport) {
+              closequietly(picked.transport);
+              throw err;
+            }
+            activetransport = picked.transport;
+            routeoversizedheaders(picked.transport, wispurl, picked.name);
+            installtransportfailover(
+              controller,
+              picked.transport,
+              wispurl,
+              picked.name,
+            );
+            controller.setTransport(picked.transport);
+            closequietly(transport);
+            return picked.transport;
+          })
+          .catch(function (error) {
+            switching = null;
+            if (host) delete tlsswappedhosts[host];
+            throw error;
+          });
+        return switching.then(function (replacement) {
+          return replacement.request(url, method, body, headers, signal);
         });
       });
     };
@@ -534,8 +548,11 @@
       var relayed = url.origin !== location.origin && relayedhost(url.hostname);
       // CORS-enabled game assets may accept the visitor but block VPS IPs.
       // Keep documents on the proxy; successful asset bodies are still rewritten.
-      var direct = url.origin !== location.origin && /^https?:$/.test(url.protocol) &&
-        context.parsed.destination !== "document" && context.parsed.destination !== "iframe";
+      var direct =
+        url.origin !== location.origin &&
+        /^https?:$/.test(url.protocol) &&
+        context.parsed.destination !== "document" &&
+        context.parsed.destination !== "iframe";
       if (!sameorigin && !relayed && !direct) return;
 
       var init = { method: request.method };
@@ -560,7 +577,9 @@
         init.credentials = "omit";
         var abort = new AbortController();
         init.signal = abort.signal;
-        timer = setTimeout(function () { abort.abort(); }, 5000);
+        timer = setTimeout(function () {
+          abort.abort();
+        }, 5000);
       }
       return fetch(url.href, init)
         .then(function (response) {
@@ -574,7 +593,10 @@
             url.href,
             error,
           );
-        }).finally(function () { clearTimeout(timer); });
+        })
+        .finally(function () {
+          clearTimeout(timer);
+        });
     });
   }
 
