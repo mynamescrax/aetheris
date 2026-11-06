@@ -365,7 +365,7 @@ test("proxied aetheris games relay every host the worker mirrors", () => {
 test("every GitHub user-content host and GitHub raw link is relayed", () => {
   const source = readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
   const from = source.indexOf("function isproxiedurl");
-  const to = source.indexOf("function mirrorredirectresponse");
+  const to = source.indexOf("function mirrorfetchresponse");
   assert.ok(from !== -1 && to > from, "the worker redirect helpers are where we expect them");
   const context = {
     SITE_ORIGIN: "https://aetheris.test",
@@ -616,19 +616,56 @@ test("the worker puts the CORS header back on a failed relay answer", async () =
   assert.equal(good.headers.get("access-control-allow-origin"), null);
 });
 
-test("the worker's redirect to the relay passes the CORS check on its own", () => {
+test("the worker fetches mirror bodies without a synthetic cross-origin redirect", async () => {
   const source = readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
-  const from = source.indexOf("function mirrorredirectresponse(");
+  const from = source.indexOf("function mirrorfetchresponse(");
   const to = source.indexOf("function shouldbypass(");
   assert.ok(from !== -1 && to > from, "the redirect helper is where we expect it");
-  const context = { Response };
-  vm.runInNewContext(source.slice(from, to) + "\nthis.build = mirrorredirectresponse;", context);
+  let forwarded;
+  const context = { Response, Request, Headers, fetch: async request => {
+    forwarded = request;
+    return new Response("bytes", { headers: { "Access-Control-Allow-Origin": "*" } });
+  } };
+  vm.runInNewContext(source.slice(from, to) + "\nthis.build = mirrorfetchresponse;", context);
   const target = "https://aetheris.win/s/token/build.wasm.unityweb";
-  const res = context.build(target);
-  assert.equal(res.status, 302);
-  assert.equal(res.headers.get("location"), target);
+  const res = await context.build(new Request("https://cdn.jsdelivr.net/gh/a/b/file", { headers: { Range: "bytes=0-1023", Cookie: "private" } }), target);
+  assert.equal(res.status, 200);
+  assert.equal(await res.text(), "bytes");
+  assert.equal(res.url, "");
+  assert.equal(res.redirected, false);
+  assert.equal(forwarded.url, target);
+  assert.equal(forwarded.credentials, "omit");
+  assert.equal(forwarded.headers.get("Range"), "bytes=0-1023");
+  assert.equal(forwarded.headers.get("Cookie"), null);
   assert.equal(res.headers.get("access-control-allow-origin"), "*");
   assert.ok(!source.includes("Response.redirect(mirrorurl"), "no header-less redirect is left");
+});
+
+test("forwarded streams hold the worker alive until completion or cancellation", async () => {
+  const source = readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
+  const from = source.indexOf("function keepstreamalive(");
+  const to = source.indexOf("function shouldbypass(", from);
+  const context = { Response, ReadableStream };
+  vm.runInNewContext(source.slice(from, to) + "\nthis.wrap = keepstreamalive;", context);
+  for (const outcome of ["complete", "cancel", "error"]) {
+    let controller, lifetime, finished = false;
+    const stream = new ReadableStream({ start(value) { controller = value; } });
+    const wrapped = context.wrap(new Response(stream), { waitUntil(promise) { lifetime = promise; } });
+    lifetime.then(() => { finished = true; });
+    await new Promise(setImmediate);
+    assert.equal(finished, false);
+    if (outcome === "cancel") await wrapped.body.cancel();
+    else if (outcome === "error") {
+      controller.error(new Error("disconnected"));
+      await assert.rejects(wrapped.text(), /disconnected/);
+    } else {
+      controller.enqueue(new TextEncoder().encode("asset"));
+      controller.close();
+      assert.equal(await wrapped.text(), "asset");
+    }
+    await lifetime;
+    assert.equal(finished, true);
+  }
 });
 
 test("the service worker relays the same paths as the relay does", () => {

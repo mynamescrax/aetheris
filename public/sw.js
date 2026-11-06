@@ -1059,6 +1059,7 @@ function injecthtmlshims(response, options) {
     var shims =
       (options.gameclock ? gameclockshim : "") +
       cookieenabledshim +
+      '<script>if(/Firefox\\//.test(navigator.userAgent)&&typeof window.EJS_CacheLimit!=="number")window.EJS_CacheLimit=134217728;<\/script>' +
       panicshim +
       (options.desktopua ? desktopuashim : "") +
       audiounlockshim +
@@ -1366,18 +1367,22 @@ function mirrorredirecturl(url, method) {
   );
 }
 
-// The redirect for a cross-origin fetch() is itself CORS-checked: the browser
-// needs Access-Control-Allow-Origin on the 302, not just on the file it points
-// to. Response.redirect() cannot carry headers, and a strict engine (WebKit)
-// then drops the request before it ever reaches the relay.
-function mirrorredirectresponse(location) {
-  return new Response(null, {
-    status: 302,
-    headers: {
-      Location: location,
-      "Access-Control-Allow-Origin": "*",
-      "Cache-Control": "no-store",
-    },
+// Firefox rejects synthetic cross-origin redirects from respondWith(). Fetch
+// the mirror here and return a fresh response without a redirect URL chain.
+function mirrorfetchresponse(request, location) {
+  var headers = new Headers();
+  var range = request.headers.get("Range");
+  if (range) headers.set("Range", range);
+  return relayresponse(new Request(location, {
+    method: request.method,
+    headers: headers,
+    credentials: "omit",
+  })).then(function (response) {
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+    });
   });
 }
 
@@ -1433,6 +1438,33 @@ function relayresponse(request) {
       });
     },
   );
+}
+
+// Keep Firefox's worker alive after headers have resolved respondWith(): a
+// large forwarded stream can otherwise be cut off by the idle timeout.
+function keepstreamalive(response, event) {
+  if (!response.body) return response;
+  var reader = response.body.getReader();
+  var finish;
+  event.waitUntil(new Promise(function (resolve) { finish = resolve; }));
+  var body = new ReadableStream({
+    async pull(controller) {
+      try {
+        var chunk = await reader.read();
+        if (chunk.done) { finish(); controller.close(); }
+        else controller.enqueue(chunk.value);
+      } catch (error) { finish(); controller.error(error); }
+    },
+    cancel(reason) {
+      finish();
+      return reader.cancel(reason);
+    },
+  });
+  return new Response(body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers,
+  });
 }
 
 function shouldbypass(url) {
@@ -1575,7 +1607,9 @@ self.addEventListener("fetch", function (event) {
       canmirrorredirect(event.request) &&
       mirrorredirecturl(url, event.request.method);
     if (mirrorurl) {
-      event.respondWith(mirrorredirectresponse(mirrorurl));
+      event.respondWith(mirrorfetchresponse(event.request, mirrorurl).then(function (response) {
+        return keepstreamalive(response, event);
+      }));
       return;
     }
   }
@@ -1585,7 +1619,9 @@ self.addEventListener("fetch", function (event) {
   // error page), so the browser reports a CORS error instead of the status.
   // The worker is the last place where the header can be put back.
   if (!proxied && parsed && parsed.origin === SITE_ORIGIN && isrelaypath(parsed.pathname)) {
-    event.respondWith(relayresponse(event.request));
+    event.respondWith(relayresponse(event.request).then(function (response) {
+      return keepstreamalive(response, event);
+    }));
     return;
   }
 
@@ -1651,6 +1687,9 @@ self.addEventListener("fetch", function (event) {
           })
           .then(function (r) {
             return injecthtmlshims(r, { desktopua: spoofdesktopua });
+          })
+          .then(function (r) {
+            return keepstreamalive(r, event);
           });
       })
       .catch(function (err) {

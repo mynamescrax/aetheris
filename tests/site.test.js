@@ -474,6 +474,26 @@ test("audio unlock shim only logs when debugging is switched on", () => {
   );
 });
 
+test("Firefox emulator ROM caching stays below the IndexedDB record limit", async () => {
+  const sw = loadswRuntime("Firefox/135.0", "");
+  const response = sw.injecthtmlshims(new Response("<html><head></head></html>", {
+    headers: { "content-type": "text/html" },
+  }), {});
+  const html = await response.text();
+  const shim = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)]
+    .map(match => match[1]).find(script => script.includes("EJS_CacheLimit"));
+  assert.ok(shim);
+  for (const [userAgent, initial, expected] of [
+    ["Firefox/135.0", undefined, 128 * 1024 * 1024],
+    ["Firefox/135.0", 1024, 1024],
+    ["Chrome/135.0", undefined, undefined],
+  ]) {
+    const window = { EJS_CacheLimit: initial };
+    vm.runInNewContext(shim, { window, navigator: { userAgent } });
+    assert.equal(window.EJS_CacheLimit, expected);
+  }
+});
+
 test("html shim injection streams and inserts at the same point", async () => {
   const adspoofSource = "(function(){window.__adSpoofInstalled=true})();";
   const sw = loadswRuntime(
