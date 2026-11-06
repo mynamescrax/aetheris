@@ -528,13 +528,43 @@ function hasrequestbody(req) {
   return req.method !== "GET" && req.method !== "HEAD";
 }
 
+function isrelativeproxyurl(value) {
+  try {
+    var url = new URL(value);
+    var match = url.pathname.match(/^\/~\/sj\/[^/]+\/[^/]+\/(.*)$/);
+    if (!match || match[1] === "scramjet.wasm.js") return false;
+    return !/^[a-z][a-z0-9+.-]*:/i.test(decodeURIComponent(match[1]));
+  } catch (_) { return false; }
+}
+
+// Dynamic CSS/FontFace URLs can bypass rewriting and resolve against the
+// encoded proxy pathname. Recover their base from the actual frame document.
+function repairrelativeproxyurl(value, referrer) {
+  if (!isrelativeproxyurl(value)) return null;
+  try {
+    var url = new URL(value);
+    var parent = new URL(referrer);
+    var prefix = url.pathname.match(/^\/~\/sj\/[^/]+\/[^/]+\//)[0];
+    if (parent.origin !== url.origin || !parent.pathname.startsWith(prefix)) return null;
+    var base = new URL(decodeURIComponent(parent.pathname.slice(prefix.length)));
+    if (!/^https?:$/.test(base.protocol)) return null;
+    var relative = url.pathname.slice(prefix.length) + url.search + url.hash;
+    return url.origin + prefix + encodeURIComponent(new URL(relative, base).href);
+  } catch (_) { return null; }
+}
+
 async function buildrouteevent(event) {
   var req = event.request;
   var spoof = spoofdesktopua;
   var withbody = hasrequestbody(req);
+  var repaired = repairrelativeproxyurl(req.url, req.referrer);
+  if (!repaired && isrelativeproxyurl(req.url) && event.clientId) {
+    var client = await self.clients.get(event.clientId);
+    if (client) repaired = repairrelativeproxyurl(req.url, client.url);
+  }
 
   // Nothing to rewrite — hand route() the real FetchEvent untouched.
-  if (!spoof && !withbody) return event;
+  if (!spoof && !withbody && !repaired) return event;
 
   try {
     var headers;
@@ -560,7 +590,7 @@ async function buildrouteevent(event) {
 
     return {
       request: {
-        url: req.url,
+        url: repaired || req.url,
         referrer: req.referrer,
         destination: req.destination,
         mode: req.mode,
@@ -731,7 +761,7 @@ var audiounlockshim =
 
 // Ad spoof shim, inlined once fetched (external tag until then). Inline avoids
 // scramjet logging "unexpected url" for every local <script src> it unrewrites.
-var ADSPOOF_SRC = "/js/ad-spoof.js?v=20261106.1";
+var ADSPOOF_SRC = "/js/ad-spoof.js?v=20261106.2";
 var adspoofshim = '<script src="' + ADSPOOF_SRC + '"><\/script>';
 var adspoofinline = null;
 (function warmadspoof() {
@@ -1709,9 +1739,13 @@ self.addEventListener("fetch", function (event) {
           return Response.redirect("/recover", 302);
         // not fetch(event.request): the origin would return 404.html, which
         // callers then fail to parse as JSON
-        return new Response("", {
+        return new Response("Proxy unavailable", {
           status: 503,
           statusText: "Proxy unavailable",
+          headers: {
+            "Content-Type": "text/plain; charset=utf-8",
+            "Cache-Control": "no-store",
+          },
         });
       }),
   );

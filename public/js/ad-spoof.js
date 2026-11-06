@@ -4,8 +4,10 @@ var n=function(){},r=function(){return Promise.resolve(1)},f=function(){return P
 // Offline Poki bundles have blank ad/config URLs and cannot initialize IMA.
 // Keep the game lifecycle available without starting that broken ad backend.
 var poki={init:function(){return Promise.resolve()},commercialBreak:function(){return Promise.resolve()},rewardedBreak:function(){return Promise.resolve(false)},gameLoadingStart:n,gameLoadingFinished:n,gameLoadingProgress:n,gameplayStart:n,gameplayStop:n,setDebug:n,captureError:n,getURLParam:function(key){try{return new URLSearchParams(window.location.search).get(key)}catch(e){return null}}}
-var pokisdk=Object.assign({},window.PokiSDK||{},poki)
-Object.defineProperty(window,'PokiSDK',{get:function(){return pokisdk},set:function(value){pokisdk=Object.assign({},value||{},poki)},configurable:true})
+poki.initWithVideoHB=poki.init
+function protectPoki(value){return new Proxy(Object.assign({},value||{},poki),{set:function(target,key,value){if(!Object.prototype.hasOwnProperty.call(poki,key))target[key]=value;return true}})}
+var pokisdk=protectPoki(window.PokiSDK)
+Object.defineProperty(window,'PokiSDK',{get:function(){return pokisdk},set:function(value){pokisdk=protectPoki(value)},configurable:true})
 
 function C(){return{isAvailable:1,adAvailable:1,hasAdBlock:f,
 showBanner:n,hideBanner:n,clearBannerAd:n,requestBannerAd:n,preloadBannerAd:r,

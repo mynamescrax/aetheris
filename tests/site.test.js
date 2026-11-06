@@ -291,12 +291,37 @@ test("Poki lifecycle survives a later SDK assignment without starting its broken
   vm.runInNewContext(source, { window, setTimeout, URLSearchParams });
   await window.PokiSDK.init();
   window.PokiSDK = { init() { throw new Error("missing IMA"); }, custom: 42 };
+  window.PokiSDK.init = () => { throw new Error("late SDK mutation"); };
+  window.PokiSDK.gameLoadingFinished = () => { throw new Error("uninitialized backend"); };
   await window.PokiSDK.init();
+  await window.PokiSDK.initWithVideoHB();
   await window.PokiSDK.commercialBreak();
   assert.equal(await window.PokiSDK.rewardedBreak(), false);
   assert.equal(window.PokiSDK.getURLParam("level"), "3");
   assert.equal(window.PokiSDK.custom, 42);
   window.PokiSDK.gameLoadingFinished();
+});
+
+test("relative proxy asset URLs recover the originating game directory and query", async () => {
+  const source = fs.readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
+  const from = source.indexOf("function hasrequestbody(");
+  const to = source.indexOf("var recoveryhtml", from);
+  const prefix = "https://site.example/~/sj/tab/frame/";
+  const base = "https://games.example/subdir/index.html";
+  const referrer = prefix + encodeURIComponent(base);
+  const context = { URL, spoofdesktopua: false, self: { clients: { get: async () => ({ url: referrer }) } } };
+  vm.runInNewContext(source.slice(from, to) + "\nthis.repair = repairrelativeproxyurl; this.build = buildrouteevent;", context);
+  const request = new Request(prefix + "assets/font/test.woff2?h=123");
+  const expected = prefix + encodeURIComponent("https://games.example/subdir/assets/font/test.woff2?h=123");
+  assert.equal(context.repair(request.url, referrer), expected);
+  const event = { request, clientId: "frame-client" };
+  const routed = await context.build(event);
+  assert.equal(routed.request.url, expected);
+  for (const target of [prefix + "scramjet.wasm.js", prefix + encodeURIComponent("https://remote.example/x"), prefix + "blob:https://site.example/id"]) {
+    assert.equal(context.repair(target, referrer), null);
+  }
+  assert.equal(context.repair(request.url, "https://unrelated.example/index.html"), null);
+  assert.equal(context.repair(request.url, prefix.replace("/frame/", "/other/") + encodeURIComponent(base)), null);
 });
 
 test("player accepts iframe-only catalog entries", () => {
