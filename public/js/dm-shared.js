@@ -112,8 +112,28 @@ function switchtab(t) {
     .getElementById("tab-reg")
     .setAttribute("aria-selected", String(t === "register"));
   document.getElementById("auth-submit").textContent =
-    t === "login" ? "Log in" : "Register";
+    t === "login" ? "Log in" : "Create account";
   document.getElementById("auth-err").textContent = "";
+  var confirmation = document.getElementById("confirm-password-wrap");
+  if (confirmation) confirmation.hidden = t !== "register";
+  var confirmInput = document.getElementById("f-confirm");
+  if (confirmInput) confirmInput.value = "";
+  var heading = document.getElementById("auth-heading");
+  if (heading)
+    heading.textContent =
+      t === "login" ? "Welcome back." : "Join the conversation.";
+  var description = document.getElementById("auth-description");
+  if (description)
+    description.textContent =
+      t === "login"
+        ? "Sign in to pick up your conversations."
+        : "Create your chat account. No email needed.";
+  var help = document.getElementById("auth-help");
+  if (help)
+    help.textContent =
+      t === "login"
+        ? "Use the username you registered with."
+        : "Username: 2–32 letters, numbers, dots, hyphens or underscores. Password: 6+ characters.";
   var pass = document.getElementById("f-pass");
   pass.autocomplete = t === "login" ? "current-password" : "new-password";
   // new accounts need 6+ chars; older accounts can still log in with 4+
@@ -150,9 +170,25 @@ async function submitauth() {
       "Passwords need at least " + REGISTER_MIN_PASSWORD + " characters.";
     return;
   }
+  if (
+    !/^[a-zA-Z0-9_.-]{2,32}$/.test(u) ||
+    ["__proto__", "prototype", "constructor"].includes(u.toLowerCase())
+  ) {
+    e.textContent =
+      "Use a 2–32 character username with letters, numbers, dots, hyphens or underscores.";
+    return;
+  }
+  var confirmation = document.getElementById("f-confirm");
+  if (currenttab === "register" && confirmation && p !== confirmation.value) {
+    e.textContent = "Passwords don’t match.";
+    confirmation.focus();
+    return;
+  }
   authSubmitting = true;
   var submit = document.getElementById("auth-submit");
   submit.disabled = true;
+  submit.textContent =
+    currenttab === "login" ? "Signing in…" : "Creating account…";
   var controller = new AbortController();
   var timer = setTimeout(function () {
     controller.abort();
@@ -160,7 +196,7 @@ async function submitauth() {
   var ep =
     currenttab === "login" ? "/api/accounts/login" : "/api/accounts/register";
   try {
-    var deviceId = await getdeviceid();
+    var deviceId = currenttab === "register" ? await getdeviceid() : undefined;
     var r = await fetch(ep, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -168,7 +204,7 @@ async function submitauth() {
       signal: controller.signal,
     });
     var d = await r.json();
-    if (!d.ok) {
+    if (!r.ok || !d.ok) {
       e.textContent = d.error || "Something went wrong.";
       return;
     }
@@ -180,6 +216,7 @@ async function submitauth() {
     myusername = d.username;
     Aetheris.storage.setItem("dmUsername", myusername);
     document.getElementById("f-pass").value = "";
+    if (confirmation) confirmation.value = "";
     showapp();
   } catch (error) {
     e.textContent =
@@ -190,6 +227,7 @@ async function submitauth() {
     clearTimeout(timer);
     authSubmitting = false;
     submit.disabled = false;
+    submit.textContent = currenttab === "login" ? "Log in" : "Create account";
   }
 }
 
@@ -199,6 +237,34 @@ if (document.getElementById("f-user") && document.getElementById("f-pass")) {
     if (e.key === "Enter") document.getElementById("f-pass").focus();
   });
   document.getElementById("f-pass").addEventListener("keydown", function (e) {
-    if (e.key === "Enter" && !e.isComposing) submitauth();
+    if (e.key === "Enter" && !e.isComposing) {
+      var confirmation = document.getElementById("f-confirm");
+      if (currenttab === "register" && confirmation) confirmation.focus();
+      else submitauth();
+    }
+  });
+  var confirmation = document.getElementById("f-confirm");
+  if (confirmation)
+    confirmation.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && !e.isComposing) submitauth();
+    });
+  ["tab-login", "tab-reg"].forEach(function (id) {
+    document.getElementById(id).addEventListener("keydown", function (event) {
+      if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key))
+        return;
+      event.preventDefault();
+      var next =
+        event.key === "Home"
+          ? "login"
+          : event.key === "End"
+            ? "register"
+            : currenttab === "login"
+              ? "register"
+              : "login";
+      switchtab(next);
+      document
+        .getElementById(next === "login" ? "tab-login" : "tab-reg")
+        .focus();
+    });
   });
 }

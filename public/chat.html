@@ -14,7 +14,8 @@
     <link rel="stylesheet" href="./css/themes.css?v=20261101.1" />
     <link rel="stylesheet" href="./css/nav.css?v=20261102.1" />
     <link rel="stylesheet" href="./css/chat.css?v=20260907.1" />
-    <link rel="stylesheet" href="./css/chat-extras.css?v=20261011.1" />
+    <link rel="stylesheet" href="./css/chat-extras.css?v=20261106.1" />
+    <link rel="stylesheet" href="./css/chat-account.css?v=20261106.1" />
     <script src="./js/theme.js?v=20261101.1"></script>
     <script src="register-sw.js?v=20260907.1" defer></script>
     <script defer src="./js/preload.js?v=20261008.1"></script>
@@ -25,7 +26,9 @@
   <body>
     <div id="auth-page">
       <div class="auth-card">
-        <div class="auth-logo">Aetheris <em>DMs</em></div>
+        <div class="auth-logo">Aetheris <em>Chat</em></div>
+        <h1 id="auth-heading">Welcome back.</h1>
+        <p id="auth-description">Sign in to pick up your conversations.</p>
         <div class="auth-tabs" role="tablist" aria-label="Account">
           <button
             id="tab-login"
@@ -42,9 +45,10 @@
             aria-selected="false"
             onclick="switchtab('register')"
           >
-            Register
+            Create account
           </button>
         </div>
+        <label class="auth-label" for="f-user">Username</label>
         <div class="fi">
           <input
             id="f-user"
@@ -57,6 +61,7 @@
             spellcheck="false"
           />
         </div>
+        <label class="auth-label" for="f-pass">Password</label>
         <div class="fi">
           <input
             id="f-pass"
@@ -76,6 +81,11 @@
             👁
           </button>
         </div>
+        <div id="confirm-password-wrap" hidden>
+          <label class="auth-label" for="f-confirm">Confirm password</label>
+          <div class="fi"><input id="f-confirm" type="password" aria-label="Confirm password" autocomplete="new-password" maxlength="128" placeholder="Enter your password again" /></div>
+        </div>
+        <p class="auth-help" id="auth-help">Use the username you registered with.</p>
         <label class="keep-row">
           <input type="checkbox" id="keep-chk" /> Keep me logged in</label
         >
@@ -83,10 +93,7 @@
         <button class="abtn" id="auth-submit" onclick="submitauth()">
           Log in
         </button>
-        <hr class="auth-hr" />
-        <button type="button" class="abtn danger" onclick="openwipe()">
-          Delete all accounts from this device
-        </button>
+        <p class="auth-help">No email required. Keep your password safe; email recovery isn’t available.</p>
       </div>
     </div>
 
@@ -102,12 +109,12 @@
               <div class="tg-me-acts">
                 <button
                   class="ib"
-                  id="al-btn"
-                  onclick="toggleautologin()"
-                  title="Auto-login"
-                  aria-label="Toggle auto-login"
+                  id="account-btn"
+                  onclick="openchataccount()"
+                  title="Account settings"
+                  aria-label="Account settings"
                 >
-                  🔒
+                  ⚙
                 </button>
                 <button
                   class="ib"
@@ -116,14 +123,6 @@
                   aria-label="Log out"
                 >
                   ↩
-                </button>
-                <button
-                  class="ib red"
-                  onclick="openmodal('modal-del')"
-                  title="Delete account"
-                  aria-label="Delete account"
-                >
-                  🗑
                 </button>
               </div>
             </div>
@@ -263,34 +262,19 @@
       </div>
     </div>
 
-    <div
-      id="modal-wipe"
-      class="mbg"
-      style="display: none"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="wipe-title"
-      onclick="bgclose(event, 'modal-wipe')"
-    >
-      <div class="modal">
-        <h3 id="wipe-title">Delete all accounts?</h3>
-        <p>
-          Deletes the account created on this device. You need to be logged in.
-        </p>
-        <div id="wipe-ok" class="ok-msg" style="display: none"></div>
-        <div class="mrow">
-          <button class="mbtn warn" onclick="confirmwipe()">
-            Yes, delete all
-          </button>
-          <button class="mbtn ghost" onclick="closemodal('modal-wipe')">
-            Cancel
-          </button>
-        </div>
+    <dialog id="chat-account" class="chat-account-dialog" aria-labelledby="account-title">
+      <header class="chat-account-head"><div><p class="account-eyebrow">Aetheris Chat</p><h2 id="account-title">Your account</h2></div><button type="button" class="ib" onclick="closechataccount()" aria-label="Close account settings">✕</button></header>
+      <div class="chat-account-body">
+        <section class="chat-account-identity"><div class="av md" id="account-avatar" aria-hidden="true"></div><div><strong id="account-username"></strong><p id="account-created"></p></div></section>
+        <label class="keep-row"><input type="checkbox" id="account-keep" /> Keep me signed in on this browser</label>
+        <section class="chat-account-section"><h3>Signed-in devices</h3><p id="account-sessions">Loading sessions…</p><button type="button" class="mbtn ghost" id="logout-others" onclick="logoutothers()" disabled>Sign out other devices</button><p class="account-feedback" id="sessions-feedback" role="status"></p></section>
+        <form class="chat-account-section" id="password-form" onsubmit="changepassword(event)"><h3>Change password</h3><label for="current-password">Current password</label><input id="current-password" type="password" autocomplete="current-password" maxlength="128" required /><label for="new-password">New password</label><input id="new-password" type="password" autocomplete="new-password" minlength="6" maxlength="128" required aria-describedby="password-help" /><p id="password-help">6–128 characters. Changing your password signs out other devices.</p><label for="new-password-confirm">Confirm new password</label><input id="new-password-confirm" type="password" autocomplete="new-password" maxlength="128" required /><p class="account-feedback" id="password-feedback" role="status"></p><button class="mbtn" id="password-save" type="submit">Update password</button></form>
+        <footer class="chat-account-footer"><button type="button" class="mbtn ghost" onclick="closechataccount(); logout()">Sign out</button><button type="button" class="account-delete" onclick="closechataccount(); openmodal('modal-del')">Delete account</button></footer>
       </div>
-    </div>
+    </dialog>
 
-    <script src="./js/dm-shared.js?v=20261007.1"></script>
+    <script src="./js/dm-shared.js?v=20261106.3"></script>
     <script src="./js/dm-ui.js?v=20261011.3"></script>
-    <script src="./js/chat.js?v=20261007.1"></script>
+    <script src="./js/chat.js?v=20261106.1"></script>
   </body>
 </html>

@@ -194,6 +194,46 @@ test("malformed and reserved account input returns 400, not 500", async () => {
   assert.equal(result.status, 400);
 });
 
+test("chat accounts can revoke other sessions and change passwords without losing chat data", async () => {
+  const created = await register("ChatAccountUser");
+  assert.equal(created.status, 200);
+  const token = created.data.token;
+  const signin = password => api("/api/accounts/login", {
+    method: "POST", headers: headers(), body: JSON.stringify({ username: "ChatAccountUser", password }),
+  });
+  const other = await signin("local-test-password");
+  const me = await api("/api/accounts/me", { headers: headers(token) });
+  assert.equal(me.data.activeSessions, 2);
+  assert.equal(typeof me.data.createdAt, "number");
+  assert.equal(me.headers.get("cache-control"), "no-store");
+  for (const key of ["sessions", "passwordHash", "ip", "deviceId", "dms"]) assert.equal(Object.hasOwn(me.data, key), false);
+  for (const path of ["password", "logout-others"]) {
+    const guest = await api("/api/accounts/" + path, { method: "POST", headers: headers(), body: "{}" });
+    assert.equal(guest.status, 401);
+  }
+  const revoked = await api("/api/accounts/logout-others", { method: "POST", headers: headers(token), body: "{}" });
+  assert.equal(revoked.data.activeSessions, 1);
+  assert.equal((await api("/api/accounts/me", { headers: headers(other.data.token) })).status, 401);
+  const second = await signin("local-test-password");
+  const change = body => api("/api/accounts/password", { method: "POST", headers: headers(token), body: JSON.stringify(body) });
+  const before = JSON.parse(readFileSync(join(runtime, "database", "chataccountuser.json")));
+  const wrong = await change({ currentPassword: "wrong-password", newPassword: "updated-test-password" });
+  assert.equal(wrong.status, 403);
+  const invalid = await change({ currentPassword: "local-test-password", newPassword: "tiny" });
+  assert.equal(invalid.status, 400);
+  const changed = await change({ currentPassword: "local-test-password", newPassword: "updated-test-password" });
+  assert.equal(changed.status, 200);
+  assert.equal((await api("/api/accounts/me", { headers: headers(token) })).status, 200);
+  assert.equal((await api("/api/accounts/me", { headers: headers(second.data.token) })).status, 401);
+  assert.equal((await signin("local-test-password")).status, 401);
+  assert.equal((await signin("updated-test-password")).status, 200);
+  const stored = JSON.parse(readFileSync(join(runtime, "database", "chataccountuser.json")));
+  assert.notEqual(stored.passwordHash, before.passwordHash);
+  assert.match(stored.passwordHash, /^scrypt:/);
+  assert.deepEqual(stored.dms, before.dms);
+  assert.equal(stored.username, before.username);
+});
+
 test("simultaneous registrations cannot create two accounts for one device", async () => {
   const id = device();
   const results = await Promise.all([

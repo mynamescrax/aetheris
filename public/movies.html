@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="./css/cards.css?v=20260907.1" />
     <link rel="stylesheet" href="./css/themes.css?v=20261101.1" />
     <link rel="stylesheet" href="./css/nav.css?v=20261102.1" />
-    <link rel="stylesheet" href="./css/movies.css?v=20261011.3" />
+    <link rel="stylesheet" href="./css/movies.css?v=20261106.2" />
     <script defer src="./js/preload.js?v=20261008.1"></script>
     <script src="./js/theme.js?v=20261101.1"></script>
 
@@ -25,16 +25,19 @@
   <body>
     <div class="movies-header">
       <div class="movies-nav">
-        <div class="movies-title">Movies &amp; TV</div>
+        <div class="movies-title">
+          <span class="cinema-mark" aria-hidden="true">▥</span> Movies &amp;
+          shows
+        </div>
         <div class="mode-btns">
           <button class="mode-btn active" data-type="all" aria-pressed="true">
-            All
+            Discover
           </button>
           <button class="mode-btn" data-type="movie" aria-pressed="false">
             Movies
           </button>
           <button class="mode-btn" data-type="tv" aria-pressed="false">
-            TV
+            TV shows
           </button>
         </div>
         <div class="search-wrap">
@@ -49,7 +52,66 @@
       </div>
     </div>
 
-    <main>
+    <main id="movies-content">
+      <section
+        class="featured"
+        id="featured"
+        aria-label="Featured titles"
+        hidden
+      >
+        <img class="featured-art" id="featured-art" alt="" />
+        <div class="featured-copy">
+          <p class="eyebrow">
+            In the spotlight <span> / </span> Trending this week
+          </p>
+          <h1 id="featured-title"></h1>
+          <p class="featured-meta" id="featured-meta"></p>
+          <p class="featured-overview" id="featured-overview"></p>
+          <button class="featured-play" id="featured-play">
+            <span aria-hidden="true">▶</span> Watch now
+          </button>
+        </div>
+        <div
+          class="featured-pagination"
+          id="featured-pagination"
+          aria-label="Choose featured title"
+        ></div>
+      </section>
+      <section id="recent-section" aria-labelledby="recent-title" hidden>
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Your viewing history · This browser</p>
+            <h2 id="recent-title">Recently watched</h2>
+          </div>
+          <button type="button" class="history-clear" id="recent-clear">
+            Clear history
+          </button>
+        </div>
+        <div class="trending-rail" id="recent-rail"></div>
+        <p class="history-note">Titles you’ve opened, ready to watch again.</p>
+      </section>
+      <section
+        class="trending-section"
+        id="trending-section"
+        aria-labelledby="trending-title"
+        hidden
+      >
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">The weekly selection</p>
+            <h2 id="trending-title">Trending now</h2>
+          </div>
+          <span class="section-note">The titles everyone’s watching</span>
+        </div>
+        <div class="trending-rail" id="trending-rail"></div>
+      </section>
+      <div class="section-heading catalogue-heading">
+        <div>
+          <p class="eyebrow">Find your next watch</p>
+          <h2 id="catalogue-title">Explore the collection</h2>
+        </div>
+        <span class="section-note" id="catalogue-count"></span>
+      </div>
       <div class="grid" id="grid"></div>
       <button class="load-more" id="movies-more" hidden>Load more</button>
       <div class="status-msg" id="status" role="status">Loading…</div>
@@ -126,6 +188,6 @@
     <script defer src="register-sw.js?v=20260907.1"></script>
     <script defer src="/movie-relay-config.js"></script>
     <script defer src="./js/movie-sources.js?v=20261102.3"></script>
-    <script defer src="./js/movies-ui.js?v=20261015.1"></script>
+    <script defer src="./js/movies-ui.js?v=20261106.3"></script>
   </body>
 </html>

@@ -1,5 +1,6 @@
 /* Presence dots and group chat bits shared by chat.html and minichat.html
    (classes added by dm-ui.js). */
+[hidden] { display: none !important; }
 
 .dm-online {
   position: relative;

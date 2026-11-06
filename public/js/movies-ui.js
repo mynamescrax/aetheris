@@ -30,6 +30,164 @@
   var playerTimer = null;
   var focusBeforeModal = null;
   var overflowBeforeModal = "";
+  var featured = document.getElementById("featured");
+  var featuredIndex = 0;
+  var recentItems = readRecent();
+
+  function readRecent() {
+    try {
+      var saved = JSON.parse(Aetheris.storage.getItem("moviesRecent") || "[]");
+      return Array.isArray(saved)
+        ? saved
+            .filter(function (item) {
+              return (
+                item &&
+                Number.isInteger(item.id) &&
+                item.id > 0 &&
+                (item.media_type === "movie" || item.media_type === "tv") &&
+                typeof item.title === "string"
+              );
+            })
+            .slice(0, 20)
+        : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function rememberItem(id, type) {
+    var item = items.concat(recentItems).find(function (entry) {
+      return (
+        entry.id === id &&
+        (entry.media_type || (entry.title ? "movie" : "tv")) === type
+      );
+    });
+    if (!item) return;
+    recentItems = recentItems.filter(function (entry) {
+      return entry.id !== id || entry.media_type !== type;
+    });
+    recentItems.unshift({
+      id: id,
+      media_type: type,
+      title: String(item.title || item.name || "Untitled"),
+      release_date: item.release_date || item.first_air_date || "",
+      poster_path: item.poster_path,
+      backdrop_path: item.backdrop_path,
+      vote_average: item.vote_average,
+    });
+    recentItems = recentItems.slice(0, 20);
+    Aetheris.storage.setItem("moviesRecent", JSON.stringify(recentItems));
+  }
+
+  function renderRecent() {
+    var rail = document.getElementById("recent-rail");
+    rail.replaceChildren();
+    var visible = recentItems.filter(function (item) {
+      return currentType === "all" || item.media_type === currentType;
+    });
+    document.getElementById("recent-section").hidden =
+      !!search.value.trim() || !visible.length;
+    visible.forEach(function (item) {
+      var card = document.createElement("button");
+      card.type = "button";
+      card.className = "card recent-card";
+      card.setAttribute("aria-label", "Watch " + item.title + " again");
+      var image = document.createElement("img");
+      image.alt = "";
+      image.loading = "lazy";
+      var path = item.backdrop_path || item.poster_path;
+      image.src = Aetheris.imageUrl(
+        typeof path === "string" && path.startsWith("/")
+          ? "https://image.tmdb.org/t/p/w780" + path
+          : Aetheris.placeholder,
+      );
+      image.onerror = function () {
+        image.onerror = null;
+        image.src = Aetheris.placeholder;
+      };
+      var info = document.createElement("div");
+      info.className = "info";
+      var title = document.createElement("div");
+      title.className = "card-title";
+      title.textContent = item.title;
+      var meta = document.createElement("div");
+      meta.className = "card-meta";
+      meta.textContent =
+        (item.media_type === "tv" ? "TV series" : "Movie") + " · Watch again";
+      info.append(title, meta);
+      card.append(image, info);
+      card.addEventListener("click", function () {
+        playItem(item);
+      });
+      rail.appendChild(card);
+    });
+  }
+
+  function playItem(item) {
+    openPlayer(
+      item.id,
+      item.media_type || (item.title ? "movie" : "tv"),
+      String(item.title || item.name || "Untitled"),
+      String(item.release_date || item.first_air_date || "").slice(0, 4),
+      Number.isFinite(item.vote_average) && item.vote_average > 0
+        ? item.vote_average.toFixed(1)
+        : "N/A",
+    );
+  }
+
+  function renderFeatured() {
+    var selection = items
+      .filter(function (item) {
+        return item.backdrop_path && item.backdrop_path.startsWith("/");
+      })
+      .slice(0, 5);
+    featured.hidden = !!search.value.trim() || !selection.length;
+    if (featured.hidden) return;
+    featuredIndex = Math.min(featuredIndex, selection.length - 1);
+    var item = selection[featuredIndex];
+    var art = document.getElementById("featured-art");
+    art.hidden = false;
+    art.onerror = function () {
+      art.hidden = true;
+    };
+    art.src = Aetheris.imageUrl(
+      "https://image.tmdb.org/t/p/w1280" + item.backdrop_path,
+    );
+    document.getElementById("featured-title").textContent =
+      item.title || item.name;
+    document.getElementById("featured-meta").textContent =
+      (item.vote_average > 0
+        ? "★ " + Number(item.vote_average).toFixed(1) + "   ·   "
+        : "") +
+      String(item.release_date || item.first_air_date || "").slice(0, 4) +
+      "   ·   " +
+      ((item.media_type || (item.title ? "movie" : "tv")) === "tv"
+        ? "TV series"
+        : "Movie");
+    document.getElementById("featured-overview").textContent =
+      item.overview || "Discover one of this week’s most popular titles.";
+    document.getElementById("featured-play").onclick = function () {
+      playItem(item);
+    };
+    var pagination = document.getElementById("featured-pagination");
+    pagination.replaceChildren();
+    selection.forEach(function (entry, index) {
+      var button = document.createElement("button");
+      button.type = "button";
+      button.setAttribute(
+        "aria-label",
+        "Feature " + (entry.title || entry.name),
+      );
+      button.setAttribute("aria-pressed", String(index === featuredIndex));
+      button.textContent = String(index + 1).padStart(2, "0");
+      button.onclick = function () {
+        featuredIndex = index;
+        renderFeatured();
+        pagination.children[index].focus();
+      };
+      pagination.appendChild(button);
+    });
+  }
 
   // Console logging, plus /movie-ping beacons for key moments. Beacons only
   // carry TMDB ids, the source index and hostnames.
@@ -95,8 +253,20 @@
   }
 
   function render() {
+    renderFeatured();
+    renderRecent();
+    var browsing = !search.value.trim();
+    var rail = document.getElementById("trending-rail");
+    rail.replaceChildren();
+    document.getElementById("trending-section").hidden =
+      !browsing || !items.length;
+    document.getElementById("catalogue-title").textContent = browsing
+      ? "Explore the collection"
+      : "Search results";
+    document.getElementById("catalogue-count").textContent =
+      items.length + " titles" + (hasMore ? " · More to discover" : "");
     var fragment = document.createDocumentFragment();
-    items.forEach(function (item) {
+    items.forEach(function (item, index) {
       var title = String(item.title || item.name || "Untitled");
       var year = String(item.release_date || item.first_air_date || "").slice(
         0,
@@ -121,8 +291,7 @@
       image.loading = "lazy";
       image.decoding = "async";
       image.src = Aetheris.imageUrl(
-        typeof item.poster_path === "string" &&
-          item.poster_path.startsWith("/")
+        typeof item.poster_path === "string" && item.poster_path.startsWith("/")
           ? TMDB_IMG + item.poster_path
           : Aetheris.placeholder,
       );
@@ -152,6 +321,31 @@
       card.addEventListener("click", function () {
         openPlayer(item.id, type, title, year, rating);
       });
+      if (browsing && index < 10) {
+        var ranked = card.cloneNode(true);
+        ranked.className = "card ranked-card";
+        var landscape = ranked.querySelector("img");
+        if (
+          typeof item.backdrop_path === "string" &&
+          item.backdrop_path.startsWith("/")
+        ) {
+          landscape.src = Aetheris.imageUrl(
+            "https://image.tmdb.org/t/p/w780" + item.backdrop_path,
+          );
+        }
+        landscape.onerror = function () {
+          landscape.onerror = null;
+          landscape.src = Aetheris.placeholder;
+        };
+        var rank = document.createElement("span");
+        rank.className = "rank-number";
+        rank.textContent = String(index + 1).padStart(2, "0");
+        ranked.appendChild(rank);
+        ranked.addEventListener("click", function () {
+          playItem(item);
+        });
+        rail.appendChild(ranked);
+      }
       fragment.appendChild(card);
     });
     grid.replaceChildren(fragment);
@@ -173,6 +367,10 @@
       nextPage = 1;
       hasMore = true;
       grid.replaceChildren();
+      featured.hidden = true;
+      featuredIndex = 0;
+      document.getElementById("trending-section").hidden = true;
+      document.getElementById("catalogue-count").textContent = "";
     }
     var version = listingVersion;
     var query = search.value.trim();
@@ -388,7 +586,8 @@
   var triedKey = "";
   var roundPlayed = false;
   var attemptSequence = 0;
-  var sessionId = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+  var sessionId =
+    Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
 
   function playKey() {
     return (
@@ -404,7 +603,11 @@
   function nextUntriedSource() {
     var next = -1;
     MOVIES_SOURCES.forEach(function (provider, i) {
-      if (!triedSources[i] && (next < 0 || provider.fallbackRank < MOVIES_SOURCES[next].fallbackRank)) next = i;
+      if (
+        !triedSources[i] &&
+        (next < 0 || provider.fallbackRank < MOVIES_SOURCES[next].fallbackRank)
+      )
+        next = i;
     });
     return next;
   }
@@ -450,10 +653,9 @@
     var next = nextUntriedSource();
     if (next < 0) {
       playerStatus.classList.add("hidden");
-      hint.textContent =
-        roundPlayed
-          ? "Playback couldn't recover. Pick a source to retry, or try again later."
-          : "No source could play this right now. Try again later, or pick a source to retry it.";
+      hint.textContent = roundPlayed
+        ? "Playback couldn't recover. Pick a source to retry, or try again later."
+        : "No source could play this right now. Try again later, or pick a source to retry it.";
       if (!roundPlayed) attemptBeacon("exhausted", failed);
       return;
     }
@@ -461,7 +663,9 @@
     setIframe(true);
     hint.textContent =
       provider.name +
-      (failed.playing ? " stopped playing, trying " : " didn't start, trying ") +
+      (failed.playing
+        ? " stopped playing, trying "
+        : " didn't start, trying ") +
       MOVIES_SOURCES[next].name +
       "…";
   }
@@ -514,7 +718,8 @@
     }
     if (data.state === "buffering" && current.playing && !current.buffering) {
       current.buffering = true;
-      hint.textContent = "Buffering… If this source stays stuck, we'll try another.";
+      hint.textContent =
+        "Buffering… If this source stays stuck, we'll try another.";
       armWatchdog(45000, "stall");
       return;
     }
@@ -522,7 +727,11 @@
       if (!current.ready) {
         current.ready = true;
         clearTimeout(playerTimer);
-        if ((current.interacted || data.paused === false) && data.state !== "playing") armWatchdog(INTERACTION_MS, "startup-stall");
+        if (
+          (current.interacted || data.paused === false) &&
+          data.state !== "playing"
+        )
+          armWatchdog(INTERACTION_MS, "startup-stall");
         playerStatus.classList.add("hidden");
         hint.textContent =
           data.state === "ready"
@@ -540,7 +749,10 @@
         attemptBeacon("playing", current, data.host);
         // Remember the source that actually worked.
         Aetheris.storage.setItem("movieSourceIdx", String(current.index));
-        Aetheris.storage.setItem("movieSourceId", MOVIES_SOURCES[current.index].id);
+        Aetheris.storage.setItem(
+          "movieSourceId",
+          MOVIES_SOURCES[current.index].id,
+        );
       }
     } else if (data.state === "armed" && !current.ready && !current.armed) {
       current.armed = true;
@@ -599,7 +811,7 @@
       index: index,
       kind: currentItem.type,
       id: currentItem.id,
-      aid: sessionId + "-" + (++attemptSequence),
+      aid: sessionId + "-" + ++attemptSequence,
       season: currentItem.type === "tv" ? selection.season : "",
       episode: currentItem.type === "tv" ? selection.episode : "",
       failed: false,
@@ -635,6 +847,7 @@
   }
 
   function openPlayer(id, type, title, year, rating) {
+    rememberItem(id, type);
     playerVersion++;
     seasonVersion++;
     if (detailsController) detailsController.abort();
@@ -668,7 +881,9 @@
     var sourceDefaultVersion = "flixer-default-20261011";
     var savedVersion = Aetheris.storage.getItem("movieSourceVersion");
     var savedId = Aetheris.storage.getItem("movieSourceId");
-    var saved = MOVIES_SOURCES.findIndex(function (provider) { return provider.id === savedId; });
+    var saved = MOVIES_SOURCES.findIndex(function (provider) {
+      return provider.id === savedId;
+    });
     if (saved < 0) saved = Number(Aetheris.storage.getItem("movieSourceIdx"));
     source.value =
       savedVersion === sourceDefaultVersion &&
@@ -706,8 +921,21 @@
     document.body.style.overflow = overflowBeforeModal;
     currentItem = null;
     currentEpisode = null;
-    if (focusBeforeModal && focusBeforeModal.isConnected)
+    var recentLabel =
+      focusBeforeModal && focusBeforeModal.classList.contains("recent-card")
+        ? focusBeforeModal.getAttribute("aria-label")
+        : null;
+    renderRecent();
+    if (recentLabel) {
+      var recentButton = Array.from(
+        document.getElementById("recent-rail").children,
+      ).find(function (button) {
+        return button.getAttribute("aria-label") === recentLabel;
+      });
+      if (recentButton) recentButton.focus();
+    } else if (focusBeforeModal && focusBeforeModal.isConnected) {
       focusBeforeModal.focus();
+    }
   }
 
   document.querySelectorAll(".mode-btn").forEach(function (button) {
@@ -718,12 +946,14 @@
         b.setAttribute("aria-pressed", String(b === button));
       });
       clearTimeout(searchTimer);
+      renderRecent();
       loadListing(false);
     });
   });
   search.addEventListener("input", function () {
     clearTimeout(searchTimer);
     invalidateListing();
+    renderRecent();
     status.textContent = "Searching…";
     searchTimer = setTimeout(function () {
       loadListing(false);
@@ -737,7 +967,10 @@
   });
   source.addEventListener("change", function () {
     Aetheris.storage.setItem("movieSourceIdx", source.value);
-    Aetheris.storage.setItem("movieSourceId", MOVIES_SOURCES[Number(source.value)].id);
+    Aetheris.storage.setItem(
+      "movieSourceId",
+      MOVIES_SOURCES[Number(source.value)].id,
+    );
     dbg(
       "source switched to:",
       source.value,
@@ -780,5 +1013,14 @@
     if (seasonController) seasonController.abort();
     stopPlayer();
   });
+  document
+    .getElementById("recent-clear")
+    .addEventListener("click", function () {
+      recentItems = [];
+      Aetheris.storage.removeItem("moviesRecent");
+      renderRecent();
+      search.focus();
+    });
+  renderRecent();
   loadListing(false);
 })();

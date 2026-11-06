@@ -711,6 +711,10 @@ function ratelimitfor(method, path) {
     return null;
   }
 
+  if (method === "POST" && path === "/api/accounts/password")
+    return { group: "account-password", limit: 5, perAccount: true, ipLimit: 60 };
+  if (method === "POST" && path === "/api/accounts/logout-others")
+    return { group: "account-sessions", limit: 30, perAccount: true, ipLimit: 300 };
   if (method !== "POST") return null;
   if (path === "/api/accounts/register") return { group: path, limit: 30 };
   if (path === "/api/accounts/login") return { group: path, limit: 60 };
@@ -1433,9 +1437,56 @@ fastify.delete("/api/accounts/delete-all-mine", async (req, reply) => {
 });
 
 fastify.get("/api/accounts/me", (req, reply) => {
+  reply.header("Cache-Control", "no-store");
   const user = requireauth(req, reply);
   if (!user) return;
-  reply.send({ ok: true, username: user.username });
+  reply.send({
+    ok: true, username: user.username, createdAt: user.createdAt,
+    activeSessions: Object.values(user.sessions || {}).filter(session =>
+      Number.isFinite(session.createdAt) && Date.now() - session.createdAt <= SESSION_TTL).length,
+  });
+});
+
+function revokeOtherSessions(user, token) {
+  const keep = user.sessions[tokenkey(token)] ? tokenkey(token) : token;
+  const removed = Object.keys(user.sessions).filter(key => key !== keep);
+  user.sessions = { [keep]: user.sessions[keep] };
+  writeuser(user);
+  for (const key of removed) tokenindex.delete(key);
+}
+
+fastify.post("/api/accounts/logout-others", async (req, reply) => {
+  reply.header("Cache-Control", "no-store");
+  const me = requireauth(req, reply);
+  if (!me) return;
+  await withuserlock(me.username.toLowerCase(), () => {
+    const user = requireauth(req, reply);
+    if (!user) return;
+    revokeOtherSessions(user, gettoken(req));
+    reply.send({ ok: true, activeSessions: 1 });
+  });
+});
+
+fastify.post("/api/accounts/password", async (req, reply) => {
+  reply.header("Cache-Control", "no-store");
+  const me = requireauth(req, reply);
+  if (!me) return;
+  const { currentPassword, newPassword } = req.body || {};
+  if (typeof currentPassword !== "string" || !currentPassword || currentPassword.length > 128 ||
+      typeof newPassword !== "string" || newPassword.length < MIN_PASSWORD_LENGTH || newPassword.length > 128)
+    return reply.code(400).send({ ok: false, error: `Enter your current password and a new password of ${MIN_PASSWORD_LENGTH}–128 characters.` });
+  if (currentPassword === newPassword)
+    return reply.code(400).send({ ok: false, error: "Choose a different new password." });
+  await withuserlock(me.username.toLowerCase(), async () => {
+    // Authentication is checked again after waiting for concurrent account writes.
+    const user = requireauth(req, reply);
+    if (!user) return;
+    if (!(await verifypw(currentPassword, user.passwordHash)))
+      return reply.code(403).send({ ok: false, error: "Your current password is incorrect." });
+    user.passwordHash = await hashpw(newPassword);
+    revokeOtherSessions(user, gettoken(req));
+    reply.send({ ok: true, activeSessions: 1 });
+  });
 });
 
 fastify.get("/api/accounts/search", (req, reply) => {
@@ -2570,7 +2621,11 @@ fastify.addHook("onSend", async (req, reply, payload) => {
   // which CDN it pulls from. Only pages small enough to hold in memory are
   // rewritten; the big ones carry no relay URLs.
   const contenttype = String(reply.getHeader("content-type") || "");
-  if (contenttype.includes("text/html") && payload && typeof payload.pipe === "function") {
+  if (
+    contenttype.includes("text/html") &&
+    payload &&
+    typeof payload.pipe === "function"
+  ) {
     const size = Number(reply.getHeader("content-length") || 0);
     if (size > 0 && size <= MAX_HTML_REWRITE_BYTES) {
       const chunks = [];
@@ -2858,12 +2913,7 @@ fastify.get("/scramjet/scramjet.js", (_req, reply) => {
         "if(!(0,s.AeSw)(r.href,t.prefix.href))",
       ],
     ].entries()) {
-      raw = patchsource(
-        raw,
-        broken,
-        fixed,
-        "url.ts startsWith [" + i + "]",
-      );
+      raw = patchsource(raw, broken, fixed, "url.ts startsWith [" + i + "]");
     }
 
     // Static module imports resolve against <base href>, which may be a CDN.
@@ -2879,13 +2929,13 @@ fastify.get("/scramjet/scramjet.js", (_req, reply) => {
     raw = patchsource(
       raw,
       'return""==e||o.error("unrewriteurl: unexpected url",e),e',
-      'return e',
+      "return e",
       "URL decoder unproxied relative input",
     );
     raw = patchsource(
       raw,
       'return o.error("unrewriteurl: unexpected url",e),e',
-      'return e',
+      "return e",
       "URL decoder unproxied absolute input",
     );
 
@@ -2904,7 +2954,11 @@ function cantransferstream() {
   let channel;
   try {
     channel = new MessageChannel();
-    const stream = new ReadableStream({ start(controller) { controller.close(); } });
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.close();
+      },
+    });
     channel.port1.postMessage(stream, [stream]);
     return true;
   } catch {
@@ -2936,7 +2990,11 @@ fastify.get("/controller/controller.api.js", (_req, reply) => {
       "if(!aetherisCanTransferStream&&s.body instanceof ReadableStream){let b=await new Response(s.body).arrayBuffer();return[{body:b,status:s.status,statusText:s.statusText,headers:s.headers.toRawHeaders()},[b]]}return[{body:s.body,status:s.status,statusText:s.statusText,headers:s.headers.toRawHeaders()},s.body instanceof ReadableStream||s.body instanceof ArrayBuffer?[s.body]:[]]",
       "controller Safari response stream transfer",
     );
-    raw = "var aetherisCanTransferStream=(" + cantransferstream.toString() + ")();\n" + raw;
+    raw =
+      "var aetherisCanTransferStream=(" +
+      cantransferstream.toString() +
+      ")();\n" +
+      raw;
     raw = patchsource(
       raw,
       't.suppressError||console.error("Error in controller request handler:",o)',

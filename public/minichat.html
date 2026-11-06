@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="./css/themes.css?v=20261101.1" />
     <script src="./js/theme.js?v=20261101.1"></script>
-    <link rel="stylesheet" href="./css/chat-extras.css?v=20261011.1" />
+    <link rel="stylesheet" href="./css/chat-extras.css?v=20261106.1" />
     <title>Aetheris DMs</title>
     <style>
       *,
@@ -641,7 +641,7 @@
           aria-selected="false"
           onclick="switchtab('register')"
         >
-          Register
+          Create account
         </button>
       </div>
       <div class="fi">
@@ -666,7 +666,8 @@
           autocomplete="current-password"
         />
       </div>
-      <div id="auth-err" class="auth-err"></div>
+      <div id="confirm-password-wrap" hidden><div class="fi"><input id="f-confirm" type="password" aria-label="Confirm password" placeholder="Confirm password" autocomplete="new-password" maxlength="128" /></div></div>
+      <div id="auth-err" class="auth-err" role="alert"></div>
       <button class="abtn" id="auth-submit" onclick="submitauth()">
         Log in
       </button>
@@ -676,6 +677,7 @@
       <div id="view-inbox">
         <div class="mc-head">
           <span class="mc-head-title">DMs</span>
+          <a class="ib" href="/index.html#chat?account=1" target="_top" aria-label="Chat account settings" title="Account settings">⚙</a>
           <button class="ib" onclick="logout()" title="Log out" aria-label="Log out">
             ↩
           </button>
@@ -764,7 +766,7 @@
       </div>
     </div>
 
-    <script src="./js/dm-shared.js?v=20261007.1"></script>
+    <script src="./js/dm-shared.js?v=20261106.3"></script>
     <script src="./js/dm-ui.js?v=20261011.3"></script>
     <script>
       function showview(chat) {
