@@ -161,8 +161,13 @@ test("remote game CDN assets use mirrors without granting access to site APIs", 
   for (const target of ["https://example.com/api/private", "https://example.com/assets/game.js", "https://other.example/game.js"]) {
     assert.equal(hook({ request, parsed: { url: new URL(target), destination: "" } }, {}), undefined);
   }
-  assert.equal(hook({ request, parsed: { url, destination: "iframe" } }, {}), undefined);
-  assert.equal(calls.length, 1);
+  for (const destination of ["iframe", "document"]) {
+    const props = {};
+    await hook({ request, parsed: { url, destination } }, props);
+    assert.ok(props.earlyResponse);
+  }
+  assert.equal(hook({ request, parsed: { url: new URL("https://other.example/game.html"), destination: "iframe" } }, {}), undefined);
+  assert.equal(calls.length, 3);
 });
 
 test("worker bodies run after bootstrap without another synchronous proxy import", async () => {

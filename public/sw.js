@@ -731,7 +731,7 @@ var audiounlockshim =
 
 // Ad spoof shim, inlined once fetched (external tag until then). Inline avoids
 // scramjet logging "unexpected url" for every local <script src> it unrewrites.
-var ADSPOOF_SRC = "/js/ad-spoof.js?v=20260928.3";
+var ADSPOOF_SRC = "/js/ad-spoof.js?v=20261106.1";
 var adspoofshim = '<script src="' + ADSPOOF_SRC + '"><\/script>';
 var adspoofinline = null;
 (function warmadspoof() {

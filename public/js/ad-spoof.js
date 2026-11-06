@@ -1,6 +1,12 @@
 (function(){if(window.__adSpoofInstalled)return;window.__adSpoofInstalled=true
 var n=function(){},r=function(){return Promise.resolve(1)},f=function(){return Promise.resolve(0)}
 
+// Offline Poki bundles have blank ad/config URLs and cannot initialize IMA.
+// Keep the game lifecycle available without starting that broken ad backend.
+var poki={init:function(){return Promise.resolve()},commercialBreak:function(){return Promise.resolve()},rewardedBreak:function(){return Promise.resolve(false)},gameLoadingStart:n,gameLoadingFinished:n,gameLoadingProgress:n,gameplayStart:n,gameplayStop:n,setDebug:n,captureError:n,getURLParam:function(key){try{return new URLSearchParams(window.location.search).get(key)}catch(e){return null}}}
+var pokisdk=Object.assign({},window.PokiSDK||{},poki)
+Object.defineProperty(window,'PokiSDK',{get:function(){return pokisdk},set:function(value){pokisdk=Object.assign({},value||{},poki)},configurable:true})
+
 function C(){return{isAvailable:1,adAvailable:1,hasAdBlock:f,
 showBanner:n,hideBanner:n,clearBannerAd:n,requestBannerAd:n,preloadBannerAd:r,
 requestAd:function(t,e){var o=e||{};setTimeout(function(){try{if(typeof o.onAdStarted=='function')o.onAdStarted()}catch(e){}setTimeout(function(){try{if(typeof o.onAdFinished=='function')o.onAdFinished()}catch(e){}},80)},50)},

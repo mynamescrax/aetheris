@@ -285,6 +285,20 @@ test("the player recognizes proxy failure documents without rejecting ordinary t
   assert.equal(context.errorText(null), "");
 });
 
+test("Poki lifecycle survives a later SDK assignment without starting its broken ad backend", async () => {
+  const source = fs.readFileSync(new URL("../public/js/ad-spoof.js", import.meta.url), "utf8");
+  const window = { location: { search: "?level=3" } };
+  vm.runInNewContext(source, { window, setTimeout, URLSearchParams });
+  await window.PokiSDK.init();
+  window.PokiSDK = { init() { throw new Error("missing IMA"); }, custom: 42 };
+  await window.PokiSDK.init();
+  await window.PokiSDK.commercialBreak();
+  assert.equal(await window.PokiSDK.rewardedBreak(), false);
+  assert.equal(window.PokiSDK.getURLParam("level"), "3");
+  assert.equal(window.PokiSDK.custom, 42);
+  window.PokiSDK.gameLoadingFinished();
+});
+
 test("player accepts iframe-only catalog entries", () => {
   const source = fs.readFileSync(
     new URL("../public/js/load.js", import.meta.url),

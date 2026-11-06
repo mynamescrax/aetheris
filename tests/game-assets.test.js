@@ -35,6 +35,17 @@ function bodyOf(result) {
   return Buffer.from(result.rawPayload);
 }
 
+test("mirrored HTML is served as a document even when GitHub labels it plain text", async () => {
+  const html = "<!doctype html><html><title>Game</title></html>";
+  const app = fixture({ fetchimpl: async () => new Response(html, { headers: { "content-type": "text/plain" } }) });
+  try {
+    const result = await app.inject("/game-assets/m/githack/user/repo/main/index.html");
+    assert.equal(result.statusCode, 200);
+    assert.match(result.headers["content-type"], /text\/html/);
+    assert.equal(result.body, html);
+  } finally { await app.close(); }
+});
+
 test("game CDN rejects HTTP-200 errors and falls back only within jsDelivr", async () => {
   const urls = [];
   const app = fixture({ fetchimpl: async (url, options) => {
@@ -107,6 +118,12 @@ test("sixteen split downloads queue without rejecting a normal large game", asyn
 });
 
 test("binary validation distinguishes first and later split chunks", () => {
+  const document = Buffer.from("<!doctype html><html><title>Game</title></html>");
+  assert.equal(validGameAsset("index.html", document), true);
+  assert.equal(validGameAsset("index.htm", document), true);
+  assert.equal(validGameAsset("game.js", document), false);
+  assert.equal(validGameAsset("game.data", document), false);
+  assert.equal(validGameAsset("index.html", Buffer.from("429: Too Many Requests")), false);
   assert.equal(validGameAsset("x.data.unityweb", Buffer.from("429: Too Many Requests")), false);
   assert.equal(validGameAsset("x.data.unityweb", Buffer.alloc(1024)), false);
   assert.equal(validGameAsset("x.data.unityweb.part1", binary), true);

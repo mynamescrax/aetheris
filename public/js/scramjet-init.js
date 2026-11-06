@@ -539,14 +539,11 @@
       if (!request || !url) return;
       if (request.method !== "GET" && request.method !== "HEAD") return;
       var sameorigin = frame.aetherisLocal && url.origin === location.origin && localpath(url);
-      // Every game's CDN assets are fetched from the page too: the service
-      // worker answers them with a redirect into the /s/ relay, which is what
+      // CDN assets and documents are fetched from the page too: the service
+      // worker answers them through the /s/ relay, which is what
       // makes split files and jsDelivr's refusals work. The response still
       // goes back through scramjet, so scripts are rewritten as usual.
-      var asset = context.parsed.destination !== "document" &&
-        context.parsed.destination !== "iframe";
-      var relayed = url.origin !== location.origin && relayedhost(url.hostname) &&
-        (frame.aetherisLocal || asset);
+      var relayed = url.origin !== location.origin && relayedhost(url.hostname);
       // CORS-enabled game assets may accept the visitor but block VPS IPs.
       // Keep documents on the proxy; successful asset bodies are still rewritten.
       var direct =
