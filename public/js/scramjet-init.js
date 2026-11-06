@@ -435,6 +435,9 @@
     }
   }
 
+  // This virtual origin is served from our own files by servelocally(), never DNS.
+  var GAME_EMBED_ORIGIN = "https://aetheris-games.invalid";
+
   // every call site navigates through here so there's one place to hook later
   function safego(frame, url) {
     try {
@@ -442,6 +445,13 @@
       // path below; provider pages keep talking to their own CDNs.
       frame.aetherisLocal =
         new URL(url, location.href).origin === location.origin;
+      var target = new URL(url, location.href);
+      // The supplied AZ Games HTML needs a cross-origin parent like an HTML
+      // editor preview. Keep the original document and build files unchanged.
+      if (frame.aetherisLocal && target.pathname === "/assets/games/erc2.html") {
+        url = location.origin + "/assets/game-embed.html?game=" +
+          encodeURIComponent(target.pathname + target.search);
+      }
     } catch (_) {
       frame.aetherisLocal = false;
     }
@@ -538,7 +548,9 @@
       var url = context && context.parsed && context.parsed.url;
       if (!request || !url) return;
       if (request.method !== "GET" && request.method !== "HEAD") return;
-      var sameorigin = frame.aetherisLocal && url.origin === location.origin && localpath(url);
+      var gameembed = frame.aetherisLocal && url.origin === GAME_EMBED_ORIGIN;
+      var sameorigin = frame.aetherisLocal &&
+        (url.origin === location.origin || gameembed) && localpath(url);
       // CDN assets and documents are fetched from the page too: the service
       // worker answers them through the /s/ relay, which is what
       // makes split files and jsDelivr's refusals work. The response still
@@ -551,7 +563,10 @@
         url.origin !== location.origin &&
         /^https?:$/.test(url.protocol) &&
         context.parsed.destination !== "document" &&
-        context.parsed.destination !== "iframe";
+        context.parsed.destination !== "iframe" &&
+        !gameembed &&
+        !/\/(?:api|ajax)(?:\/|$)|\.(?:php|aspx?)(?:$|\/)/i.test(url.pathname) &&
+        /\.(?:js|mjs|css|json|wasm|unityweb|data|bin|zip|gz|br|babylon|png|jpe?g|webp|gif|svg|ico|woff2?|ttf|otf|mp[34]|ogg|wav|webm)$/i.test(url.pathname);
       if (!sameorigin && !relayed && !direct) return;
 
       var init = { method: request.method };
@@ -581,7 +596,10 @@
           abort.abort();
         }, 5000);
       }
-      return fetch(url.href, init)
+      var fetchurl = gameembed
+        ? location.origin + url.pathname + url.search
+        : url.href;
+      return fetch(fetchurl, init)
         .then(function (response) {
           if (direct && !relayed && !response.ok) return;
           props.earlyResponse = decodedresponse(response);
@@ -791,7 +809,7 @@
       return (
         frame.aetherisLocal &&
         url &&
-        url.origin === location.origin &&
+        (url.origin === location.origin || url.origin === GAME_EMBED_ORIGIN) &&
         url.pathname.indexOf("/assets/games/") === 0
       );
     }

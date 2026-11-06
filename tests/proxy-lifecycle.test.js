@@ -170,8 +170,35 @@ test("local game assets use visitor CORS access and retain the proxy fallback", 
     hook({ request, parsed: { url, destination: "iframe" } }, {}),
     undefined,
   );
+  for (const target of [
+    "https://api.azgames.io/ajax/infov3?params=encoded",
+    "https://other.example/api/config.json",
+    "https://other.example/v1/session",
+  ]) assert.equal(hook({ request, parsed: { url: new URL(target), destination: "" } }, {}), undefined);
   frame.aetherisLocal = false;
   assert.equal(hook(context, {}), undefined);
+});
+
+test("the game embed wrapper serves the original local document from an isolated virtual origin", async () => {
+  const c = bootstrap();
+  let navigated;
+  const frame = { go(url) { navigated = url; }, hooks: { fetch: { request: {} } } };
+  c.window.aetherisProxy.go(frame, "https://example.com/assets/games/erc2.html");
+  assert.equal(new URL(navigated).pathname, "/assets/game-embed.html");
+  assert.equal(new URL(navigated).searchParams.get("game"), "/assets/games/erc2.html");
+  let hook;
+  c.$scramjet.Tap = { tap(_, callback) { hook = callback; } };
+  c.window.internals.installLocalFetch(frame);
+  const calls = [];
+  c.fetch = async url => { calls.push(url); return { headers: null }; };
+  const request = { method: "GET", initialHeaders: { toRawHeaders: () => [] } };
+  const props = {};
+  await hook({ request, parsed: { url: new URL("https://aetheris-games.invalid/assets/games/erc2.html"), destination: "iframe" } }, props);
+  assert.ok(props.earlyResponse);
+  assert.deepEqual(calls, ["https://example.com/assets/games/erc2.html"]);
+  assert.equal(hook({ request, parsed: { url: new URL("https://aetheris-games.invalid/api/accounts/me"), destination: "" } }, {}), undefined);
+  c.window.aetherisProxy.go(frame, "https://example.com/assets/games/other.html");
+  assert.equal(navigated, "https://example.com/assets/games/other.html");
 });
 
 test("remote game CDN assets use mirrors without granting access to site APIs", async () => {

@@ -2,16 +2,16 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
+import { createHash } from "node:crypto";
 const read = path => readFileSync(new URL(path, import.meta.url), "utf8");
 
-test("Escape Road City 2 stays a cross-origin publisher embed under the proxied player", () => {
+test("Escape Road City 2 retains the supplied HTML and original Unity build", () => {
   const html = read("../public/assets/games/erc2.html");
-  const frame = /<iframe\b[^>]*\bsrc="([^"]+)"/i.exec(html);
-  assert.ok(frame, "the publisher SDK must see an embedded game, not a locally hosted Unity build");
-  const url = new URL(frame[1]);
-  assert.equal(url.origin, "https://game.azgame.io");
-  assert.equal(url.pathname, "/escape-road-city-2/");
-  assert.doesNotMatch(html, /tung-sahur|createUnityInstance|\/\/script&gt;/i);
+  // The game is user-supplied. Fix the player, not its source or build version.
+  assert.equal(createHash("sha256").update(html.replace(/\r\n/g, "\n")).digest("hex"),
+    "d9e8e6b22fb8afa3885ba83138a2c01564b3293ec9cc6881a0c6026a497922ed");
+  assert.match(html, /escape-road-city-2-v25022604\.loader\.js/);
+  assert.doesNotMatch(html, /<iframe/i);
   const catalog = JSON.parse(read("../public/assets/data/aetheris.json"));
   const entry = catalog.find(item => item.id === "escaperoadcity2");
   assert.equal(entry.html, "assets/games/erc2.html");
