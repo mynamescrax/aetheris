@@ -324,6 +324,30 @@ test("relative proxy asset URLs recover the originating game directory and query
   assert.equal(context.repair(request.url, prefix.replace("/frame/", "/other/") + encodeURIComponent(base)), null);
 });
 
+test("blank-frame detection waits for the navigation deadline and ignores stale games", () => {
+  const source = fs.readFileSync(new URL("../public/js/load.js", import.meta.url), "utf8");
+  const from = source.indexOf("  function watchblankframe(");
+  const to = source.indexOf("\n  var SOURCE_LABELS", from);
+  let deadline, callback;
+  const context = { LOAD_TIMEOUT: 15000, setTimeout(fn, delay) { callback = fn; deadline = delay; } };
+  vm.runInNewContext(source.slice(from, to) + "\nthis.watch = watchblankframe;", context);
+  let failures = 0;
+  const frame = { contentDocument: { URL: "about:blank" } };
+  context.watch(frame, () => failures++, () => false);
+  assert.equal(deadline, 15000);
+  assert.equal(failures, 0);
+  frame.contentDocument.URL = "https://game.example/index.html";
+  callback();
+  assert.equal(failures, 0);
+  frame.contentDocument.URL = "about:blank";
+  context.watch(frame, () => failures++, () => true);
+  callback();
+  assert.equal(failures, 0);
+  context.watch(frame, () => failures++, () => false);
+  callback();
+  assert.equal(failures, 1);
+});
+
 test("player accepts iframe-only catalog entries", () => {
   const source = fs.readFileSync(
     new URL("../public/js/load.js", import.meta.url),

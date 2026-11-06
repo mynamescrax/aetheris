@@ -30,6 +30,18 @@
       text.indexOf("Proxy unavailable") === 0 ? text : "";
   }
 
+  function watchblankframe(frame, fail, stale) {
+    return setTimeout(function () {
+      if (stale()) return;
+      try {
+        var doc = frame.contentDocument;
+        if (doc && doc.URL === "about:blank") {
+          fail(new Error("The game page never loaded from this source."));
+        }
+      } catch (_) { /* cross-origin documents cannot be inspected */ }
+    }, LOAD_TIMEOUT);
+  }
+
   var SOURCE_LABELS = {
     aetheris: "Aetheris",
     gnmath: "Gn-Math",
@@ -464,7 +476,6 @@
         // probe would swap away from a copy that proxies perfectly well.
         await startbackend();
         if (stale()) return;
-
         var frameel = document.createElement("iframe");
         frameel.title = item.title || item.name || "Game";
         frameel.allow =
@@ -486,6 +497,9 @@
           return;
         }
         if (stale()) return;
+        watchblankframe(frameel, failattempt, stale);
+        // Initial about:blank load events are normal; only the navigation
+        // deadline above can declare that a frame never left its blank page.
         // go() reports nothing: when the upstream is blocked or missing the
         // proxy leaves the frame on about:blank rather than raising, so this
         // copy would silently show an empty page instead of falling through to
@@ -506,9 +520,6 @@
             // not something this can judge
             if (!doc) return;
             if (doc.URL === "about:blank") {
-              failattempt(
-                new Error("The game page never loaded from this source."),
-              );
               return;
             }
             // A missing aetheris game reaches the proxy as the site's 404

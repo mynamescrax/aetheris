@@ -927,6 +927,13 @@
         // call sites mounted).
         var nativecreate = controller.createFrame.bind(controller);
         controller.createFrame = function (element, frameoptions) {
+          // The pinned controller retains removed iframe elements forever.
+          // Drop those references when switching games or opening a new tab.
+          if (Array.isArray(controller.frames)) {
+            controller.frames = controller.frames.filter(function (old) {
+              return !old.element || old.element.isConnected;
+            });
+          }
           var frame = nativecreate(element, frameoptions);
           rememberframe(frame);
           servelocally(frame);

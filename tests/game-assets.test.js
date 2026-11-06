@@ -46,6 +46,20 @@ test("mirrored HTML is served as a document even when GitHub labels it plain tex
   } finally { await app.close(); }
 });
 
+test("mirror MIME types support module scripts, streaming WASM, and JSON imports", async () => {
+  const app = fixture({ fetchimpl: async url => new Response(
+    url.endsWith(".WASM") ? Buffer.concat([Buffer.from([0,97,115,109]), Buffer.alloc(1024)]) : "{}",
+    { headers: { "content-type": "text/plain" } },
+  ) });
+  try {
+    for (const [name, type] of [["engine.mjs", "application/javascript"], ["game.WASM", "application/wasm"], ["config.json", "application/json"]]) {
+      const result = await app.inject("/game-assets/m/githack/user/repo/main/" + name);
+      assert.equal(result.statusCode, 200);
+      assert.ok(result.headers["content-type"].startsWith(type));
+    }
+  } finally { await app.close(); }
+});
+
 test("game CDN rejects HTTP-200 errors and falls back only within jsDelivr", async () => {
   const urls = [];
   const app = fixture({ fetchimpl: async (url, options) => {

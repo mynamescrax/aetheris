@@ -191,6 +191,31 @@ test("worker bodies run after bootstrap without another synchronous proxy import
   assert.equal(init.scramjetConfig.flags.debugSourceURL, true);
 });
 
+test("creating another frame releases controller references to removed game iframes", async () => {
+  const c = bootstrap();
+  const active = { element: { isConnected: true } };
+  const removed = { element: { isConnected: false } };
+  c.$scramjetController.Controller = class {
+    constructor() { this.frames = [active, removed]; }
+    wait() { return Promise.resolve(); }
+    createFrame(element) {
+      const frame = { element };
+      this.frames.push(frame);
+      return frame;
+    }
+  };
+  c.window.internals.setFactory(async () => ({ transport: {}, name: "libcurl" }));
+  const controller = await c.window.aetherisProxy.getController();
+  const first = controller.createFrame({ isConnected: true });
+  assert.equal(controller.frames.includes(active), true);
+  assert.equal(controller.frames.includes(removed), false);
+  first.element.isConnected = false;
+  const next = controller.createFrame({ isConnected: true });
+  assert.equal(controller.frames.includes(first), false);
+  assert.equal(controller.frames.includes(next), true);
+  assert.equal(controller.frames.length, 2);
+});
+
 test("local games reopen legacy saves and keep proxy-only database names", () => {
   const c = bootstrap();
   const calls = [];
