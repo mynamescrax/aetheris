@@ -1467,6 +1467,16 @@ function keepstreamalive(response, event) {
   });
 }
 
+// A recycled worker asks clients to re-register after startup. Requests can
+// arrive first; never let those virtual URLs fall through to the web server.
+async function waitforproxyroute(event) {
+  for (var attempt = 0; attempt < 120; attempt++) {
+    if ($scramjetController.shouldRoute(event)) return;
+    await new Promise(function (resolve) { setTimeout(resolve, 25); });
+  }
+  throw new Error("Proxy controller did not reconnect after worker restart");
+}
+
 function shouldbypass(url) {
   if (
     url.indexOf("data:") === 0 ||
@@ -1657,11 +1667,12 @@ self.addEventListener("fetch", function (event) {
     shouldroute = false;
   }
 
-  if (!shouldroute) return;
+  if (!shouldroute && !proxied) return;
 
   event.respondWith(
     settingsrestored
-      .then(function () {
+      .then(async function () {
+        if (!shouldroute) await waitforproxyroute(event);
         // the adblock check moved in here so a cold start can't block with
         // the blocker the user turned off (or slip past one they enabled)
         // Subframe navigations are ads too (a game's ad iframe would

@@ -668,6 +668,24 @@ test("forwarded streams hold the worker alive until completion or cancellation",
   }
 });
 
+test("a restarted worker waits for proxy registration and times out without an origin fallback", async () => {
+  const source = readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
+  const from = source.indexOf("async function waitforproxyroute(");
+  const to = source.indexOf("function shouldbypass(", from);
+  let checks = 0;
+  const event = {};
+  const context = {
+    setTimeout(callback) { queueMicrotask(callback); },
+    $scramjetController: { shouldRoute(value) { assert.equal(value, event); return ++checks === 4; } },
+  };
+  vm.runInNewContext(source.slice(from, to) + "\nthis.wait = waitforproxyroute;", context);
+  await context.wait(event);
+  assert.equal(checks, 4);
+  context.$scramjetController.shouldRoute = () => false;
+  await assert.rejects(context.wait(event), /did not reconnect/);
+  assert.ok(source.includes("if (!shouldroute && !proxied) return;"));
+});
+
 test("the service worker relays the same paths as the relay does", () => {
   // The worker redirects absolute CDN URLs to the relay, so its path rules
   // have to match the relay's: a path the worker accepts but the relay
