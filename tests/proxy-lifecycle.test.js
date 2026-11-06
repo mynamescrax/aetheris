@@ -141,6 +141,29 @@ test("local game assets use visitor CORS access and retain the proxy fallback", 
   assert.equal(hook(context, {}), undefined);
 });
 
+test("remote game CDN assets use mirrors without granting access to site APIs", async () => {
+  const c = bootstrap();
+  let hook;
+  c.$scramjet.Tap = { tap(_, callback) { hook = callback; } };
+  const frame = { aetherisLocal: false, hooks: { fetch: { request: {} } } };
+  c.window.internals.installLocalFetch(frame);
+  const calls = [];
+  c.fetch = async (url, init) => { calls.push({ url, init }); return { headers: null }; };
+  const request = { method: "HEAD", initialHeaders: { toRawHeaders: () => [["Range", "bytes=0-1023"], ["Cookie", "private"]] } };
+  const url = new URL("https://bbcdn.githack.com/user/repo/raw/main/game.zip");
+  const props = {};
+  await hook({ request, parsed: { url, destination: "" } }, props);
+  assert.ok(props.earlyResponse);
+  assert.equal(calls[0].init.credentials, "omit");
+  assert.equal(calls[0].init.headers.Range, "bytes=0-1023");
+  assert.equal(calls[0].init.headers.Cookie, undefined);
+  for (const target of ["https://example.com/api/private", "https://example.com/assets/game.js", "https://other.example/game.js"]) {
+    assert.equal(hook({ request, parsed: { url: new URL(target), destination: "" } }, {}), undefined);
+  }
+  assert.equal(hook({ request, parsed: { url, destination: "iframe" } }, {}), undefined);
+  assert.equal(calls.length, 1);
+});
+
 test("worker bodies run after bootstrap without another synchronous proxy import", async () => {
   const c = bootstrap();
   let init;

@@ -538,17 +538,19 @@
       var url = context && context.parsed && context.parsed.url;
       if (!request || !url) return;
       if (request.method !== "GET" && request.method !== "HEAD") return;
-      if (!frame.aetherisLocal) return;
-
-      var sameorigin = url.origin === location.origin && localpath(url);
-      // A local game's CDN files are fetched from the page too: the service
+      var sameorigin = frame.aetherisLocal && url.origin === location.origin && localpath(url);
+      // Every game's CDN assets are fetched from the page too: the service
       // worker answers them with a redirect into the /s/ relay, which is what
       // makes split files and jsDelivr's refusals work. The response still
       // goes back through scramjet, so scripts are rewritten as usual.
-      var relayed = url.origin !== location.origin && relayedhost(url.hostname);
+      var asset = context.parsed.destination !== "document" &&
+        context.parsed.destination !== "iframe";
+      var relayed = url.origin !== location.origin && relayedhost(url.hostname) &&
+        (frame.aetherisLocal || asset);
       // CORS-enabled game assets may accept the visitor but block VPS IPs.
       // Keep documents on the proxy; successful asset bodies are still rewritten.
       var direct =
+        frame.aetherisLocal &&
         url.origin !== location.origin &&
         /^https?:$/.test(url.protocol) &&
         context.parsed.destination !== "document" &&
@@ -556,7 +558,8 @@
       if (!sameorigin && !relayed && !direct) return;
 
       var init = { method: request.method };
-      if (sameorigin || direct) {
+      init.credentials = "omit";
+      if (sameorigin || direct || relayed) {
         try {
           request.initialHeaders.toRawHeaders().forEach(function (pair) {
             if (!FORWARDED_LOCAL_HEADERS[String(pair[0]).toLowerCase()]) return;

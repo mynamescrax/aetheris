@@ -696,6 +696,20 @@ test("a page shows opaque URLs instead of the CDN layout", () => {
   assert.ok(unknown.includes("/game-assets/m/nosuchmirror/"), "an unknown mirror is untouched");
 });
 
+test("disc-sized archives pass HEAD probes while oversized files remain rejected", async () => {
+  const app = fixture({ fetchimpl: async (url, options) => {
+    assert.equal(options.method, "HEAD");
+    return new Response(null, { headers: { "content-type": "application/zip", "content-length": url.includes("too-big") ? String(1024 ** 3 + 1) : "651685430" } });
+  } });
+  try {
+    const result = await app.inject({ method: "HEAD", url: "/game-assets/m/bbgithack/user/repo/raw/main/game.zip" });
+    assert.equal(result.statusCode, 200);
+    assert.equal(result.headers["content-length"], "651685430");
+    const rejected = await app.inject({ method: "HEAD", url: "/game-assets/m/bbgithack/user/repo/raw/main/too-big.zip" });
+    assert.equal(rejected.statusCode, 502);
+  } finally { await app.close(); }
+});
+
 test("HEAD probes report sizes without downloading the body", async () => {
   const calls = [];
   const app = fixture({ fetchimpl: async (url, options) => {
