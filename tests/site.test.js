@@ -271,6 +271,20 @@ test("remote images route through the same-origin relay", () => {
   assert.equal(site.imageUrl(undefined), undefined);
 });
 
+test("the player recognizes proxy failure documents without rejecting ordinary text games", () => {
+  const source = fs.readFileSync(new URL("../public/js/load.js", import.meta.url), "utf8");
+  const start = source.indexOf("  function proxyerrortext(");
+  const end = source.indexOf("\n  var SOURCE_LABELS", start);
+  const context = {};
+  vm.runInNewContext(source.slice(start, end) + "\nthis.errorText = proxyerrortext;", context);
+  for (const text of ["Internal Service Worker Error: TLS rejected", "Proxy unavailable"]) {
+    assert.equal(context.errorText({ contentType: "text/plain", body: { textContent: text } }), text);
+    assert.equal(context.errorText({ contentType: "text/html", body: { textContent: text } }), "");
+  }
+  assert.equal(context.errorText({ contentType: "text/plain", body: { textContent: "Welcome to a text adventure" } }), "");
+  assert.equal(context.errorText(null), "");
+});
+
 test("player accepts iframe-only catalog entries", () => {
   const source = fs.readFileSync(
     new URL("../public/js/load.js", import.meta.url),

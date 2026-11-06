@@ -76,7 +76,8 @@ function bootstrap() {
     install: installtransportfailover,
     wait: waitforserviceworker,
     installSaves: installlocalsaves,
-    installLocalFetch: servelocally
+    installLocalFetch: servelocally,
+    probe: probetransport
   }; window.aetherisProxy = {`,
     ),
     context,
@@ -438,6 +439,21 @@ test("a failed replacement startup does not permanently disable TLS recovery", a
   await assert.rejects(transport.request(url, "GET", null, []), /offline/);
   assert.equal(await transport.request(url, "GET", null, []), "asset");
   assert.equal(starts, 2);
+});
+
+test("a transport ignoring abort signals cannot hang the resume probe", async () => {
+  const c = bootstrap();
+  c.AbortSignal = AbortSignal;
+  c.location.origin = "https://example.com";
+  c.window.internals.setActive({ request: () => new Promise(() => {}) });
+  let timer;
+  c.setTimeout = callback => { timer = callback; return 1; };
+  c.clearTimeout = () => {};
+  const probe = c.window.internals.probe();
+  await new Promise(setImmediate);
+  assert.equal(typeof timer, "function");
+  timer();
+  assert.equal(await probe, false);
 });
 
 test("an active worker without page control is rejected before opening a frame", async () => {

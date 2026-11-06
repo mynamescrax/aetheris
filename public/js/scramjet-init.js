@@ -1022,13 +1022,13 @@
         // must use the same shapes the controller sends: a URL object and an
         // iterable of pairs. A plain string and `{}` threw inside epoxy/libcurl
         // ("Invalid URL input: undefined") and made a healthy session look dead.
-        return transport.request(
+        return withtimeout(transport.request(
           new URL(location.origin + "/online-count?proxy-probe=" + Date.now()),
           "GET",
           null,
           [],
           AbortSignal.timeout(8000),
-        );
+        ), 8000, "Proxy connection probe timed out");
       })
       .then(
         function (r) {

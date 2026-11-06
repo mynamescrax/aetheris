@@ -23,6 +23,13 @@
   // never swapped away from.
   var EXTERNAL_SETTLE_MS = 2000;
 
+  function proxyerrortext(doc) {
+    if (!doc || doc.contentType !== "text/plain") return "";
+    var text = (doc.body && doc.body.textContent) || "";
+    return text.indexOf("Internal Service Worker Error:") === 0 ||
+      text.indexOf("Proxy unavailable") === 0 ? text : "";
+  }
+
   var SOURCE_LABELS = {
     aetheris: "Aetheris",
     gnmath: "Gn-Math",
@@ -547,6 +554,8 @@
                       "The proxy engine is out of date. Reload the page to update it.",
                     ),
                   );
+                } else if (proxyerrortext(doc)) {
+                  failattempt(new Error(proxyerrortext(doc).slice(0, 300)));
                 }
               } catch (_) {
                 /* a body that can't be read is not a proxy error */
