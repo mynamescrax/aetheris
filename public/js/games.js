@@ -5,6 +5,7 @@
   var filtered = [];
   var byId = Object.create(null);
   var favorites = [];
+  var favoriteMatches = new WeakMap();
   var limit = PAGE_SIZE;
   var sortByPlays = false;
   var playCounts = null;
@@ -107,11 +108,14 @@
 
   // A game can be favorited under its primary id or any provider's own id.
   function isFavorite(game) {
-    return favorites.some(function (id) {
+    if (favoriteMatches.has(game)) return favoriteMatches.get(game);
+    var match = favorites.some(function (id) {
       return typeof window.gamehasid === "function"
         ? window.gamehasid(game, id)
         : String(game.id) === String(id);
     });
+    favoriteMatches.set(game, match);
+    return match;
   }
 
   function renderPopular() {
@@ -130,9 +134,10 @@
 
   function render() {
     if (!main) return;
-    var favs = filtered.filter(isFavorite);
-    var others = filtered.filter(function (game) {
-      return !isFavorite(game);
+    var favs = [];
+    var others = [];
+    filtered.forEach(function (game) {
+      (isFavorite(game) ? favs : others).push(game);
     });
     // Filter/sort DATA first. Never create 15k hidden DOM nodes on an iPad.
     var visibleFavorites = favs.slice(0, limit);
@@ -186,7 +191,7 @@
     saveState();
   }
 
-  function applyFilters(reset) {
+  function applyFilters(reset, redraw) {
     if (reset !== false) limit = PAGE_SIZE;
     var query = search.value.trim().toLowerCase();
     var tags = Array.from(activeTags);
@@ -217,7 +222,7 @@
         );
       });
     }
-    render();
+    if (redraw !== false) render();
   }
 
   function renderTags() {
@@ -270,6 +275,7 @@
     built = true;
     catalog = Array.isArray(window.games) ? window.games : [];
     favorites = Aetheris.readList("favoritedGames");
+    favoriteMatches = new WeakMap();
     byId = Object.create(null);
     catalog.forEach(function (game) {
       byId[game.id] = game;
@@ -350,7 +356,7 @@
     });
   random.addEventListener("click", function () {
     // Use ALL matching records, not just the first rendered page.
-    applyFilters(false);
+    applyFilters(false, false);
     if (filtered.length)
       location.href =
         "/load.html?game=" +
@@ -409,6 +415,7 @@
   window.addEventListener("storage", function (event) {
     if (event.key === "favoritedGames") {
       favorites = Aetheris.readList("favoritedGames");
+      favoriteMatches = new WeakMap();
       applyFilters(false);
     }
   });
@@ -437,6 +444,7 @@
   // rebuilds the lookup and re-renders without resetting filters or scroll.
   function refresh() {
     catalog = Array.isArray(window.games) ? window.games : [];
+    favoriteMatches = new WeakMap();
     byId = Object.create(null);
     catalog.forEach(function (game) {
       byId[game.id] = game;

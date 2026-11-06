@@ -110,7 +110,7 @@
     return card;
   }
 
-  function applyFilters(reset) {
+  function applyFilters(reset, redraw) {
     if (reset !== false) limit = PAGE_SIZE;
     var q = searchbox ? searchbox.value.trim().toLowerCase() : "";
     filtered = catalog.filter(function (app) {
@@ -119,7 +119,7 @@
         .toLowerCase()
         .includes(q);
     });
-    render();
+    if (redraw !== false) render();
   }
 
   function render() {
@@ -223,7 +223,7 @@
   }
   if (random) {
     random.addEventListener("click", function () {
-      applyFilters(false);
+      applyFilters(false, false);
       if (filtered.length) {
         location.href =
           "/load.html?app=" +
