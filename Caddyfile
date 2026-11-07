@@ -143,11 +143,22 @@ https:// {
 	@crax host crax.lol
 	handle @crax {
 		handle /api/* {
-			reverse_proxy http://127.0.0.1:3001
+			# server.js dedupes views by client IP, so the real address has to
+			# survive the Cloudflare hop. Only trust the header from a real edge.
+			import cf_edge_only
+			request_header @not_cf_edge -Cf-Connecting-Ip
+			reverse_proxy http://127.0.0.1:3001 {
+				header_up X-Real-IP {http.request.header.Cf-Connecting-Ip}
+			}
 		}
 		handle {
 			root * /var/www/profile
-			header Cache-Control "no-store"
+			# Only the HTML has to be fresh; every asset URL carries a ?v= that
+			# deploy.ps1 bumps, so those can be cached for a year.
+			@html not path /assets/*
+			header @html Cache-Control "no-store"
+			@assets path /assets/*
+			header @assets Cache-Control "public, max-age=31536000, immutable"
 			file_server
 		}
 	}
