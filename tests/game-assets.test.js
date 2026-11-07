@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import vm from "node:vm";
-import { readFileSync, mkdtempSync, rmSync, readdirSync } from "node:fs";
+import http from "node:http";
+import { readFileSync, mkdtempSync, rmSync, readdirSync, readlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Fastify from "fastify";
@@ -1333,4 +1334,72 @@ test("the worker strips the Cloudflare beacon as the page streams, wherever a ch
   // anything that is not a page is handed over as it came
   const css = new Response("a{}", { headers: { "content-type": "text/css" } });
   assert.equal(await context.stripbeacon(css), css);
+});
+
+// The inject-based test above cannot see this: a real browser aborts the
+// socket, Fastify destroys the payload stream, and the disk copy has to be
+// torn down with it. The abort used to leave the write stream open, so the
+// descriptor was never freed and the temp file was never unlinked: the cache
+// directory filled up with half-written builds and the process ran out of
+// file descriptors instead of disk.
+function descriptorsUnder(dir) {
+  if (process.platform !== "linux") return 0;
+  return readdirSync("/proc/self/fd").filter((fd) => {
+    try {
+      return readlinkSync(`/proc/self/fd/${fd}`).startsWith(dir);
+    } catch {
+      return false;
+    }
+  }).length;
+}
+
+test("an aborted download closes its temp file and frees the descriptor", async () => {
+  const size = 20 * 1024 * 1024;
+  const dir = mkdtempSync(join(tmpdir(), "aetheris-assets-"));
+  const app = Fastify();
+  let cancelled = false;
+  registerGameAssets(app, { cacheDir: dir, fetchimpl: async () => {
+    const body = new ReadableStream({
+      // One chunk per pull and no close: the build is still arriving when the
+      // visitor leaves, which is the case that leaked.
+      pull(controller) { controller.enqueue(new Uint8Array(65536)); },
+      cancel() { cancelled = true; },
+    });
+    return new Response(body, { headers: { "content-length": String(size) } });
+  }});
+  await app.listen({ port: 0, host: "127.0.0.1" });
+  const { port } = app.server.address();
+  try {
+    await new Promise((resolve, reject) => {
+      const request = http.get(
+        { host: "127.0.0.1", port, path: "/game-assets/m/jsdelivr/gh/bubblfan/fnaf@main/1/resources.zip.part1" },
+        (response) => {
+          response.once("data", () => {
+            // The visitor walks away after the first chunk.
+            request.destroy();
+            resolve();
+          });
+          response.on("error", () => {});
+        },
+      );
+      request.on("error", reject);
+    });
+    // The teardown runs on the response close, not with the abort itself.
+    const deadline = Date.now() + 2000;
+    while (Date.now() < deadline) {
+      const clean = readdirSync(dir).every((name) => !name.endsWith(".tmp")) && descriptorsUnder(dir) === 0;
+      if (clean) break;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    assert.deepEqual(
+      readdirSync(dir).filter((name) => name.endsWith(".tmp")),
+      [],
+      "an abandoned transfer leaves no temp file",
+    );
+    assert.equal(descriptorsUnder(dir), 0, "the write stream is closed, not left open on the temp file");
+    assert.ok(cancelled, "the CDN body is cancelled instead of left paused behind the unpiped tee");
+  } finally {
+    await app.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
