@@ -149,6 +149,9 @@
     
     <!-- preserve original game scripts but ensure our injection runs first and doesn't interfere -->
     <script src="js/loading.js"></script>
+    <!-- Versioned so the bundle-path fix is not hidden by the week-long
+         /assets/games cache on the unversioned js/index.js. -->
+    <script>window.MAIN = './js/index.js?v=20261107.1';</script>
     <script src="js/boot.js"></script>
     
     <!-- ensure window.GAME_CONFIG remains intact, plus additional injection verification after load -->
