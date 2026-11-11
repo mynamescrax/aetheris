@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+
+
+<!-- Ultimate Game Stash file--> 
+<!-- For the regularly updating doc go to https://docs.google.com/document/d/1_FmH3BlSBQI7FGgAQL59-ZPe8eCxs35wel6JUyVaG8Q/ -->
+
+
+
+
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <base href="https://cdn.jsdelivr.net/gh/bubbls/UGS-Assets@main/exo-observation/">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+  <!-- Viewport -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="./manifest.json" />
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/x-icon" href="./favicon.ico" />
+
+  <!-- Add your metadata for social media previews & SEO -->
+  <!-- <meta property="og:image" content="YOUR_IMAGE_URL" /> -->
+  <!-- <meta name="twitter:card" content="summary_large_image" /> -->
+  <!-- <meta name="twitter:site" content="YOUR_NAME" /> -->
+  <!-- <meta name="twitter:title" content="YOUR_TITLE" /> -->
+  <!-- <meta name="twitter:description" content="YOUR_DESCRIPTION" /> -->
+  <!-- <meta name="twitter:image" content="YOUR_IMAGE_URL" /> -->
+
+  <!-- prettier-ignore -->
+  <link rel="stylesheet" href="./style.css" />
+</head>
+
+<script type="module" src="./main.js"></script>
+
+<body>
+  <div id="player"></div>
+  <div id="touch-gamepad-overlay" class="hidden">
+    <!-- D-Pad -->
+    <div class="dpad-container">
+      <div class="dpad-button dpad-up" data-button="12">&uarr;</div>
+      <div class="dpad-button dpad-down" data-button="13">&darr;</div>
+      <div class="dpad-button dpad-left" data-button="14">&larr;</div>
+      <div class="dpad-button dpad-right" data-button="15">&rarr;</div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="gamepad-button action-a" data-button="0">A</div>
+    <div class="gamepad-button action-b" data-button="1">B</div>
+    <div class="gamepad-button action-y" data-button="2">Y</div>
+    <div class="gamepad-button action-x" data-button="3">X</div>
+
+    <!-- System Buttons -->
+    <div class="system-button system-select" data-button="8">SELECT</div>
+    <div class="system-button system-start" data-button="9">START</div>
+  </div>
+</body>
+
+</html>

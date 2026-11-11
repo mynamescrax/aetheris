@@ -1,0 +1,194 @@
+<!-- shxyder -->
+<!-- ultimate game stash file -->
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Escape School Duel</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+        
+        html, body {
+            background-image: url("https://cdn.jsdelivr.net/gh/shayderrr/portsv4@a797de52ff1ec8f9c0e0757dd6913ea21b841020/idk/files/games/g1/escape-school-duel-v5/Build/Build.jpg");
+            background-position: center;
+            background-repeat: no-repeat;
+            background-size: cover;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            padding: 0;
+            margin: 0;
+            background-color: black;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        div#gameContainer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+        }
+
+        div#gameContainer canvas {
+            width: 100% !important;
+            height: 100% !important;
+            display: block;
+        }
+
+        .loading-ui {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            background: rgba(0,0,0,0.8);
+            z-index: 100;
+            transition: opacity 0.5s;
+        }
+
+        .loadingOut {
+            width: 350px;
+            border-radius: 25px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            overflow: hidden;
+            margin-top: 20px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #00f5ff, #ff00ff, #00f5ff);
+            background-size: 200% 100%;
+            animation: gradientShift 2s infinite;
+            width: 0%;
+            transition: width 0.2s;
+        }
+
+        @keyframes gradientShift { 0% {background-position:0% 50%} 100% {background-position:100% 50%} }
+
+        .logo { width: 300px; margin-bottom: 20px; filter: drop-shadow(0 0 15px rgba(0,245,255,0.4)); }
+        #status-text { color: white; font-size: 12px; margin-top: 15px; opacity: 0.7; letter-spacing: 1px; text-transform: uppercase; }
+
+        #orientation-warning {
+            display: none;
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(90deg, rgba(14, 176, 240, 1) 0%, rgba(87, 199, 133, 1) 97%);
+            color: white; padding: 40px; border-radius: 20px;
+            z-index: 1000; text-align: center;
+        }
+        #orientation-warning.show { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+    </style>
+</head>
+
+<body>
+    <div id="orientation-warning">
+        <img src="https://cdn.jsdelivr.net/gh/shayderrr/portsv4@a797de52ff1ec8f9c0e0757dd6913ea21b841020/idk/files/games/g1/escape-school-duel-v5/TemplateData/Orientation/orientation.png" width="80">
+        <div>Please rotate your device to Landscape mode.</div>
+    </div>
+
+    <div id="gameContainer">
+        <canvas id="unity-canvas"></canvas>
+    </div>
+
+    <div class="loading-ui" id="loading-screen">
+        <img src="https://cdn.jsdelivr.net/gh/shayderrr/portsv4@a797de52ff1ec8f9c0e0757dd6913ea21b841020/idk/files/games/g1/escape-school-duel-v5/TemplateData/logo.png" class="logo">
+        <div class="loadingOut">
+            <div class="progress-bar" id="progress-bar"></div>
+        </div>
+        <div id="status-text">Fetching secure assets...</div>
+    </div>
+
+    
+    <script src="https://cdn.jsdelivr.net/gh/shayderrr/portsv4@a797de52ff1ec8f9c0e0757dd6913ea21b841020/idk/files/games/g1/escape-school-duel-v5/js/rhmApi.js"></script>
+
+   
+    <script src="https://cdn.jsdelivr.net/gh/shayderrr/portsv4@a797de52ff1ec8f9c0e0757dd6913ea21b841020/idk/files/games/g1/escape-school-duel-v5/Build/EscapeSchoolDuel_V10.loader.js"></script>
+
+    <script>
+        const progressBar = document.getElementById("progress-bar");
+        const statusText = document.getElementById("status-text");
+        const loadingScreen = document.getElementById("loading-screen");
+        const canvas = document.querySelector("#unity-canvas");
+
+
+        const BASE_PATH = "https://cdn.jsdelivr.net/gh/shayderrr/portsv4@a797de52ff1ec8f9c0e0757dd6913ea21b841020/idk/files/games/g1/escape-school-duel-v5/Build/";
+
+        async function fetchWithProgress(url, weight, offset) {
+            const response = await fetch(url);
+            const reader = response.body.getReader();
+            const contentLength = +response.headers.get('Content-Length');
+            let receivedLength = 0;
+            let chunks = [];
+
+            while(true) {
+                const {done, value} = await reader.read();
+                if (done) break;
+                chunks.push(value);
+                receivedLength += value.length;
+                let progress = (offset + (receivedLength / contentLength) * weight) * 100;
+                progressBar.style.width = progress + "%";
+            }
+
+            let allChunks = new Uint8Array(receivedLength);
+            let position = 0;
+            for(let chunk of chunks) {
+                allChunks.set(chunk, position);
+                position += chunk.length;
+            }
+            return allChunks;
+        }
+
+        async function start() {
+            try {
+               
+                if (typeof InitSDKJs === 'undefined') window.InitSDKJs = () => console.log("SDK Mocked");
+
+                statusText.innerText = "Downloading Content Part 1...";
+                const p1 = await fetchWithProgress(BASE_PATH + "EscapeSchoolDuel_V10.data.unityweb.part1", 0.45, 0);
+                
+                statusText.innerText = "Downloading Content Part 2...";
+                const p2 = await fetchWithProgress(BASE_PATH + "EscapeSchoolDuel_V10.data.unityweb.part2", 0.45, 0.45);
+
+                statusText.innerText = "Merging Data Stream...";
+                const mergedBlob = new Blob([p1, p2], { type: "application/octet-stream" });
+                const dataUrl = URL.createObjectURL(mergedBlob);
+
+                const config = {
+                    dataUrl: dataUrl,
+                    frameworkUrl: BASE_PATH + "EscapeSchoolDuel_V10.framework.js.unityweb",
+                    codeUrl: BASE_PATH + "EscapeSchoolDuel_V10.wasm.unityweb",
+                    streamingAssetsUrl: "StreamingAssets",
+                    companyName: "gameVgames",
+                    productName: "Escape School Duel",
+                    productVersion: "1.0.0",
+                };
+
+                statusText.innerText = "Waking Engine...";
+                createUnityInstance(canvas, config, (p) => {
+                    progressBar.style.width = (90 + (p * 10)) + "%";
+                }).then((instance) => {
+                    loadingScreen.style.opacity = "0";
+                    setTimeout(() => loadingScreen.style.display = "none", 500);
+                    URL.revokeObjectURL(dataUrl);
+                });
+
+            } catch (err) {
+                statusText.innerText = "Load failed. See Console.";
+                console.error(err);
+            }
+        }
+
+        function checkOrientation() {
+            const isPortrait = window.innerHeight > window.innerWidth;
+            document.getElementById('orientation-warning').classList.toggle('show', isPortrait);
+        }
+
+        window.addEventListener('resize', checkOrientation);
+        checkOrientation();
+        start();
+    </script>
+</body>
+</html>

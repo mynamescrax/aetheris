@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <base href="https://cdn.jsdelivr.net/gh/mynamescrax/gamesforaetheris@main/poppyplaytime/">
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>poppy Granny playtime</title>
+    <link rel="shortcut icon" href="TemplateData/favicon.ico">
+    <link rel="stylesheet" href="TemplateData/style.css">
+    <script>
+        window.fileMergerConfig = {
+            files: [
+                { name: 'bb1.data.unityweb', parts: 3 },
+            ],
+            basePath: 'Build/',
+            debug: true
+        };
+    </script>
+    <script src="https://cdn.jsdelivr.net/gh/bubbls/UGS-Assets@ac5cdfc0042aca584e72619375b4aca948a9243c/merge.js"></script>
+    <script src="TemplateData/UnityProgress.js"></script>
+    <script src="Build/UnityLoader.js"></script>
+    <script>
+        window.addEventListener('load', function() {
+            var gameInstance = UnityLoader.instantiate("gameContainer", "Build/bb1.json", {onProgress: UnityProgress});
+        });
+    </script>
+</head>
+<body>
+<div class="webgl-content">
+    <div id="gameContainer" style="width: 960px; height: 600px"></div>
+</div>
+<style>
+    body {
+        margin: 0;
+        overflow: hidden;
+    }
+    #gameContainer {
+        width: 100vw !important;
+        height: 100vh !important;
+    }
+</style>
+<script src="TemplateData/responsive.js"></script>
+</body>
+</html>

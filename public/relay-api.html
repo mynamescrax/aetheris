@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Relay API · aetheris</title>
+<meta name="description" content="The public WebSocket relay for browser games that talk to it: protocol, options, limits and examples.">
+<style>
+  :root { color-scheme: dark; --bg: #0c0e13; --panel: #141821; --line: #232a36; --text: #e6e9ef; --dim: #9aa4b2; --accent: #e9c46a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 880px; margin: 0 auto; padding: 48px 20px 96px; }
+  h1 { font-size: 32px; margin: 0 0 8px; }
+  h2 { font-size: 20px; margin: 40px 0 10px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+  p, li { color: var(--text); }
+  .lede { color: var(--dim); margin: 0 0 28px; }
+  code, pre { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 13.5px; }
+  code { background: var(--panel); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; }
+  pre { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; border: 0; padding: 0; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14.5px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--dim); font-weight: 600; }
+  .url { display: block; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin: 14px 0; }
+  .note { border-left: 3px solid var(--accent); background: #15140f; padding: 12px 16px; border-radius: 0 8px 8px 0; color: #efe6cf; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Relay API</h1>
+  <p class="lede">One public WebSocket endpoint that moves game packets between browsers, so players on different networks can host and join without opening a port. Free to use by anyone, with no account.</p>
+
+  <span class="url"><code>wss://aetheris.win/eos-relay</code> · alias <code>wss://aetheris.win/relay</code></span>
+
+  <p>The relay is transparent: it forwards binary frames between sockets and keeps a directory of the servers each player advertises. It never parses a payload, so any game can use it as long as it speaks the framing below (it is the relay of the Rexcomp web ports, e.g. Meccha Chameleon).</p>
+
+  <h2>Options</h2>
+  <p>Everything is configured on the connection URL. Every value is clamped, so a URL cannot raise the limits.</p>
+  <table>
+    <thead><tr><th>Parameter</th><th>Default</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>room</code></td><td>empty (public)</td><td>A private relay: up to 32 letters, digits, <code>_</code> or <code>-</code>. Players in different rooms never see each other's servers and packets never cross. Share the code with friends to keep a game off the public list.</td></tr>
+      <tr><td><code>maxSessions</code></td><td>8</td><td>How many servers this one connection may advertise (1–8).</td></tr>
+      <tr><td><code>idle</code></td><td>180</td><td>Backstop: seconds of total silence before the socket is dropped (60–600). Client keepalives make this rare.</td></tr>
+    </tbody>
+  </table>
+  <pre><code>wss://aetheris.win/eos-relay?room=FRIENDS
+wss://aetheris.win/eos-relay?room=FRIENDS&amp;maxSessions=2&amp;idle=120</code></pre>
+
+  <h2>Frames</h2>
+  <p>Binary WebSocket messages. The first byte is the kind, integers are big-endian. Ids are 32 printable ASCII characters; a session id is at most 64 characters and its record at most 16 KB (the relay treats the record as opaque bytes).</p>
+  <table>
+    <thead><tr><th>Client → relay</th><th>Relay → client</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><code>H</code> <code>puid[32]</code><br>Say hello. Required before anything else.</td>
+        <td><code>P</code> <code>src[32]</code> <code>payload</code><br>A packet from another player.</td>
+      </tr>
+      <tr>
+        <td><code>P</code> <code>dst[32]</code> <code>payload</code><br>Send a packet to that player.</td>
+        <td><code>G</code> <code>puid[32]</code><br>That player left, or was never connected.</td>
+      </tr>
+      <tr>
+        <td><code>S</code> <code>n:u16</code> <code>sid</code> <code>record</code><br>Advertise a hosted server. Sending the same <code>sid</code> again replaces its own record.</td>
+        <td><code>R</code> <code>qid:u32</code> <code>n:u16</code> (<code>len:u32</code> <code>record</code>)*<br>Reply to the search with this id.</td>
+      </tr>
+      <tr>
+        <td><code>D</code> <code>n:u16</code> <code>sid</code><br>Withdraw one of your servers.</td>
+        <td colspan="1">Sockets close with 1008 for a protocol or rate error, 1009 for a frame over the cap, 1013 when the relay is full, 1029 when one address has too many players.</td>
+      </tr>
+      <tr>
+        <td><code>Q</code> <code>qid:u32</code><br>List the servers of everyone else in your room. qid <code>0xFFFFFFFF</code> is a keepalive: counted, never answered.</td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Limits</h2>
+  <table>
+    <thead><tr><th>Limit</th><th>Value</th></tr></thead>
+    <tbody>
+      <tr><td>Frame size</td><td>32 KB (a game packet is about 1.2 KB; only a session record is larger)</td></tr>
+      <tr><td>Rate per socket</td><td>300 messages and 256 KB per second, burst 900 / 1 MB</td></tr>
+      <tr><td>Sockets</td><td>1024 total, 48 per address</td></tr>
+      <tr><td>Players</td><td>512 total, 32 per address</td></tr>
+      <tr><td>Advertised servers</td><td>8 per player (fewer with <code>maxSessions</code>), 2048 relay-wide</td></tr>
+      <tr><td>Keepalive</td><td>Clients should send <code>Q</code> with qid <code>0xFFFFFFFF</code> every 30 s: it counts as activity, gets no reply, and keeps a proxied socket open (Cloudflare closes WebSockets that send no data for ~100 s). The relay also sends one small ignorable frame every 25 s</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Browser example</h2>
+  <pre><code>const ws = new WebSocket("wss://aetheris.win/eos-relay?room=FRIENDS");
+ws.binaryType = "arraybuffer";
+
+const text = (s) =&gt; new TextEncoder().encode(s);
+const hello = (id) =&gt; Uint8Array.from([...text("H"), ...text(id.padEnd(32, "0").slice(0, 32))]);
+
+ws.onopen = () =&gt; ws.send(hello("player-1"));
+
+ws.onmessage = (event) =&gt; {
+  const bytes = new Uint8Array(event.data);
+  const kind = String.fromCharCode(bytes[0]);
+  if (kind === "P") {
+    const from = new TextDecoder().decode(bytes.subarray(1, 33));
+    console.log("packet from", from, bytes.subarray(33));
+  }
+};</code></pre>
+
+  <h2>Python example</h2>
+  <pre><code>import asyncio, websockets
+
+async def main():
+    async with websockets.connect("wss://aetheris.win/eos-relay") as ws:
+        await ws.send(b"H" + b"player-1".ljust(32, b"0"))
+        await asyncio.sleep(2)   # a browser answers the relay's pings itself
+
+asyncio.run(main())</code></pre>
+
+  <h2>Notes</h2>
+  <ul>
+    <li>The relay is unauthenticated: an id is whatever a client claims. Do not put secrets in a payload, and do not trust an id as an identity.</li>
+    <li>Any website may open a connection (it only moves packets between players), so a page served from <code>localhost</code>, a tunnel or another domain all work.</li>
+    <li>A player's servers are withdrawn the moment its socket closes, and a vanished socket is detected by the keepalive, so dead games do not pile up in search results.</li>
+    <li>Games with their own server browser need no join codes: they advertise with <code>S</code> and list with <code>Q</code>. A room is the code, when you want one.</li>
+    <li>A server name belongs to the connection that advertised it. Only that player can replace or withdraw it, so nobody else can point a name at their own game or keep it from being refreshed.</li>
+    <li>Rexcomp ports use it directly: <code>?REXCOMP_RELAY=wss://aetheris.win/eos-relay</code>, or with a room, <code>?REXCOMP_RELAY=wss://aetheris.win/eos-relay?room=FRIENDS</code>.</li>
+  </ul>
+
+  <p><a href="/">Back to aetheris</a></p>
+</main>
+</body>
+</html>

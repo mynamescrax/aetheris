@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en-us">
+	<base href="/game-assets/1games-rips/trackdash/">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+	<link rel="stylesheet" href="26042701/theme/game.css">
+	<meta name="robots" content="noindex, nofollow">
+	<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500&display=swap" rel="stylesheet">
+	<title>Track Dash</title>
+	<meta name="description" content=""/>
+	<style type="text/css">
+		.jss1:before {
+			top: 0;
+			width: 100%;
+			filter: blur(16px);
+			height: 100%;
+			content: "";
+			display: block;
+			opacity: .5;
+			z-index: 0;
+			position: absolute;
+			background-size: cover;
+			background-image: url("26042701/loading.png")
+		}
+	</style> 
+	 
+	<script>
+		var buildUrl = "Build";
+		var versionFolder = "26042701/";
+		buildUrl = ".";
+		var loaderUrl = buildUrl + "/track-dash-v26042701.loader.js";
+		var config = {
+			dataUrl: buildUrl + "/track-dash-v26042701.data.unityweb",
+			frameworkUrl: buildUrl + "/track-dash-v26042701.framework.js",
+			codeUrl: buildUrl + "/track-dash-v26042701.wasm.unityweb",
+			streamingAssetsUrl: versionFolder+"StreamingAssets",
+			companyName: "azgames.io",
+			productName: "Track Dash",
+			productVersion: "26042701"
+		};
+		config.gameId = "track-dash";
+		config.eventLog = true;
+		config.buildAPI = "https://event.azgame.io/apiaz/event";
+		let currentDate = new Date();
+		let endLogDate = new Date("2026-05-17T02:30:19.215Z");
+		if(currentDate>endLogDate){
+			config.eventLog=false;
+		}
+		window["GMSOFT_SDKTYPE"] = "gm";
+		localStorage.setItem("gmsdksigndomain", "eyJzaWduZWQiOiJJaHQ2XC9qdTRUWk15dTljNUhNbWNmekM2QWFmdXFIbGlqOFNcL1ZNNGJxOFVERXZ2czBwc3gwZUZQNEdWSkVWNmVFU2FMaGV1UERNMnEwOVVhUFRLODFJbVpVYnBpTndMXC9wNENcL2R2RWRkanlQK1RyUFFqazNLOUxOM0ZNRDluN0hSXC9ZblAxRmJYTkxoOG0zY3ZLT1JjaWdyXC9Na1JJQnV4SndQaWlvTlFMTVVPbkIzUmZUUkV1czBXbThJK3l4WEdzWUttSVhrT1lGT2hMXC8xb29NNG1hYWswMHZCaFwvZ2J1T09DRDBmZE82K2k3WVFuQUpvQUlBVTNtVXZUc0g4bWN3XC9qUmtTc3E5a2hWdktWVStnem4rZndveVpKWDFWTE00alwvUzZWdVF5SGJoSWEzM0d6U2hjUDZYQXpUUTBIOWpsc2pzNU83aEx4alVkUlcrSDFsZW9RPT0iLCJhcCI6InllcyIsImhuIjoiZ2FtZWEuYXpnYW1lLmlvIiwiZG9tYWluIjoiYXpnYW1lLmlvIiwicyI6InllcyIsInN0eXBlIjoyfQ==");
+	</script>
+</head>
+
+<body>
+<div id="unity-container" style="display: none;">
+	<canvas id="unity-canvas"></canvas> 
+</div>
+<div id="loadingBlock" style="">
+	<div class="jss31 jss34 jss1">
+	<div style="position: absolute; font-family: Arial, Helvetica, sans-serif;	bottom: 10px; right: 10px; font-size: 18px; color: #ffffff; opacity: 0.5;">26042701</div>
+		<div class="spinner"></div>
+		<div class="jss31 jss34 jss48" style="flex: 1 1 0%;">
+			<div class="jss32">
+				<div class="jss7 jss9 jss20 jss3">
+					<div class="jss125">
+						<div class="jss123">
+						 <img src="26042701/logo.png">
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<!--PRODUCT_VERSION:26042701END-->
+		<div class="jss31 jss34" style="flex: 3 1 0%;">
+			<div class="jss32">
+				<div class="jss31 jss34 jss39 jss50 gameloader">
+					<div class="jss32">
+						<div class="gameloader-game-name">Track Dash</div>
+					</div>
+					<div class="jss32">
+						<div class="jss32 gameloader-logo">
+							<img id="game-logo" src="26042701/loading.png">
+						</div>
+					</div>
+					<div class="jss32">
+						<div>
+							<div class="gameloader-progressbar">
+								<div class="gameloader-progressbar-progress" id="progress_fill"
+										 style="width: 0%;"></div>
+							</div>
+							<div class="gameloader-progress-info">Game Loading...</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+	<script> 
+		var loadStartTime = performance.now();
+		var progressElement = document.getElementById('progress_fill');
+		var container =	document.getElementById("unity-container");
+		var canvas =	document.getElementById("unity-canvas");
+		var loadingBar = document.querySelector("#loadingBlock");
+		var progressBarFull = document.querySelector("#progress_fill");
+		var progress_text = document.querySelector(".gameloader-progress-info");
+		let text_percent = "";
+		var script = document.createElement("script");
+		script.src = loaderUrl;
+		script.onload = () => {
+		createUnityInstance(canvas, config, (progress) => {
+			progressElement.style.width = 100 * progress + "%";
+			text_percent = "Downloading file: " + Math.round(progress*100) + "%";
+			progress_text.innerText = text_percent;
+			if (progress >= 99) {
+				progress_text.innerText = "Game Loading ...";
+			}
+		}).then((unityInstance) => {
+			window.unityInstance = unityInstance;
+			setTimeout(function() {
+				loadingBar.style.display = "none";
+				window.focus();
+				var loadDurationMs = Math.round(performance.now() - loadStartTime);
+				firebaseLogEventParameter("loaded_game", {
+					load_time_ms: loadDurationMs
+				});				
+			}, 2000);
+			container.style.display = "block";
+		}).catch((message) => {
+			alert(message);
+		});
+		};
+		document.body.appendChild(script);
+	</script>
+	<script>
+		const scriptGMFirebase = document.createElement('script');
+
+		// 5-minute version key
+		const versionCacheGMFirebase = Math.floor(Date.now() / (5 * 60 * 1000));
+
+		scriptGMFirebase.src = `https://gma.readyplayer1.xyz/sdk/latest/gm-sdk.js?v=${versionCacheGMFirebase}`;
+		scriptGMFirebase.defer = true;
+
+		
+		scriptGMFirebase.onload = function () {
+			try {
+				if (window.GMGameSDK && GMGameSDK.init) {					
+					GMGameSDK.init("track-dash-az", "https://gma.readyplayer1.xyz").setVersion("26042701");
+				} else {
+					console.warn("GMGameSDK not available after load");
+				}
+			} catch (e) {
+				console.warn("GMGameSDK.init failed:", e);
+			}
+		};
+
+		// handle load failure
+		scriptGMFirebase.onerror = function () {
+			console.warn("Failed to load GM SDK");
+		};
+		window.addEventListener("error", function (e) {
+			if (e.filename && e.filename.includes("gm-sdk.js")) {
+				console.warn("Error from GM SDK:", e.message);
+
+				// prevent it from breaking your game
+				e.preventDefault();
+			}
+		});
+		window.addEventListener("unhandledrejection", function (e) {
+			console.warn("Unhandled promise (possibly SDK):", e.reason);
+		});
+		
+		document.head.appendChild(scriptGMFirebase);
+	</script>
+	<script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
+	<script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
+	<script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-auth-compat.js"></script>
+	<script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-analytics-compat.js"></script>
+	<script type="module">
+		// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyC0ZvPcPPHCgHQWT3fyIqeZtT-FdbUPS3c",
+  authDomain: "track-dash-az.firebaseapp.com",
+  projectId: "track-dash-az",
+  storageBucket: "track-dash-az.firebasestorage.app",
+  messagingSenderId: "715287954378",
+  appId: "1:715287954378:web:363ed351a97b55ccc88533",
+  measurementId: "G-3VDEWFC4WH"
+};
+		if (typeof firebaseConfig !== 'undefined'){
+			if(firebaseConfig ){
+				window.dataLayer = window.dataLayer || [];
+				window.gtag = function () { window.dataLayer.push(arguments); }
+
+				window.gtag("config", firebaseConfig.measurementId, {
+				  cookie_domain: window.location.hostname,
+				  cookie_flags: "SameSite=None;Secure",
+				});
+				// Initialize Firebase
+				const app = firebase.initializeApp(firebaseConfig);
+				//const auth = getAuth(app);
+			}
+		}		
+	</script>
+	<script>
+		function isFirebaseReady() {
+            try {
+                return typeof firebase !== "undefined" &&
+                    firebase.apps &&
+                    firebase.apps.length > 0;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        function firebaseSetUserProperties(props) {
+            try {
+                if (isFirebaseReady()) {
+                    firebase.analytics().setUserProperties(props);
+                }
+            } catch (e) {}
+        }
+
+        function firebaseLogEvent(event_name) {
+            try {
+                if (isFirebaseReady()) {
+                    firebase.analytics().logEvent(event_name);
+                }
+            } catch (e) {}
+			try {
+				GMGameSDK.trackEvent(event_name);
+			}catch (e) {}
+        }
+
+        function firebaseLogEventParameter(event_name, event_param) {
+            try {
+                if (isFirebaseReady()) {
+                    firebase.analytics().logEvent(event_name, event_param);
+                }
+            } catch (e) {}
+			try {
+				GMGameSDK.trackEventParams(event_name, event_param);
+			}catch (e) {}
+        }
+		
+		
+		function gmEvent(eventName, msg){
+			console.log(eventName);
+		}
+		function gmStartGame(callbackFunction){
+			callbackFunction();
+			firebaseLogEvent("start_game");
+		}
+			
+		function gmStartAds(callbackFunction){
+			callbackFunction();
+		}
+	</script>
+	
+</body>	
+</html>
+

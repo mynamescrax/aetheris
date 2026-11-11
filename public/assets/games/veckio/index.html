@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Veck.io</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <link rel="icon" href="https://veck.io/favicon/favicon.ico">
+    
+    <link rel="preload" href="main.css" as="style" onload="this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="main.css"></noscript>
+
+    <style>
+        @media (max-width: 768px) {
+            body { overflow: hidden; }
+        }
+
+        /* Warning Overlay */
+        #warning-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            color: #ff5555;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 19px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            z-index: 9999;
+            pointer-events: none;
+            line-height: 1.4;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body style="background:black; color:black; margin:0; padding:0;">
+
+    <!-- Warning Overlay -->
+    <div id="warning-overlay">
+        This game is very unstable.<br>
+        Please refresh the whole site if it doesn't work.
+    </div>
+
+    <div id="videoad"></div>
+
+    <div id="unity-container">
+        <canvas id="unity-canvas"></canvas>
+    </div>
+
+    <div id="unity-loading-container">
+        <div id="loading-percentage">1%</div>
+        <img src="logo.webp" class="logo" alt="Veck.io" decoding="async">
+        <div id="unity-loading-bar">
+            <div id="unity-loading-bar-inner"></div>
+        </div>
+    </div>
+
+<script>
+// Hide warning overlay after 1 second
+setTimeout(() => {
+    const overlay = document.getElementById('warning-overlay');
+    if (overlay) {
+        overlay.style.transition = 'opacity 0.6s ease';
+        overlay.style.opacity = '0';
+        setTimeout(() => overlay.remove(), 600);
+    }
+}, 1000);
+
+// SDK Selection
+const url = window.location.href;
+const params = new URLSearchParams(window.location.search);
+let sdkScriptSrc = "sdk.js";
+
+if (url.includes("discord")) sdkScriptSrc = "discord_sdk.js";
+else if (params.has("cg") || url.includes("crazygames")) sdkScriptSrc = "cg_sdk.js";
+else if (params.has("yandex") || url.includes("/yandex")) sdkScriptSrc = "yandex_sdk.js";
+else if (params.has("msn") || url.includes("/msn")) sdkScriptSrc = "msn_sdk.js";
+
+const sdkScript = document.createElement("script");
+sdkScript.src = sdkScriptSrc + "?v=12";
+document.head.appendChild(sdkScript);
+
+// Unity Loading Functions
+function getSafeBuildURL() {
+    return window.SDK?.getBuildURL?.() || "./Build";
+}
+
+function getSafeStreamingAssetsUrl() {
+    return window.SDK?.getStreamingAssetsUrl?.() || "./StreamingAssets";
+}
+
+function getSafeStaticResolutionScaleMulti() {
+    return window.SDK?.getStaticResolutionScaleMulti?.() || 1;
+}
+
+const waitForSDK = (callback) => {
+    if (!url.includes("discord") && !params.has("cg")) {
+        callback();
+        return;
+    }
+
+    let waited = 0;
+    const interval = 10;
+    const maxWait = 10000;
+
+    const check = () => {
+        if (window.SDK?.getBuildURL) {
+            callback();
+        } else if (waited >= maxWait) {
+            console.warn("SDK not ready in time, proceeding anyway.");
+            callback();
+        } else {
+            waited += interval;
+            setTimeout(check, interval);
+        }
+    };
+    check();
+};
+
+waitForSDK(() => {
+    const buildUrl = getSafeBuildURL();
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const scaleMulti = getSafeStaticResolutionScaleMulti();
+
+    const config = {
+        dataUrl: buildUrl + "/8a504c48146421da0234614836f65d88.data",
+        frameworkUrl: buildUrl + "/1d2f19510632460528ffd44443071fbc.framework.js",
+        codeUrl: buildUrl + "/ac23b49e68268e84c7ecf27d5971a3c4.wasm",
+        streamingAssetsUrl: getSafeStreamingAssetsUrl(),
+        companyName: "LEGiON Platforms",
+        productName: "Veck.io",
+        productVersion: "15z74851616",
+        devicePixelRatio: scaleMulti * (isMobile ? 1.3 : 1.0)
+    };
+
+    const canvas = document.getElementById("unity-canvas");
+    const loadingContainer = document.getElementById("unity-loading-container");
+    const loadingBar = document.getElementById("unity-loading-bar-inner");
+    const loadingText = document.getElementById("loading-percentage");
+
+    let progress = 51;
+    const progressInterval = setInterval(() => {
+        progress = Math.min(progress + 0.15, 99);
+        loadingBar.style.width = progress + "%";
+        loadingText.textContent = Math.floor(progress) + "%";
+    }, 100);
+
+    function startUnity() {
+        createUnityInstance(canvas, config, (p) => {
+            const actual = Math.min(Math.max(p * 100, 51), 99);
+            if (actual > progress) progress = actual;
+            loadingBar.style.width = progress + "%";
+            loadingText.textContent = Math.floor(progress) + "%";
+        }).then((unityInstance) => {
+            window.unityInstance = unityInstance;
+            clearInterval(progressInterval);
+            loadingBar.style.width = "100%";
+            loadingText.textContent = "100%";
+            setTimeout(() => loadingContainer.remove(), 300);
+        }).catch((err) => {
+            clearInterval(progressInterval);
+            console.error("Unity failed to load:", err);
+        });
+    }
+
+    if (typeof createUnityInstance === 'function') {
+        startUnity();
+    } else {
+        const loaderScript = document.createElement("script");
+        loaderScript.src = buildUrl + "/f2ce1cb23b0715cab923f62d566f4190.loader.js";
+        loaderScript.onload = startUnity;
+        loaderScript.onerror = () => console.error("Failed to load Unity loader");
+        document.body.appendChild(loaderScript);
+    }
+});
+</script>
+
+<script src="s/cursor.js" defer></script>
+<script src="s/pwa.js" defer></script>
+
+</body>
+</html>

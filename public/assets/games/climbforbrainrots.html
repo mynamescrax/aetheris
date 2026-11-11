@@ -1,0 +1,157 @@
+<!-- shxyder -->
+<!-- ultimate game stash file -->
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/shayderrr/idk@de44d061ae3c867a631b494762848a22aaacf334/climbforbrainrots/494990/o7iep38kbv6xwm980reqa1i23y9fsho6_brotli/style.css">
+    <script src="/sdk.js"></script>
+    <style>
+        canvas:focus { outline: none; }
+        html, body { padding: 0; margin: 0; overflow: hidden; user-select: none; height: 100%; background: #000; }
+        #unity-progress-bar-empty { width: 320px; height: 16px; background: rgba(255,255,255,0.2); border-radius: 10px; margin: 20px auto; display: none; }
+        #unity-progress-bar-full { height: 100%; width: 0%; background: #fff; border-radius: 10px; transition: width 0.2s; }
+        #status-text { color: #fff; font-family: sans-serif; text-align: center; margin-top: 10px; font-size: 14px; }
+    </style>
+</head>
+<body class="dark">
+    <div id="unity-container"><canvas id="unity-canvas" tabindex="-1"></canvas></div>
+    <div id="loading-cover">
+        <div id="unity-loading-bar">
+            <div id="unity-logo">
+                <img src="https://cdn.jsdelivr.net/gh/shayderrr/idk@de44d061ae3c867a631b494762848a22aaacf334/climbforbrainrots/494990/o7iep38kbv6xwm980reqa1i23y9fsho6_brotli/logo.png" width="120" style="display:block; margin:auto;">
+            </div>
+            <div id="unity-progress-bar-empty"><div id="unity-progress-bar-full"></div></div>
+            <div id="status-text">Connecting to SDK...</div>
+        </div>
+    </div>
+    <script>
+        const HASH = "de44d061ae3c867a631b494762848a22aaacf334";
+        const BASE_URL = `https://cdn.jsdelivr.net/gh/shayderrr/idk@${HASH}/climbforbrainrots/494990/o7iep38kbv6xwm980reqa1i23y9fsho6_brotli/`;
+        const buildUrl = BASE_URL + "Build";
+
+
+        var myGameInstance = null;
+        var cloudSaves = 'noData';
+        var environmentData = 'null';
+        var playerData = 'noData';
+        var paymentsData = 'none';
+        var initGame = false;
+        var nowFullAdOpen = false;
+        var player = null;
+        var payments = null;
+
+      
+        var ysdk = {
+            environment: { i18n: { lang: 'en', tld: 'com' }, app: { id: '1' }, browser: { lang: 'en' }, payload: null },
+            deviceInfo: { type: 'desktop', isMobile: () => false, isDesktop: () => true, isTablet: () => false, isTV: () => false },
+            adv: { 
+                showFullscreenAdv: (c) => { if(c && c.callbacks && c.callbacks.onClose) c.callbacks.onClose(true); }, 
+                showRewardedVideo: (c) => { if(c && c.callbacks && c.callbacks.onRewarded) c.callbacks.onRewarded(); },
+                getBannerAdvStatus: () => Promise.resolve({ stickyAdvIsShowing: false })
+            },
+            features: { LoadingAPI: { ready: () => {} } },
+            serverTime: () => Date.now(),
+            getPlayer: () => Promise.resolve({ 
+                getMode: () => 'lite', getName: () => "Player", getPhoto: () => "null", getUniqueID: () => "123", getPayingStatus: () => "unknown",
+                setData: () => Promise.resolve(), getData: () => Promise.resolve({ saves: 'noData' })
+            }),
+            feedback: { canReview: () => Promise.resolve({ value: false }) },
+            shortcut: { canShowPrompt: () => Promise.resolve({ canShow: false }) }
+        };
+
+        
+        window.RequestingEnvironmentData = function(sendback) {
+            environmentData = JSON.stringify({
+                "language": "en", "domain": "com", "deviceType": "desktop", "isMobile": false,
+                "isDesktop": true, "isTablet": false, "isTV": false, "appID": "1",
+                "browserLang": "en", "payload": null, "promptCanShow": false, "reviewCanShow": false,
+                "platform": navigator.platform, "browser": "Chrome"
+            });
+            if (sendback && myGameInstance) myGameInstance.SendMessage('YandexGame', 'SetEnvirData', environmentData);
+            return Promise.resolve(environmentData);
+        };
+
+        window.InitPlayer = function(sendback) {
+            playerData = JSON.stringify({
+                "playerAuth": "resolved", "playerName": "Player", "playerId": "123", "playerPhoto": "null", "payingStatus": "unknown"
+            });
+            if (sendback && myGameInstance) myGameInstance.SendMessage('YandexGame', 'SetInitializationSDK', playerData);
+            return Promise.resolve(playerData);
+        };
+
+        window.LoadCloud = (s) => { if(s && myGameInstance) myGameInstance.SendMessage('YandexGame', 'SetLoadSaves', 'noData'); return Promise.resolve('noData'); };
+        window.SaveCloud = (d) => { cloudSaves = d; };
+        window.GetLeaderboardScores = () => {};
+        window.SetLeaderboardScores = () => {};
+        window.InitLeaderboards = () => {};
+        window.GetPayments = (s) => { if(s && myGameInstance) myGameInstance.SendMessage('YandexGame', 'PaymentsEntries', 'none'); return Promise.resolve('none'); };
+        window.BuyPayments = () => {};
+        window.ConsumePurchase = () => {};
+        window.ConsumePurchases = () => {};
+        window.Review = () => {};
+        window.PromptShow = () => {};
+        window.StickyAdActivity = () => {};
+        window.FullAdShow = () => { if(ysdk.adv) ysdk.adv.showFullscreenAdv(); };
+        window.RewardedShow = (id) => { if(myGameInstance) myGameInstance.SendMessage('YandexGame', 'RewardVideo', id); };
+        window.InitGame = () => { initGame = true; window.RequestingEnvironmentData(true); window.InitPlayer(true); };
+
+
+        async function merge(file, count, ext, mime) {
+            const parts = [];
+            for (let i = 1; i <= count; i++) {
+                parts.push(fetch(`${buildUrl}/${file}.${ext}.part${i}`).then(r => r.arrayBuffer()));
+            }
+            const buffers = await Promise.all(parts);
+            return URL.createObjectURL(new Blob(buffers, {type: mime}));
+        }
+
+        async function start() {
+            try {
+                document.getElementById('status-text').innerText = "Merging game chunks...";
+                const config = {
+                    dataUrl: await merge("Build", 2, "data.br", "application/octet-stream"),
+                    frameworkUrl: buildUrl + "/Build.framework.js",
+                    codeUrl: await merge("Build", 3, "wasm.br", "application/wasm"),
+                    streamingAssetsUrl: BASE_URL + "StreamingAssets",
+                    companyName: "DefaultCompany", productName: "StealBrainrot", productVersion: "0.1"
+                };
+                
+                const s = document.createElement("script");
+                s.src = buildUrl + "/Build.loader.js";
+                s.onload = () => {
+                    createUnityInstance(document.querySelector("#unity-canvas"), config, (p) => {
+                        document.getElementById('unity-progress-bar-empty').style.display = "block";
+                        document.getElementById('unity-progress-bar-full').style.width = (p * 100) + "%";
+                        document.getElementById('status-text').innerText = `Loading Assets: ${Math.round(p * 100)}%`;
+                    }).then(i => {
+                        myGameInstance = i;
+                        document.getElementById('loading-cover').style.display = "none";
+                    });
+                };
+                document.body.appendChild(s);
+            } catch (e) { console.error(e); }
+        }
+
+        (async () => {
+            try {
+                if (typeof YaGames !== 'undefined') {
+                    const res = await YaGames.init();
+                    if(res) {
+                        Object.assign(ysdk, res);
+                        if (ysdk.features && ysdk.features.LoadingAPI) ysdk.features.LoadingAPI.ready();
+                    }
+                }
+            } catch (e) { console.warn("SDK blocked or missing"); }
+            window.RequestingEnvironmentData(false);
+            window.InitPlayer(false);
+            start();
+        })();
+
+        document.getElementById('loading-cover').style.background = `url('${BASE_URL}background.jpg') center / cover`;
+        document.addEventListener('contextmenu', e => e.preventDefault());
+    </script>
+</body>
+</html>

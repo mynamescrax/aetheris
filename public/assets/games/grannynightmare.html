@@ -1,0 +1,137 @@
+<!-- shxyder -->
+<!-- ultimate game stash file -->
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>Unity WebGL Player | Night Mare</title>
+  <link rel="shortcut icon" href="https://cdn.jsdelivr.net/gh/my-files-schoolum/o8k@main/TemplateData/favicon.ico" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/my-files-schoolum/o8k@main/TemplateData/style.css" />
+  <script src="https://cdn.jsdelivr.net/gh/my-files-schoolum/o8k@main/v2.js"></script>
+</head>
+<body>
+  <div id="unity-container" style="position: absolute; width: 100%; height: 100%; left: 0%; top: 0%;">
+    <canvas id="unity-canvas" style="position: absolute; width: 100%; height: 100%"></canvas>
+    <div id="unity-loading-bar">
+      <div id="unity-logo"></div>
+      <div id="unity-progress-bar-empty">
+        <div id="unity-progress-bar-full"></div>
+      </div>
+    </div>
+    <div id="unity-warning"></div>
+  </div>
+
+  <script>
+    YaGames.init().then(ysdk => {
+      console.log('Yandex SDK initialized');
+      window.ysdk = ysdk;
+      initPlayer();
+    });
+
+    var player;
+    function initPlayer() {
+      return ysdk.getPlayer({ scopes: false }).then(_player => {
+        player = _player;
+        return player;
+      });
+    }
+  </script>
+
+  <script>
+    var container = document.querySelector("#unity-container");
+    var canvas = document.querySelector("#unity-canvas");
+    var loadingBar = document.querySelector("#unity-loading-bar");
+    var progressBarFull = document.querySelector("#unity-progress-bar-full");
+    var warningBanner = document.querySelector("#unity-warning");
+
+    function unityShowBanner(msg, type) {
+      function updateBannerVisibility() {
+        warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
+      }
+      var div = document.createElement('div');
+      div.innerHTML = msg;
+      warningBanner.appendChild(div);
+      if (type == 'error') div.style = 'background: red; padding: 10px;';
+      else {
+        if (type == 'warning') div.style = 'background: yellow; padding: 10px;';
+        setTimeout(function() {
+          warningBanner.removeChild(div);
+          updateBannerVisibility();
+        }, 5000);
+      }
+      updateBannerVisibility();
+    }
+
+    var buildUrl = "https://cdn.jsdelivr.net/gh/my-files-schoolum/o8k@main/Build";
+    var loaderUrl = buildUrl + "/Granny_Nightmare.loader.js";
+
+    async function mergeWasmFiles() {
+      const part1Url = buildUrl + "/Granny_Nightmare_part1.wasm";
+      const part2Url = buildUrl + "/Granny_Nightmare_part2.wasm";
+
+      const [part1Response, part2Response] = await Promise.all([
+        fetch(part1Url),
+        fetch(part2Url)
+      ]);
+
+      const part1Buffer = await part1Response.arrayBuffer();
+      const part2Buffer = await part2Response.arrayBuffer();
+
+      const totalLength = part1Buffer.byteLength + part2Buffer.byteLength;
+      const mergedBuffer = new Uint8Array(totalLength);
+      mergedBuffer.set(new Uint8Array(part1Buffer), 0);
+      mergedBuffer.set(new Uint8Array(part2Buffer), part1Buffer.byteLength);
+
+      const blob = new Blob([mergedBuffer], { type: "application/wasm" });
+      return URL.createObjectURL(blob);
+    }
+
+    var config = {
+      dataUrl: buildUrl + "/Granny_Nightmare.data",
+      frameworkUrl: buildUrl + "/Granny_Nightmare.framework.js",
+      codeUrl: "",
+      streamingAssetsUrl: "StreamingAssets",
+      companyName: "DefaultCompany",
+      productName: "Night Mare",
+      productVersion: "0.1",
+      showBanner: unityShowBanner
+    };
+
+    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+      var meta = document.createElement('meta');
+      meta.name = 'viewport';
+      meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
+      document.getElementsByTagName('head')[0].appendChild(meta);
+      container.className = "unity-mobile";
+      canvas.className = "unity-mobile";
+    } else {
+      canvas.style.width = "100%";
+      canvas.style.height = "100%";
+    }
+
+    loadingBar.style.display = "block";
+    var myGameInstance = null;
+    var script = document.createElement("script");
+    script.src = loaderUrl;
+
+    script.onload = async () => {
+      try {
+        config.codeUrl = await mergeWasmFiles();
+        createUnityInstance(canvas, config, progress => {
+          progressBarFull.style.width = 100 * progress + "%";
+        }).then(unityInstance => {
+          myGameInstance = unityInstance;
+          loadingBar.style.display = "none";
+        }).catch(message => {
+          alert(message);
+        });
+      } catch (error) {
+        alert("WASM dosyaları birleştirilirken hata oluştu: " + error);
+      }
+    };
+
+    document.body.appendChild(script);
+  </script>
+</body>
+</html>

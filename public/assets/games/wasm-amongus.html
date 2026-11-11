@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,height=device-height,initial-scale=1,user-scalable=no">
+  <title>Among Us Web</title>
+  <style>
+    html,body,#game{width:100%;height:100%;margin:0;overflow:hidden;background:#000}
+    #game{position:fixed;inset:0}
+    #unity-canvas{display:block;width:100%;height:100%;border:0;outline:0;background:#000}
+    #loader{position:fixed;inset:0;z-index:2;display:grid;place-items:center;background:#000;color:#fff;font:16px Arial,sans-serif}
+    #loader-box{width:min(440px,82vw);text-align:center}
+    .download-row{margin-top:18px}
+    .download-label{display:flex;justify-content:space-between;margin-bottom:6px;font-size:14px}
+    .download-track{height:12px;overflow:hidden;border:1px solid #777;border-radius:8px}
+    .download-fill{width:0;height:100%;background:#35d0ba;transition:width .12s linear}
+    #error{margin-top:12px;color:#ff6961;white-space:pre-wrap}
+    #ios-warn{position:fixed;inset:0;z-index:3;display:none;place-items:center;background:#000;color:#fff;font:16px Arial,sans-serif;padding:20px}
+    #ios-warn-box{width:min(520px,90vw);text-align:center}
+    #ios-warn button{margin-top:16px;padding:10px 22px;font-size:15px;border:0;border-radius:8px;background:#35d0ba;color:#000;cursor:pointer}
+    #ios-warn button.secondary{background:transparent;color:#35d0ba;border:1px solid #35d0ba;margin-left:8px}
+  </style>
+</head>
+<body>
+  <div id="game"><canvas id="unity-canvas" tabindex="-1"></canvas></div>
+  <div id="loader"><div id="loader-box">
+    <div id="status" role="status">Loading game files… 0%</div>
+        <div class="download-row">
+          <div class="download-label"><span>Data</span><span id="data-percent">0%</span></div>
+          <div class="download-track" role="progressbar" aria-label="Data" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="data-bar"><div class="download-fill" id="data-fill"></div></div>
+        </div>
+        <div class="download-row">
+          <div class="download-label"><span>WASM</span><span id="wasm-percent">0%</span></div>
+          <div class="download-track" role="progressbar" aria-label="WASM" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="wasm-bar"><div class="download-fill" id="wasm-fill"></div></div>
+        </div>
+        <div class="download-row">
+          <div class="download-label"><span>Assets</span><span id="assets-percent">0%</span></div>
+          <div class="download-track" role="progressbar" aria-label="Assets" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="assets-bar"><div class="download-fill" id="assets-fill"></div></div>
+        </div>
+    <div id="error"></div>
+  </div></div>
+  <div id="ios-warn"><div id="ios-warn-box">
+    <h2 style="margin:0 0 12px">iPad may not run this game</h2>
+    <p style="line-height:1.5">Among Us Web downloads ~860&nbsp;MB and needs over 1&nbsp;GB of memory. iPads kill tabs past their limit, which is why the page loads, runs a few seconds, then refreshes. The game now loads its big content file on demand instead of all at once, which may be enough on newer iPads — older ones still may not make it.</p>
+    <p style="line-height:1.5">Newer (M-series) iPads have higher limits and the best chance. You can try, but expect possible crashes.</p>
+    <div><button id="ios-force" type="button">Load anyway</button><button id="ios-back" class="secondary" type="button">Go back</button></div>
+  </div></div>
+  <script>
+
+    const JSDELIVR = "https://cdn.jsdelivr.net/gh/wasmdotrip/AmongUsPort@7b6881186a73a3165ad7274b5e5dd31e3290cbfc";
+    const BUILD = JSDELIVR + "/Build";
+    const STREAMING_ASSETS = JSDELIVR + "/StreamingAssets";
+    const LARGE_BUNDLE = "defaultlocalgroup_assets__db69efd6d6015cdfb90e3e77a7544e5b.bundle";
+    const CACHE_REVISION = "7b6881186a73a3165ad7274b5e5dd31e3290cbfc-catalog1";
+    const STREAMING_FILES = [
+      [
+            "aa/AddressablesLink/link.xml",
+            28453,
+            "application/xml"
+      ],
+      [
+            "aa/catalog.json",
+            1099514,
+            "application/json"
+      ],
+      [
+            "aa/settings.json",
+            844,
+            "application/json"
+      ],
+      [
+            "aa/WebGL/453b0a9b2ef9b8a4080b2014844ce426_unitybuiltinshaders_2536dfd3f978a44e0658621a7478bc60.bundle",
+            56557,
+            "application/octet-stream"
+      ],
+      [
+            "CustomAssetPacksData.json",
+            137,
+            "application/json"
+      ],
+      [
+            "UnityServicesProjectConfiguration.json",
+            1131,
+            "application/json"
+      ]
+];
+    const TOTAL_BYTES = 106373377 + 166806921 + 589939296 + 20642 + 523455 +
+      STREAMING_FILES.reduce((sum, file) => sum + file[1], 0);
+
+    const canvas = document.getElementById("unity-canvas");
+    const loader = document.getElementById("loader");
+    const statusText = document.getElementById("status");
+    const errorText = document.getElementById("error");
+    // iPad/iPhone Safari tabs get jetsammed around ~1-1.5 GB while desktop
+    // Chrome happily holds several GB. This game preloads ~860 MB into Blobs
+    // before Unity even boots, so without iOS-specific guards the tab dies
+    // with "A problem repeatedly occurred" while PCs sail through.
+    const IS_IOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    // IndexedDB caching ~860 MB of Blobs blows the iOS quota and doubles
+    // peak memory (network Blob + stored copy). Skip the cache on iOS and
+    // for very large blobs everywhere.
+    const SKIP_CACHE = IS_IOS;
+    const MAX_CACHE_BLOB = 64 * 1024 * 1024;
+    // jsDelivr + iOS networking chokes on 40+ parallel part fetches.
+    const MAX_CONCURRENT_PARTS = IS_IOS ? 3 : 6;
+    const browserFetch = window.fetch.bind(window);
+    const BrowserXMLHttpRequest = window.XMLHttpRequest;
+    const preloadAbort = new AbortController();
+    const assetUrls = new Map();
+    let downloadedBytes = 0;
+    let progressFrame = null;
+    let loadingFailed = false;
+
+      const downloadGroups = {
+        data: { total: 106373377, bytes: 0, complete: false },
+        wasm: { total: 166806921, bytes: 0, complete: false },
+        assets: { total: 589939296 + STREAMING_FILES.reduce((sum, file) => sum + file[1], 0), bytes: 0, complete: false }
+      };
+      Object.keys(downloadGroups).forEach(name => {
+        const group = downloadGroups[name];
+        group.fill = document.querySelector("#" + name + "-fill");
+        group.percent = document.querySelector("#" + name + "-percent");
+        group.bar = document.querySelector("#" + name + "-bar");
+      });
+
+      function renderDownloadProgress() {
+        if (loadingFailed) return;
+        Object.keys(downloadGroups).forEach(name => {
+          const group = downloadGroups[name];
+          const progress = group.complete ? 1 : Math.min(group.bytes / group.total, 0.99);
+          const percent = Math.floor(progress * 100);
+          group.fill.style.width = (progress * 100) + "%";
+          group.percent.textContent = percent + "%";
+          group.bar.setAttribute("aria-valuenow", String(percent));
+        });
+        const progress = Math.min(downloadedBytes / TOTAL_BYTES, 1);
+        statusText.textContent = "Loading game files… " + Math.floor(progress * 100) + "%";
+      }
+
+      function recordBytes(bytes, url) {
+        if (loadingFailed) return;
+        downloadedBytes += bytes;
+        const path = new URL(url, location.href).pathname;
+        const name = path.includes("/StreamingAssets/") ? "assets" :
+          path.endsWith(".data") || /\.data\.part\d+$/.test(path) ? "data" :
+          path.endsWith(".wasm") || /\.wasm\.part\d+$/.test(path) ? "wasm" : null;
+        if (name) downloadGroups[name].bytes += bytes;
+        if (progressFrame !== null) return;
+        progressFrame = requestAnimationFrame(() => {
+          progressFrame = null;
+          renderDownloadProgress();
+        });
+      }
+
+      async function finishDownloadGroup(name, promise) {
+        const result = await promise;
+        downloadGroups[name].complete = true;
+        renderDownloadProgress();
+        return result;
+      }
+
+    const CACHE_DB = "amongus-web-cache";
+    const CACHE_STORE = "files";
+    let cacheDbPromise = null;
+
+    function openCacheDb() {
+      if (cacheDbPromise) return cacheDbPromise;
+      cacheDbPromise = new Promise(resolve => {
+        try {
+          const request = indexedDB.open(CACHE_DB, 1);
+          request.onupgradeneeded = () => request.result.createObjectStore(CACHE_STORE);
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = request.onblocked = () => resolve(null);
+        } catch (error) { resolve(null); }
+      });
+      return cacheDbPromise;
+    }
+
+    async function cacheGet(url) {
+      if (SKIP_CACHE) return undefined;
+      const db = await openCacheDb();
+      if (!db) return undefined;
+      return new Promise(resolve => {
+        try {
+          const tx = db.transaction(CACHE_STORE, "readonly");
+          const request = tx.objectStore(CACHE_STORE).get(CACHE_REVISION + ":" + url);
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = tx.onabort = () => resolve(undefined);
+        } catch (error) { resolve(undefined); }
+      });
+    }
+
+    async function cacheSet(url, blob) {
+      if (SKIP_CACHE || !(blob instanceof Blob) || blob.size > MAX_CACHE_BLOB) return;
+      const db = await openCacheDb();
+      if (!db) return;
+      return new Promise(resolve => {
+        try {
+          const tx = db.transaction(CACHE_STORE, "readwrite");
+          tx.objectStore(CACHE_STORE).put(blob, CACHE_REVISION + ":" + url);
+          tx.oncomplete = tx.onerror = tx.onabort = () => resolve();
+        } catch (error) { resolve(); }
+      });
+    }
+
+    function resourceUrl(resource) {
+      return typeof resource === "string" ? resource : resource instanceof URL ? resource.href : resource.url;
+    }
+
+    function assetKey(url) {
+      const target = new URL(url, location.href);
+      target.search = "";
+      target.hash = "";
+      return target.href;
+    }
+
+    const overrideServer = new URLSearchParams(location.search).get("server");
+    let serverReplacement = null;
+    if (overrideServer) {
+      try { serverReplacement = new URL(overrideServer); } catch (error) {}
+    }
+
+    function toHttpProtocol(protocol) {
+      return protocol === "ws:" ? "http:" : protocol === "wss:" ? "https:" : protocol;
+    }
+
+    function toWsProtocol(protocol) {
+      return protocol === "http:" ? "ws:" : protocol === "https:" ? "wss:" : protocol;
+    }
+
+    function rewriteToServer(url, wantWs) {
+      if (!serverReplacement) return url;
+      let target;
+      try { target = new URL(url, location.href); } catch (error) { return url; }
+      if (target.protocol === "blob:" || target.href.startsWith(JSDELIVR + "/")) return url;
+      if (target.host === location.host) return url;
+      target.protocol = wantWs ? toWsProtocol(serverReplacement.protocol) : toHttpProtocol(serverReplacement.protocol);
+      target.host = serverReplacement.host;
+      return target.toString();
+    }
+
+    function externalFetch(url, resource, options) {
+      const sourceHeaders = options && options.headers ? options.headers :
+        (typeof Request !== "undefined" && resource instanceof Request ? resource.headers : undefined);
+      const headers = new Headers(sourceHeaders || undefined);
+      headers.delete("Authorization");
+      headers.delete("Proxy-Authorization");
+      headers.delete("Content-Type");
+      return browserFetch(url, Object.assign({}, options || {}, {
+        method: (options && options.method) || (typeof Request !== "undefined" && resource instanceof Request ? resource.method : "GET"),
+        headers: headers,
+        credentials: "omit"
+      }));
+    }
+
+    function fetchWithFallback(resource, options) {
+      const url = resourceUrl(resource);
+      const rewritten = rewriteToServer(url, false);
+      if (rewritten !== url) return browserFetch(rewritten, options);
+      return url.startsWith(JSDELIVR + "/") || url.startsWith("blob:")
+        ? externalFetch(url, resource, options) : browserFetch(resource, options);
+    }
+
+    async function fetchDownload(url) {
+      let lastError;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        let response;
+        try {
+          response = await fetchWithFallback(url, {signal:preloadAbort.signal, cache:"reload"});
+        } catch (error) {
+          if (preloadAbort.signal.aborted) throw error;
+          lastError = error;
+        }
+        if (response) {
+          if (response.ok) return response;
+          lastError = new Error("Failed to load " + url + " (HTTP " + response.status + ")");
+          if (![404, 408, 429].includes(response.status) && response.status < 500) throw lastError;
+        }
+        if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 750 * (attempt + 1)));
+      }
+      throw lastError;
+    }
+
+    async function downloadBlob(url, mimeType) {
+      const cached = await cacheGet(url);
+      if (cached instanceof Blob) {
+        recordBytes(cached.size, url);
+        return cached;
+      }
+      const response = await fetchDownload(url);
+      let blob;
+      if (!response.body || !response.body.getReader) {
+        const buffer = await response.arrayBuffer();
+        recordBytes(buffer.byteLength, url);
+        blob = new Blob([buffer], {type:mimeType});
+      } else {
+        const reader = response.body.getReader();
+        const chunks = [];
+        try {
+          while (true) {
+            const chunk = await reader.read();
+            if (chunk.done) break;
+            chunks.push(chunk.value);
+            recordBytes(chunk.value.byteLength, url);
+          }
+        } finally { reader.releaseLock(); }
+        blob = new Blob(chunks, {type:mimeType});
+      }
+      await cacheSet(url, blob);
+      return blob;
+    }
+
+    async function combineParts(baseUrl, count, mimeType, numberWidth = 0) {
+      // Promise.all over 34 bundle parts + data + wasm parts = ~50 parallel
+      // streamed fetches held in RAM at once. Desktop survives; iPad Safari
+      // exhausts connections and jetsams the tab. Download in small batches.
+      const blobs = new Array(count);
+      let next = 0;
+      async function worker() {
+        while (next < count) {
+          const index = next++;
+          blobs[index] = await downloadBlob(
+            baseUrl + ".part" + String(index + 1).padStart(numberWidth, "0"), mimeType);
+        }
+      }
+      const workers = [];
+      const concurrency = Math.min(MAX_CONCURRENT_PARTS, count);
+      for (let i = 0; i < concurrency; i++) workers.push(worker());
+      await Promise.all(workers);
+      return new Blob(blobs, {type:mimeType});
+    }
+
+    async function validateAssetCatalog(blob) {
+      const catalog = JSON.parse(await blob.text());
+      const expected = new Set([LARGE_BUNDLE].concat(
+        STREAMING_FILES.filter(file => file[0].endsWith(".bundle")).map(file => file[0].split("/").pop())
+      ));
+      const actual = (catalog.m_InternalIds || []).filter(id => id.endsWith(".bundle")).map(id => id.split("/").pop());
+      if (actual.length !== expected.size || actual.some(name => !expected.has(name))) {
+        throw new Error("The asset catalog belongs to a different build. Update the loader and game files together.");
+      }
+    }
+
+    async function preloadStreamingAssets() {
+      // Small files (catalog, settings, shaders) are needed at boot. The
+      // ~590 MB asset bundle is NOT preloaded: it is fetched on demand the
+      // first time Unity requests it (see ensureLargeBundle). Holding it in
+      // RAM alongside data+wasm+heap is what jetsams iPad tabs.
+      await Promise.all(STREAMING_FILES.map(async file => {
+        const url = STREAMING_ASSETS + "/" + file[0];
+        const blob = await downloadBlob(url, file[2]);
+        if (file[0] === "aa/catalog.json") await validateAssetCatalog(blob);
+        assetUrls.set(assetKey(url), URL.createObjectURL(blob));
+      }));
+    }
+
+    const BUNDLE_URL = STREAMING_ASSETS + "/aa/WebGL/" + LARGE_BUNDLE;
+    const BUNDLE_KEY = assetKey(BUNDLE_URL);
+    let bundlePromise = null;
+
+    function ensureLargeBundle() {
+      if (!bundlePromise) {
+        bundlePromise = combineParts(BUNDLE_URL, 34, "application/octet-stream", 2)
+          .then(blob => {
+            const url = URL.createObjectURL(blob);
+            assetUrls.set(BUNDLE_KEY, url);
+            // Once Unity has parsed the bundle into its heap, our 590 MB
+            // Blob is a pure duplicate. Drop it after a grace period so
+            // steady-state gameplay holds heap only. revokeObjectURL never
+            // breaks in-flight reads; a later re-request simply downloads
+            // again (a stall, not a crash).
+            setTimeout(() => {
+              try {
+                if (assetUrls.get(BUNDLE_KEY) === url) {
+                  URL.revokeObjectURL(url);
+                  assetUrls.delete(BUNDLE_KEY);
+                }
+              } catch (error) {}
+              bundlePromise = null;
+            }, 60000);
+            return url;
+          })
+          .catch(error => { bundlePromise = null; throw error; });
+      }
+      return bundlePromise;
+    }
+
+    window.fetch = function(resource, options) {
+      const key = assetKey(resourceUrl(resource));
+      const cachedUrl = assetUrls.get(key);
+      if (cachedUrl) return externalFetch(cachedUrl, resource, options);
+      // Large bundle not preloaded: download it now, then serve it.
+      if (key === BUNDLE_KEY) return ensureLargeBundle().then(url => externalFetch(url, resource, options));
+      return fetchWithFallback(resource, options);
+    };
+
+    window.XMLHttpRequest = function() {
+      const xhr = new BrowserXMLHttpRequest();
+      const originalOpen = xhr.open.bind(xhr);
+      const originalSend = xhr.send.bind(xhr);
+      const originalSetRequestHeader = xhr.setRequestHeader.bind(xhr);
+      // open() is deferred so send() can swap in the lazily-downloaded
+      // bundle URL. Header sets before send() are queued and replayed.
+      let openArgs = null;
+      const queuedHeaders = [];
+      let externalGet = false;
+      xhr.open = function() {
+        openArgs = Array.prototype.slice.call(arguments);
+      };
+      xhr.setRequestHeader = function(name, value) {
+        if (!openArgs) return originalSetRequestHeader.call(xhr, name, value);
+        queuedHeaders.push([name, value]);
+      };
+      xhr.send = function(body) {
+        const args = openArgs;
+        openArgs = null;
+        const method = args[0];
+        const rawUrl = String(args[1]);
+        const serve = target => {
+          externalGet = /^(GET|HEAD)$/i.test(method) && (target.startsWith(JSDELIVR + "/") || target.startsWith("blob:"));
+          const finalArgs = args.slice();
+          finalArgs[1] = target;
+          originalOpen.apply(xhr, finalArgs);
+          for (const pair of queuedHeaders) {
+            if (externalGet && !/^(accept|accept-language|range)$/i.test(String(pair[0]))) continue;
+            originalSetRequestHeader.call(xhr, pair[0], pair[1]);
+          }
+          queuedHeaders.length = 0;
+          return originalSend.call(xhr, body);
+        };
+        const mapped = assetUrls.get(assetKey(rawUrl));
+        if (mapped) return serve(mapped);
+        if (assetKey(rawUrl) === BUNDLE_KEY) {
+          // Async-only: send() returns now, the XHR completes once the
+          // bundle finishes downloading. Unity uses async XHR for bundles.
+          ensureLargeBundle().then(serve, () => serve(rewriteToServer(rawUrl, false)));
+          return;
+        }
+        return serve(rewriteToServer(rawUrl, false));
+      };
+      return xhr;
+    };
+    window.XMLHttpRequest.prototype = BrowserXMLHttpRequest.prototype;
+
+    if (serverReplacement) {
+      const BrowserWebSocket = window.WebSocket;
+      window.WebSocket = function(url, protocols) {
+        const target = rewriteToServer(url, true);
+        return protocols !== undefined ? new BrowserWebSocket(target, protocols) : new BrowserWebSocket(target);
+      };
+      window.WebSocket.prototype = BrowserWebSocket.prototype;
+    }
+
+    async function executeUnityLoader(blob) {
+      const script = document.createElement("script");
+      const url = URL.createObjectURL(blob);
+      script.src = url;
+      try {
+        await new Promise((resolve, reject) => {
+          script.onload = resolve;
+          script.onerror = () => reject(new Error("Unity loader could not be executed."));
+          document.head.appendChild(script);
+        });
+      } finally { URL.revokeObjectURL(url); }
+    }
+
+    async function start() {
+      renderDownloadProgress();
+      const [dataBlob, wasmBlob, loaderBlob, frameworkBlob] = await Promise.all([
+        finishDownloadGroup("data", combineParts(BUILD + "/AmongUsWeb.data", 6, "application/octet-stream")),
+        finishDownloadGroup("wasm", combineParts(BUILD + "/AmongUsWeb.wasm", 9, "application/wasm")),
+        downloadBlob(BUILD + "/AmongUsWeb.loader.js", "text/javascript"),
+        downloadBlob(BUILD + "/AmongUsWeb.framework.js", "text/javascript"),
+        finishDownloadGroup("assets", preloadStreamingAssets())
+      ]);
+      if (progressFrame !== null) { cancelAnimationFrame(progressFrame); progressFrame = null; }
+      renderDownloadProgress();
+      statusText.textContent = "Starting game… 0%";
+      await executeUnityLoader(loaderBlob);
+      const config = {
+        dataUrl:URL.createObjectURL(dataBlob),
+        frameworkUrl:URL.createObjectURL(frameworkBlob),
+        codeUrl:URL.createObjectURL(wasmBlob),
+        streamingAssetsUrl:STREAMING_ASSETS,
+        cacheControl:() => "no-store",
+        companyName:"Innersloth",
+        productName:"Among Us",
+        productVersion:"2026.6.5",
+        // Without this an iPad renders at full retina resolution
+        // (e.g. 2732x2048 @2x) and the GPU allocation alone kills the tab.
+        // Other Unity games in this repo already cap DPR to 1 on mobile.
+        devicePixelRatio: IS_IOS ? 1 : (window.devicePixelRatio || 1),
+        showBanner:(message,type) => type === "error" ? errorText.textContent = message : console.warn(message)
+      };
+      await createUnityInstance(canvas, config, value => {
+        statusText.textContent = "Starting game… " + Math.floor(Math.max(0, Math.min(1, value)) * 100) + "%";
+      });
+      // The data/wasm/framework Blobs (~270 MB combined) are copied into the
+      // Unity heap during instantiation. Revoking the object URLs lets Safari
+      // release that duplicate memory; without it the tab holds both copies.
+      try {
+        URL.revokeObjectURL(config.dataUrl);
+        URL.revokeObjectURL(config.frameworkUrl);
+        URL.revokeObjectURL(config.codeUrl);
+      } catch (error) {}
+      loader.style.display = "none";
+    }
+
+    // iPads that can't hold this game just crash-loop (load ~860 MB, run a
+    // few seconds, jetsam refresh). Gate them with an honest warning instead.
+    // ?force=1 bypasses for M-series iPads with higher memory limits.
+    const forceLoad = new URLSearchParams(location.search).get("force") === "1";
+    if (IS_IOS && !forceLoad) {
+      loader.style.display = "none";
+      const warn = document.getElementById("ios-warn");
+      warn.style.display = "grid";
+      document.getElementById("ios-force").addEventListener("click", () => {
+        const params = new URLSearchParams(location.search);
+        params.set("force", "1");
+        location.search = params.toString();
+      });
+      document.getElementById("ios-back").addEventListener("click", () => history.back());
+    } else {
+      start().catch(error => {
+      loadingFailed = true;
+      preloadAbort.abort();
+      if (progressFrame !== null) cancelAnimationFrame(progressFrame);
+      statusText.textContent = "Unable to start the game.";
+      const rawMessage = error && error.message ? error.message : String(error);
+      // Safari on iPad reports OOM as a generic abort/out-of-memory during
+      // WASM compile. Translate it into something actionable.
+      const isMemoryError = IS_IOS && /memory|abort|allocation|wasm|compile/i.test(rawMessage);
+      errorText.textContent = isMemoryError
+        ? rawMessage + "\n\nThis game needs ~1 GB of free memory. On iPad: close other tabs/apps, turn off Private Browsing, then reload and try again."
+        : rawMessage;
+      console.error(error);
+      });
+    }
+  </script>
+</body>
+</html>

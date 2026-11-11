@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <script src="./js/site.js?v=20261110.1"></script>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <link
+      rel="shortcut icon"
+      href="./assets/images/tiktok.webp"
+      type="image/webp"
+    />
+    <title>Aetheris - TikTok</title>
+    <script defer src="./js/preload.js?v=20261008.1"></script>
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: #000;
+      }
+      #tiktok-frame {
+        display: block;
+        width: 100%;
+        height: 100%;
+        border: 0;
+        background: #000;
+      }
+    </style>
+  </head>
+
+  <body>
+    <iframe
+      id="tiktok-frame"
+      title="TikTok"
+      allow="autoplay; fullscreen; encrypted-media; picture-in-picture; clipboard-write"
+      allowfullscreen
+      referrerpolicy="no-referrer"
+    ></iframe>
+
+    <script>
+      (function () {
+        "use strict";
+
+        var START = "https://www.tiktok.com/foryou?lang=en";
+        var RETRY_KEY = "tiktok-feed-retries";
+        var frame = document.getElementById("tiktok-frame");
+        var retries = 0;
+
+        try {
+          retries = Number(sessionStorage.getItem(RETRY_KEY) || 0) || 0;
+        } catch (_) {}
+
+        function resetretries() {
+          retries = 0;
+          try {
+            sessionStorage.removeItem(RETRY_KEY);
+          } catch (_) {}
+        }
+
+        function gateway(url) {
+          return (
+            "/tiktok/tt?url=" +
+            encodeURIComponent(url) +
+            "&referer=" +
+            encodeURIComponent(url) +
+            "&tt=1"
+          );
+        }
+
+        function currenttarget() {
+          try {
+            var target = frame.contentWindow.__TT_TARGET__;
+            if (typeof target === "string" && target) return target;
+          } catch (_) {}
+          return null;
+        }
+
+        function onfeed(doc) {
+          try {
+            var win = doc.defaultView || {};
+            var target =
+              win.__TT_TARGET__ ||
+              (win.location && win.location.href) ||
+              "";
+            var path = new URL(target, "https://www.tiktok.com").pathname;
+            return path === "/" || path === "/foryou";
+          } catch (_) {
+            return false;
+          }
+        }
+
+        function feedfailed(doc) {
+          try {
+            if (!doc || !doc.body || doc.readyState !== "complete") return false;
+            if (!onfeed(doc)) return false;
+            if (doc.querySelector("video")) return false;
+            return (doc.body.innerText || "").indexOf("Something went wrong") !== -1;
+          } catch (_) {
+            return false;
+          }
+        }
+
+        // If TikTok assigns location.href to the site root (its router treats
+        // "/" as home), pull the frame back instead of showing Aetheris inside
+        // the TikTok area. Real TikTok routes are all separate paths.
+        var SITEPAGE_RE =
+          /^\/(?:index|home|apps|tiktok|cheats|search|chat|ai|movies|settings|about|load|maths|minichat)\.html?$/;
+        setInterval(function () {
+          try {
+            var current = new URL(frame.contentWindow.location.href);
+            if (current.origin !== location.origin) return;
+            if (current.pathname === "/" || SITEPAGE_RE.test(current.pathname)) {
+              frame.src = gateway(currenttarget() || START);
+            }
+          } catch (_) {}
+        }, 2000);
+
+        // The feed API flakes occasionally at the transport level (TikTok's
+        // "Something went wrong" card). Retry only For You, at most twice.
+        setInterval(function () {
+          var doc;
+          try {
+            doc = frame.contentDocument;
+          } catch (_) {
+            return;
+          }
+          if (!doc || !feedfailed(doc)) {
+            if (retries) resetretries();
+            return;
+          }
+          if (retries >= 2) return;
+          retries++;
+          try {
+            sessionStorage.setItem(RETRY_KEY, String(retries));
+          } catch (_) {}
+          try {
+            frame.contentWindow.location.reload();
+          } catch (_) {
+            frame.src = gateway(currenttarget() || START);
+          }
+        }, 3000);
+
+        frame.src = gateway(START);
+      })();
+    </script>
+  </body>
+</html>

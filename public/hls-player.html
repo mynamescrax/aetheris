@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Player</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #000;
+        overflow: hidden;
+      }
+      #stage {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+      }
+      video {
+        width: 100%;
+        height: 100%;
+        max-height: 100vh;
+        background: #000;
+      }
+      #msg {
+        position: absolute;
+        inset: auto 0 12px 0;
+        text-align: center;
+        color: #bbb;
+        font:
+          14px/1.4 system-ui,
+          sans-serif;
+        pointer-events: none;
+        padding: 0 12px;
+      }
+      #playbtn {
+        position: absolute;
+        inset: 0;
+        display: none;
+        place-items: center;
+        background: rgba(0, 0, 0, 0.45);
+        border: 0;
+        width: 100%;
+        cursor: pointer;
+      }
+      #playbtn.show {
+        display: grid;
+      }
+      #playbtn span {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.9);
+        display: grid;
+        place-items: center;
+        font-size: 28px;
+        color: #000;
+        padding-left: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="stage">
+      <video id="v" controls playsinline preload="auto"></video>
+      <button id="playbtn" aria-label="Play"><span>&#9654;</span></button>
+    </div>
+    <div id="msg">Loading…</div>
+    <script src="/js/vendor/hls.min.js?v=1.5.13"></script>
+    <script>
+      (function () {
+        "use strict";
+        var video = document.getElementById("v");
+        var msg = document.getElementById("msg");
+        var playbtn = document.getElementById("playbtn");
+        function say(t) {
+          msg.textContent = t;
+        }
+        function fail(t) {
+          say(t);
+          playbtn.classList.remove("show");
+        }
+        var q = new URLSearchParams(location.search);
+        var type = q.get("type") === "tv" ? "tv" : "movie";
+        var via = q.get("via") === "lul" ? "lul" : "hls";
+        var id = q.get("id") || "";
+        var s = q.get("s") || "1";
+        var e = q.get("e") || "1";
+        if (!/^\d{1,10}$/.test(id)) {
+          fail("Invalid title id.");
+          return;
+        }
+        var src =
+          "/hls-resolve?via=" +
+          via +
+          "&type=" +
+          type +
+          "&id=" +
+          id +
+          (type === "tv" ? "&s=" + encodeURIComponent(s) + "&e=" + encodeURIComponent(e) : "");
+        function started() {
+          say("");
+          playbtn.classList.remove("show");
+        }
+        video.addEventListener("playing", started);
+        video.addEventListener("error", function () {
+          fail("Could not load this stream. Try another source.");
+        });
+        playbtn.addEventListener("click", function () {
+          video
+            .play()
+            .then(started)
+            .catch(function () {
+              say("Playback blocked — tap play on the video.");
+            });
+        });
+        function useNative(unsupportedMessage) {
+          if (video.canPlayType("application/vnd.apple.mpegurl")) {
+            video.src = src;
+            video.play().catch(function () {
+              say("");
+              playbtn.classList.add("show");
+            });
+          } else {
+            fail(unsupportedMessage || "This browser cannot play HLS video.");
+          }
+        }
+        if (window.Hls && window.Hls.isSupported()) {
+          var hls = new window.Hls({ maxBufferLength: 30 });
+          hls.on(window.Hls.Events.ERROR, function (_ev, data) {
+            if (data && data.fatal) {
+              try {
+                hls.destroy();
+              } catch (e) {}
+              // One native attempt for Safari-type browsers before giving up.
+              useNative("Could not load this stream. Try another source.");
+            }
+          });
+          hls.loadSource(src);
+          hls.attachMedia(video);
+          hls.on(window.Hls.Events.MANIFEST_PARSED, function () {
+            video.play().catch(function () {
+              say("");
+              playbtn.classList.add("show");
+            });
+          });
+        } else {
+          useNative();
+        }
+      })();
+    </script>
+  </body>
+</html>

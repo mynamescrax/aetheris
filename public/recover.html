@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link
+      rel="shortcut icon"
+      href="./assets/images/icon.png"
+      type="image/png"
+    />
+    <title>Aetheris recovery</title>
+    <script src="./js/cache-reset.js?v=20260924.1"></script>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #0e0010;
+        font-family: system-ui, sans-serif;
+        color: #e2d6f5;
+      }
+
+      .card {
+        text-align: center;
+        padding: 2.5rem 2rem;
+        max-width: 360px;
+      }
+
+      .spinner {
+        width: 48px;
+        height: 48px;
+        border: 3px solid rgba(180, 120, 255, 0.2);
+        border-top-color: #b478ff;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin: 0 auto 1.5rem;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      h1 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #f0eaff;
+      }
+
+      p {
+        font-size: 0.875rem;
+        color: #a090c0;
+        line-height: 1.5;
+      }
+
+      .done h1 {
+        color: #7dffb0;
+      }
+      .done .spinner {
+        border-color: rgba(125, 255, 176, 0.2);
+        border-top-color: #7dffb0;
+        animation: none;
+      }
+
+      .error-msg {
+        display: none;
+        margin-top: 1.25rem;
+        font-size: 0.8rem;
+        color: #ff8080;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="card" id="card">
+      <div class="spinner" id="spinner"></div>
+      <h1 id="heading">Fixing things…</h1>
+      <p id="subtext">
+        Clearing proxy caches. Your game saves and favorites will be kept.
+      </p>
+      <p class="error-msg" id="errormsg"></p>
+    </div>
+
+    <script>
+      (function () {
+        var card = document.getElementById("card");
+        var heading = document.getElementById("heading");
+        var subtext = document.getElementById("subtext");
+        var errormsg = document.getElementById("errormsg");
+
+        function done() {
+          card.classList.add("done");
+          heading.textContent = "all clear!";
+          subtext.textContent = "taking you back...";
+          setTimeout(function () {
+            window.location.replace("/");
+          }, 800);
+        }
+
+        function fail(err) {
+          heading.textContent = "something went wrong";
+          subtext.textContent =
+            "Close other Aetheris tabs, then reload this page. Do not clear all browser data unless you have backed up your saves.";
+          errormsg.style.display = "block";
+          errormsg.textContent = err ? String(err) : "unknown error";
+          console.error("[recover] failed:", err);
+        }
+
+        if (!navigator.serviceWorker) {
+          window.location.replace("/");
+          return;
+        }
+
+        AetherisCache.reset().then(done).catch(fail);
+      })();
+    </script>
+  </body>
+</html>

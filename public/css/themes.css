@@ -1,0 +1,194 @@
+/* Outfit (SIL OFL 1.1, see /assets/fonts/outfit-LICENSE.txt). Self-hosted so
+   pages inside the shell iframe don't fall back to Courier when Google Fonts
+   is blocked or not loaded. */
+@font-face {
+  font-family: "Outfit";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/assets/fonts/outfit-latin-wght.woff2") format("woff2");
+}
+
+/* Shared design tokens. Themes only change colour; type, radius and spacing
+   stay the same everywhere. */
+:root {
+  --font-sans: "Outfit", system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas,
+    monospace;
+
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-md: 16px;
+  --text-lg: 20px;
+  --text-xl: 28px;
+  --text-2xl: 40px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+
+  --surface-1: rgba(255, 255, 255, 0.04);
+  --surface-2: rgba(255, 255, 255, 0.07);
+  --surface-3: rgba(255, 255, 255, 0.11);
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --text-muted: rgba(229, 231, 235, 0.64);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.28);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.4);
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+:root[theme="dark"], body[theme="dark"] {
+  --text-color: #e5e5e5;
+  --background: linear-gradient(135deg, #0f0f0f 0%, #161616 40%, #0a0a0a 100%);
+  --bg-color: #0f0f0f;
+  --navbar: #0a0a0a;
+  --accent: #6b7280;
+  --sidebar-bg: linear-gradient(
+    180deg,
+    rgba(20, 20, 22, 0.97),
+    rgba(10, 10, 12, 0.98)
+  );
+  --sidebar-border: rgba(255, 255, 255, 0.055);
+  --sidebar-top-bg: rgba(255, 255, 255, 0.025);
+  --surface-hover: rgba(255, 255, 255, 0.055);
+  --surface-active: linear-gradient(110deg, rgba(90, 95, 105, 0.98), rgba(170, 176, 186, 0.98));
+  --nav-text: rgba(240, 242, 246, 0.8);
+  --nav-active-text: #0f1117;
+  --sidebar-handle-bg: rgba(18, 18, 22, 0.97);
+  --sidebar-handle-color: #d1d5db;
+  --active-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --sidebar-divider: rgba(255, 255, 255, 0.055);
+  --sidebar-inner-line: rgba(255, 255, 255, 0.03);
+  --logo-glow: rgba(255, 255, 255, 0.08);
+}
+
+:root[theme="charcoal-gold"], body[theme="charcoal-gold"] {
+  --text-color: #e5e5e5;
+  --background: linear-gradient(135deg, #0f0f0f 0%, #161616 40%, #0a0a0a 100%);
+  --bg-color: #0f0f0f;
+  --navbar: #0a0a0a;
+  --accent: #c4955c;
+  --sidebar-bg: linear-gradient(
+    180deg,
+    rgba(20, 20, 22, 0.97),
+    rgba(10, 10, 12, 0.98)
+  );
+  --sidebar-border: rgba(196, 149, 92, 0.15);
+  --sidebar-top-bg: rgba(196, 149, 92, 0.04);
+  --surface-hover: rgba(196, 149, 92, 0.1);
+  --surface-active: linear-gradient(110deg, rgba(150, 105, 55, 0.98), rgba(196, 149, 92, 0.98));
+  --nav-text: rgba(240, 238, 230, 0.8);
+  --nav-active-text: #1a0f00;
+  --sidebar-handle-bg: rgba(18, 18, 22, 0.97);
+  --sidebar-handle-color: #c4955c;
+  --active-shadow: 0 8px 24px rgba(140, 100, 60, 0.2);
+  --sidebar-divider: rgba(196, 149, 92, 0.08);
+  --sidebar-inner-line: rgba(196, 149, 92, 0.04);
+  --logo-glow: rgba(196, 149, 92, 0.08);
+}
+
+:root[theme="dark-blue"], body[theme="dark-blue"] {
+  --text-color: #e5e7eb;
+  --background:
+    radial-gradient(circle at top left,  #020617 0, #020617 35%, #02061700 60%),
+    radial-gradient(circle at top right, #020617 0, #020617 35%, #02061700 60%),
+    linear-gradient(#020617, #000);
+  --bg-color: #020617;
+  --navbar: #020617;
+  --accent: #60a5fa;
+  --sidebar-bg: linear-gradient(
+    180deg,
+    rgba(6, 15, 32, 0.97),
+    rgba(2, 8, 20, 0.99)
+  );
+  --sidebar-border: rgba(96, 165, 250, 0.13);
+  --sidebar-top-bg: rgba(96, 165, 250, 0.04);
+  --surface-hover: rgba(96, 165, 250, 0.1);
+  --surface-active: linear-gradient(110deg, #6aacf5 0%, #bdd8ff 100%);
+  --nav-text: rgba(230, 242, 255, 0.8);
+  --nav-active-text: #0c2244;
+  --sidebar-handle-bg: rgba(6, 15, 32, 0.97);
+  --sidebar-handle-color: #7ab8ff;
+  --active-shadow: 0 8px 24px rgba(96, 165, 250, 0.2);
+  --sidebar-divider: rgba(96, 165, 250, 0.1);
+  --sidebar-inner-line: rgba(96, 165, 250, 0.05);
+  --logo-glow: rgba(96, 165, 250, 0.08);
+}
+
+body {
+  transition: background-color 0.22s ease, color 0.22s ease;
+}
+
+.dark-home {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  width: min(800px, 90%);
+  margin: 0 auto;
+  text-align: center;
+}
+
+.dark-title {
+  font-family: var(--font-sans);
+  font-size: 64px;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1;
+  margin-bottom: var(--space-3);
+  color: var(--text-color);
+}
+
+@media (max-width: 520px) {
+  .dark-title {
+    font-size: 44px;
+  }
+}
+
+.dark-subtitle {
+  font-size: var(--text-md);
+  color: var(--text-muted);
+  margin-bottom: var(--space-5);
+}
+
+.dark-search-wrap {
+  width: 100%;
+  margin-bottom: 22px;
+}
+
+.dark-search {
+  width: 100%;
+  max-width: 720px;
+  height: 56px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-1);
+  color: var(--text-color);
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  padding: 0 var(--space-5);
+  outline: none;
+  margin: 0 auto;
+  transition: border-color 0.15s var(--ease), background 0.15s var(--ease);
+}
+
+.dark-search:focus {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: var(--surface-2);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.dark-search::placeholder {
+  color: rgba(229, 231, 235, 0.5);
+}

@@ -1,0 +1,474 @@
+(function () {
+  "use strict";
+  var PAGE_SIZE = 120;
+  var catalog = [];
+  var filtered = [];
+  var byId = Object.create(null);
+  var favorites = [];
+  var favoriteMatches = new WeakMap();
+  var limit = PAGE_SIZE;
+  var sortByPlays = false;
+  var playCounts = null;
+  var popularIds = [];
+  var activeTags = new Set();
+  var search = document.getElementById("search-box");
+  var main = document.getElementById("gamecards");
+  var favGrid = document.getElementById("favoritedgames");
+  var popular = document.getElementById("populargames");
+  var status = document.getElementById("games-status");
+  var more = document.getElementById("games-more");
+  var retry = document.getElementById("games-retry");
+  var clearBtn = document.getElementById("games-clear");
+  var random = document.getElementById("random-game-btn");
+  var sort = document.getElementById("sort-plays-btn");
+  var tagContainer = document.getElementById("tag-container");
+  var STATE_KEY = "aetheris-games-state";
+  var SCROLL_KEY = "aetheris-games-scroll";
+  var restoredScroll = null;
+  var built = false;
+  var queuedupdate = null;
+
+  function saveState() {
+    try {
+      sessionStorage.setItem(
+        STATE_KEY,
+        JSON.stringify({
+          q: search.value,
+          tags: Array.from(activeTags),
+          sort: sortByPlays,
+          limit: limit,
+        }),
+      );
+    } catch (_) {}
+  }
+
+  function restoreState() {
+    var s = null;
+    try {
+      s = JSON.parse(sessionStorage.getItem(STATE_KEY) || "null");
+    } catch (_) {
+      s = null;
+    }
+    if (!s || typeof s !== "object") return;
+    if (typeof s.q === "string") search.value = s.q;
+    if (Array.isArray(s.tags))
+      activeTags = new Set(
+        s.tags
+          .filter(function (t) {
+            return typeof t === "string";
+          })
+          .map(function (t) {
+            return t.toLowerCase();
+          }),
+      );
+    if (typeof s.sort === "boolean") {
+      sortByPlays = s.sort;
+      sort.classList.toggle("sort-active", sortByPlays);
+      sort.setAttribute("aria-pressed", String(sortByPlays));
+    }
+    if (Number.isInteger(s.limit))
+      limit = Math.min(Math.max(s.limit, PAGE_SIZE), 2000);
+    try {
+      var y = Number(sessionStorage.getItem(SCROLL_KEY));
+      if (Number.isFinite(y) && y > 0) restoredScroll = y;
+    } catch (_) {}
+  }
+
+  function saveScroll() {
+    try {
+      sessionStorage.setItem(SCROLL_KEY, String(window.scrollY || 0));
+    } catch (_) {}
+  }
+
+  function makeCard(game) {
+    var card = document.createElement("a");
+    card.className = "card-item";
+    card.href = "/load.html?game=" + encodeURIComponent(game.id);
+    card.dataset.id = String(game.id);
+    card.dataset.source = game.source || "aetheris";
+    var title = game.title || game.name || "Untitled";
+    var img = document.createElement("img");
+    img.loading = "lazy";
+    img.decoding = "async";
+    img.referrerPolicy = "no-referrer";
+    img.alt = title;
+    img.src = Aetheris.imageUrl(
+      game.image || game.img || Aetheris.placeholder,
+    );
+    img.onerror = function () {
+      img.onerror = null;
+      img.src = Aetheris.placeholder;
+    };
+    var label = document.createElement("h4");
+    label.textContent = title;
+    card.title = label.textContent;
+    card.append(img, label);
+    return card;
+  }
+
+  // A game can be favorited under its primary id or any provider's own id.
+  function isFavorite(game) {
+    if (favoriteMatches.has(game)) return favoriteMatches.get(game);
+    var match = favorites.some(function (id) {
+      return typeof window.gamehasid === "function"
+        ? window.gamehasid(game, id)
+        : String(game.id) === String(id);
+    });
+    favoriteMatches.set(game, match);
+    return match;
+  }
+
+  function renderPopular() {
+    if (!popular) return;
+    var show = !search.value.trim() && !activeTags.size;
+    popular.replaceChildren();
+    if (show)
+      popularIds.forEach(function (id) {
+        if (byId[id]) popular.appendChild(makeCard(byId[id]));
+      });
+    document.getElementById("popular-label").style.display = popular.children
+      .length
+      ? "block"
+      : "none";
+  }
+
+  function render() {
+    if (!main) return;
+    var favs = [];
+    var others = [];
+    filtered.forEach(function (game) {
+      (isFavorite(game) ? favs : others).push(game);
+    });
+    // Filter/sort DATA first. Never create 15k hidden DOM nodes on an iPad.
+    var visibleFavorites = favs.slice(0, limit);
+    var visibleOthers = others.slice(
+      0,
+      Math.max(0, limit - visibleFavorites.length),
+    );
+    favGrid.replaceChildren();
+    main.replaceChildren();
+    var favFrag = document.createDocumentFragment();
+    var mainFrag = document.createDocumentFragment();
+    visibleFavorites.forEach(function (game) {
+      favFrag.appendChild(makeCard(game));
+    });
+    visibleOthers.forEach(function (game) {
+      mainFrag.appendChild(makeCard(game));
+    });
+    favGrid.appendChild(favFrag);
+    main.appendChild(mainFrag);
+    document.getElementById("favorites-label").style.display =
+      visibleFavorites.length ? "block" : "none";
+    var visible = visibleFavorites.length + visibleOthers.length;
+    status.classList.toggle("library-error", !catalog.length);
+    status.textContent = catalog.length
+      ? filtered.length
+        ? "Showing " +
+          visible.toLocaleString() +
+          " of " +
+          filtered.length.toLocaleString() +
+          " items"
+        : "No matches. Try another search or tag."
+      : "The catalog could not be loaded. Check your connection and try again.";
+    if (
+      catalog.length &&
+      window.gamesLoadErrors &&
+      window.gamesLoadErrors.length
+    ) {
+      status.textContent += " · Some sources are unavailable.";
+    }
+    if (window.gamesLoading && catalog.length) {
+      status.textContent += " · Loading more sources…";
+    }
+    retry.hidden =
+      !(window.gamesLoadErrors && window.gamesLoadErrors.length) &&
+      !!catalog.length;
+    more.hidden = visible >= filtered.length;
+    if (clearBtn)
+      clearBtn.hidden = !(catalog.length && !filtered.length);
+    random.disabled = !filtered.length;
+    renderPopular();
+    saveState();
+  }
+
+  function applyFilters(reset, redraw) {
+    if (reset !== false) limit = PAGE_SIZE;
+    var query = search.value.trim().toLowerCase();
+    var tags = Array.from(activeTags);
+    filtered = catalog.filter(function (game) {
+      return (
+        (!query ||
+          String(game.title || game.name || "")
+            .toLowerCase()
+            .includes(query)) &&
+        (!tags.length ||
+          tags.some(function (tag) {
+            return (
+              Array.isArray(game.tags) &&
+              game.tags.some(function (value) {
+                return (
+                  typeof value === "string" && value.toLowerCase() === tag
+                );
+              })
+            );
+          }))
+      );
+    });
+    if (sortByPlays && playCounts) {
+      filtered.sort(function (a, b) {
+        return (
+          (playCounts[b.id] || 0) - (playCounts[a.id] || 0) ||
+          String(a.title || "").localeCompare(String(b.title || ""))
+        );
+      });
+    }
+    if (redraw !== false) render();
+  }
+
+  function renderTags() {
+    // Sources spell tags differently ("Action" / "action"). One chip per tag,
+    // matched case-insensitively: activeTags holds the lowercase keys.
+    var tags = new Map();
+    catalog.forEach(function (game) {
+      if (Array.isArray(game.tags))
+        game.tags.forEach(function (tag) {
+          if (typeof tag !== "string") return;
+          var key = tag.trim().toLowerCase();
+          if (!key || key === "epstein" || tags.has(key)) return;
+          tags.set(key, tag);
+        });
+    });
+    activeTags.forEach(function (tag) {
+      if (!tags.has(tag)) activeTags.delete(tag);
+    });
+    tagContainer.replaceChildren();
+    Array.from(tags.entries())
+      .sort(function (a, b) {
+        return a[1].localeCompare(b[1]);
+      })
+      .forEach(function (entry) {
+        var key = entry[0];
+        var label = entry[1];
+        var button = document.createElement("button");
+        button.type = "button";
+        button.className = "tag-chip";
+        button.classList.toggle("active", activeTags.has(key));
+        button.setAttribute("aria-pressed", String(activeTags.has(key)));
+        button.textContent = label;
+        button.addEventListener("click", function () {
+          if (activeTags.has(key)) activeTags.delete(key);
+          else activeTags.add(key);
+          button.classList.toggle("active", activeTags.has(key));
+          button.setAttribute("aria-pressed", String(activeTags.has(key)));
+          document.getElementById("clear-all-tags-btn").style.display =
+            activeTags.size ? "" : "none";
+          applyFilters();
+        });
+        tagContainer.appendChild(button);
+      });
+    if (!tags.size) tagContainer.textContent = "No tags yet";
+    document.getElementById("clear-all-tags-btn").style.display =
+      activeTags.size ? "" : "none";
+  }
+
+  function build() {
+    built = true;
+    catalog = Array.isArray(window.games) ? window.games : [];
+    favorites = Aetheris.readList("favoritedGames");
+    favoriteMatches = new WeakMap();
+    byId = Object.create(null);
+    catalog.forEach(function (game) {
+      byId[game.id] = game;
+    });
+    restoreState();
+    renderTags();
+    if (sortByPlays && !playCounts) {
+      fetchPlayCounts().then(
+        function () {
+          applyFilters();
+        },
+        function () {
+          applyFilters();
+        },
+      );
+      applyFilters();
+    } else {
+      applyFilters();
+    }
+    if (restoredScroll !== null) {
+      requestAnimationFrame(function () {
+        window.scrollTo(0, restoredScroll);
+        restoredScroll = null;
+      });
+    }
+    document.dispatchEvent(new Event("gamesrendered"));
+  }
+
+  async function fetchPlayCounts() {
+    var response = await fetch("/api/plays/counts");
+    if (!response.ok) throw new Error("Could not load play counts.");
+    playCounts = await response.json();
+  }
+
+  async function loadPopular() {
+    try {
+      var response = await fetch("/api/plays/top");
+      if (!response.ok) return;
+      var data = await response.json();
+      popularIds = Array.isArray(data) ? data.slice(0, 10).map(String) : [];
+      renderPopular();
+    } catch (_) {}
+  }
+
+  var searchTimer;
+  search.addEventListener("input", function () {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(applyFilters, 120);
+  });
+  more.addEventListener("click", function () {
+    limit += PAGE_SIZE;
+    render();
+  });
+  retry.addEventListener("click", function () {
+    if (typeof window.gamesretryfailed === "function") {
+      status.textContent = "Retrying failed sources…";
+      window.gamesretryfailed().then(function () {
+        refresh();
+        if (window.gamesLoadErrors && window.gamesLoadErrors.length)
+          status.textContent = "Some sources are still unavailable.";
+      });
+      return;
+    }
+    if (Array.isArray(window.games) && window.games.length) build();
+    else location.reload();
+  });
+  if (clearBtn)
+    clearBtn.addEventListener("click", function () {
+      search.value = "";
+      activeTags.clear();
+      sortByPlays = false;
+      sort.classList.remove("sort-active");
+      sort.setAttribute("aria-pressed", "false");
+      limit = PAGE_SIZE;
+      renderTags();
+      applyFilters();
+      search.focus();
+    });
+  random.addEventListener("click", function () {
+    // Use ALL matching records, not just the first rendered page.
+    applyFilters(false, false);
+    if (filtered.length)
+      location.href =
+        "/load.html?game=" +
+        encodeURIComponent(
+          filtered[Math.floor(Math.random() * filtered.length)].id,
+        );
+  });
+  sort.addEventListener("click", async function () {
+    sort.disabled = true;
+    sort.setAttribute("aria-busy", "true");
+    var prevSort = sortByPlays;
+    try {
+      if (!playCounts) {
+        status.textContent = "Loading play counts…";
+        await fetchPlayCounts();
+      }
+      sortByPlays = !sortByPlays;
+      sort.classList.toggle("sort-active", sortByPlays);
+      sort.setAttribute("aria-pressed", String(sortByPlays));
+      applyFilters();
+    } catch (_) {
+      sortByPlays = prevSort;
+      sort.classList.toggle("sort-active", sortByPlays);
+      sort.setAttribute("aria-pressed", String(sortByPlays));
+      status.textContent = "Play counts are unavailable. Please try again.";
+    } finally {
+      sort.disabled = false;
+      sort.removeAttribute("aria-busy");
+    }
+  });
+  document
+    .getElementById("clear-all-tags-btn")
+    .addEventListener("click", function () {
+      activeTags.clear();
+      renderTags();
+      applyFilters();
+    });
+
+  window.closegamepopup = function () {
+    document.getElementById("game-popup").classList.remove("show");
+    if (document.getElementById("dont-show-again").checked)
+      Aetheris.storage.setItem("popupDismissed", "1");
+    try {
+      sessionStorage.setItem("popupDismissed", "1");
+    } catch (_) {}
+  };
+  var dismissed = Aetheris.storage.getItem("popupDismissed");
+  try {
+    dismissed = dismissed || sessionStorage.getItem("popupDismissed");
+  } catch (_) {}
+  if (!dismissed)
+    setTimeout(function () {
+      document.getElementById("game-popup").classList.add("show");
+    }, 800);
+
+  window.addEventListener("storage", function (event) {
+    if (event.key === "favoritedGames") {
+      favorites = Aetheris.readList("favoritedGames");
+      favoriteMatches = new WeakMap();
+      applyFilters(false);
+    }
+  });
+  // Keep scroll + filter state so Back from the player restores position.
+  var scrollTimer = null;
+  window.addEventListener(
+    "scroll",
+    function () {
+      clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(saveScroll, 200);
+    },
+    { passive: true },
+  );
+  document.addEventListener("click", function (event) {
+    if (event.target.closest(".card-item")) {
+      saveState();
+      saveScroll();
+    }
+  });
+  window.addEventListener("pagehide", function () {
+    saveState();
+    saveScroll();
+  });
+  // Progressive catalog loading: the first source renders immediately and the
+  // rest merge in as they download. ids are re-keyed per merge, so refresh()
+  // rebuilds the lookup and re-renders without resetting filters or scroll.
+  function refresh() {
+    catalog = Array.isArray(window.games) ? window.games : [];
+    favoriteMatches = new WeakMap();
+    byId = Object.create(null);
+    catalog.forEach(function (game) {
+      byId[game.id] = game;
+    });
+    renderTags();
+    applyFilters(false);
+  }
+
+  function onupdate() {
+    if (!built) {
+      build();
+      return;
+    }
+    if (queuedupdate) return;
+    queuedupdate = setTimeout(function () {
+      queuedupdate = null;
+      refresh();
+    }, 120);
+  }
+
+  if (window.gamesloaded) build();
+  else {
+    window.addEventListener("gamesupdated", onupdate);
+    window.addEventListener("gamesloaded", onupdate);
+  }
+  loadPopular();
+})();

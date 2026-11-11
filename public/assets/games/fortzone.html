@@ -1,0 +1,112 @@
+<!-- shxyder -->
+<!-- ultimate game stash file -->
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <meta name="robots" content="noindex, nofollow">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>google.com</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/familiapablo/re4gl@main/TemplateData/style.css">
+  <script>
+    const overlayBackgroundColor = "#555555";
+    const progressBarFillColor = "#f76426";
+    const progressBarBackgroundColor = "#000000";
+    const progressBarBorderColor = "#000000";
+  </script>
+</head>
+<body class="light">
+  <div id="unity-container" class="unity-desktop">
+    <canvas id="unity-canvas"></canvas>
+  </div>
+  <div id="loading-cover" style="display:none;">
+    <div id="unity-loading-bar">
+      <div id="unity-logo">
+      </div>
+      <div id="unity-progress-bar-empty" style="display: none;">
+        <div id="unity-progress-bar-full"></div>
+      </div>
+      <div class="spinner"></div>
+    </div>
+  </div>
+  <script>
+    const buildUrl = "https://cdn.jsdelivr.net/gh/familiapablo/re4gl@main/Build";
+    const loaderUrl = buildUrl + "/FortzoneWebGL109.loader.js";
+    const config = {
+      frameworkUrl: buildUrl + "/FortzoneWebGL109.framework.js.unityweb",
+      codeUrl: buildUrl + "/FortzoneWebGL109.wasm.unityweb",
+      streamingAssetsUrl: "https://cdn.jsdelivr.net/gh/familiapablo/re4gl@main/StreamingAssets",
+      companyName: "Fahrenheit Dev",
+      productName: "Fortzone Battle Royale",
+      productVersion: "0.8.8"
+    };
+    const container = document.querySelector("#unity-container");
+    const canvas = document.querySelector("#unity-canvas");
+    const loadingCover = document.querySelector("#loading-cover");
+    const progressBarEmpty = document.querySelector("#unity-progress-bar-empty");
+    const progressBarFull = document.querySelector("#unity-progress-bar-full");
+    const spinner = document.querySelector(".spinner");
+    if (overlayBackgroundColor !== "-" && overlayBackgroundColor !== " " && overlayBackgroundColor !== "") canvas.style.background = overlayBackgroundColor;
+    if (progressBarFillColor !== "-" && progressBarFillColor !== " " && progressBarFillColor !== "") progressBarFull.style.background = progressBarFillColor;
+    if (progressBarBackgroundColor !== "-" && progressBarBackgroundColor !== " " && progressBarBackgroundColor !== "") progressBarEmpty.style.background = progressBarBackgroundColor;
+    if (progressBarBorderColor !== "-" && progressBarBorderColor !== " " && progressBarBorderColor !== "") progressBarEmpty.style.border.color = progressBarBorderColor;
+    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+      container.className = "unity-mobile";
+    }
+    loadingCover.style.display = "";
+    const unityLoader = document.createElement("script");
+    unityLoader.src = loaderUrl;
+    unityLoader.onload = async () => {
+      const partCount = 4;
+      const parts = [];
+      for (let i = 1; i <= partCount; i++) {
+        const partUrl = buildUrl + `/FortzoneWebGL109.data_part${i}.unityweb`;
+        try {
+          const response = await fetch(partUrl);
+          if (!response.ok) {
+            throw new Error(`Part ${i} yüklenemedi: ${response.statusText}`);
+          }
+          const arrayBuffer = await response.arrayBuffer();
+          parts.push(arrayBuffer);
+          console.log(`Part ${i} yüklendi: ${arrayBuffer.byteLength} byte`);
+        } catch (error) {
+          console.error(error);
+          alert(`Hata: ${error.message}`);
+          return;
+        }
+      }
+      let totalLength = 0;
+      for (let ab of parts) {
+        totalLength += ab.byteLength;
+      }
+      const merged = new Uint8Array(totalLength);
+      let offset = 0;
+      for (let ab of parts) {
+        merged.set(new Uint8Array(ab), offset);
+        offset += ab.byteLength;
+      }
+      const blob = new Blob([merged], { type: "application/octet-stream" });
+      const dataUrl = URL.createObjectURL(blob);
+      config.dataUrl = dataUrl;
+      console.log(`Birleştirme tamamlandı. Toplam boyut: ${totalLength} byte`);
+      createUnityInstance(canvas, config, progress => {
+        spinner.style.display = "none";
+        progressBarEmpty.style.display = "";
+        progressBarFull.style.width = `${100 * progress}%`;
+      }).then(unityInstance => {
+        window.unityInstance = unityInstance;
+        loadingCover.style.display = "none";
+      }).catch(message => {
+        alert(message);
+      });
+    };
+    document.body.appendChild(unityLoader);
+    document.addEventListener("pointerdown", () => {
+      container.focus();
+      window.focus();
+      canvas.focus();
+    });
+  </script>
+</body>
+</html>

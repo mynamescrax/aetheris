@@ -1,0 +1,199 @@
+<!-- ultimate game stash file -->
+<!-- shxyder -->
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+<meta charset="utf-8"/>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/z799gs/c2@main/style.css"/>
+<style>
+canvas:focus { outline: none; }
+#loading-cover {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: #000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  z-index: 999;
+}
+.spinner {
+  border: 4px solid rgba(255, 255, 255, 0.1);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border-left-color: #00ffcc;
+  animation: spin 1s linear infinite;
+  margin-top: 20px;
+}
+@keyframes spin { 100% { transform: rotate(360deg); } }
+#status-text {
+  color: #aaa;
+  margin-top: 15px;
+  font-size: 13px;
+  letter-spacing: 1px;
+}
+</style>
+</head>
+<body>
+<div id="unity-container"><canvas id="unity-canvas"></canvas></div>
+
+<div id="loading-cover">
+  <div id="unity-logo"><h2 style="color:white;">LOADING GAME</h2></div>
+  <div class="spinner"></div>
+  <div id="status-text">Synchronizing Environment...</div>
+</div>
+
+<script>
+var ysdk = null;
+var myGameInstance = null;
+
+var environmentData = JSON.stringify({
+  language: "en",
+  domain: "default",
+  deviceType: "desktop",
+  isMobile: false,
+  isDesktop: true,
+  appID: "fps_build",
+  browserLang: "en"
+});
+
+var playerData = JSON.stringify({
+  playerAuth: "resolved",
+  playerName: "Guest Player",
+  playerId: "12345",
+  playerPhoto: "null",
+  payingStatus: "free"
+});
+
+var cloudSaves = 'noData';
+var paymentsData = 'none';
+
+function InitYSDK() { console.log("SDK: Initialized"); }
+function InitGame() { console.log("Game: Ready"); }
+
+function InitPlayer(sendback) {
+  if (sendback && myGameInstance)
+    myGameInstance.SendMessage('YandexGame', 'SetInitializationSDK', playerData);
+  return playerData;
+}
+
+function RequestingEnvironmentData(sendback) {
+  if (sendback && myGameInstance)
+    myGameInstance.SendMessage('YandexGame', 'SetEnvirData', environmentData);
+  return environmentData;
+}
+
+function GetPayments() {
+  console.log("SDK: Payments requested");
+  if (myGameInstance)
+    myGameInstance.SendMessage('YandexGame', 'PaymentsEntries', 'none');
+  return "none";
+}
+function BuyPayments(id) { console.log("SDK: Purchase attempt: " + id); }
+function ConsumePurchase(token) { console.log("SDK: Consuming: " + token); }
+
+function FullAdShow() {
+  console.log("SDK: Interstitial Show");
+  if (myGameInstance) {
+    myGameInstance.SendMessage('YandexGame', 'OpenFullAd');
+    setTimeout(() => myGameInstance.SendMessage('YandexGame', 'CloseFullAd', 'true'), 300);
+  }
+}
+
+function RewardedShow(id) {
+  console.log("SDK: Rewarded Show ID: " + id);
+  if (myGameInstance) {
+    myGameInstance.SendMessage('YandexGame', 'OpenVideo');
+    setTimeout(() => {
+      myGameInstance.SendMessage('YandexGame', 'RewardVideo', id);
+      myGameInstance.SendMessage('YandexGame', 'CloseVideo');
+    }, 500);
+  }
+}
+
+function StickyAdActivity(show) { console.log("SDK: Sticky Ad State: " + show); }
+
+function SaveCloud(data, flush) { console.log("SDK: Data Saved to Cloud"); }
+function LoadCloud() {
+  if (myGameInstance)
+    myGameInstance.SendMessage('YandexGame', 'SetLoadSaves', cloudSaves);
+  return cloudSaves;
+}
+
+function InitLeaderboards() {}
+function GetLeaderboardScores(name, max, top, around, size, auth) {
+  if (myGameInstance) {
+    let data = JSON.stringify({ technoName: name, entries: "No Data" });
+    myGameInstance.SendMessage('YandexGame', 'LeaderboardEntries', data);
+  }
+}
+function SetLeaderboardScores(name, score) {}
+
+function Review() { console.log("SDK: Review requested"); }
+function PromptShow() { console.log("SDK: Shortcut prompt"); }
+function URLReady() { return window.location.href; }
+
+const buildUrl = "https://cdn.jsdelivr.net/gh/z799gs/c2@main/Build";
+const loaderUrl = buildUrl + "/CS2Teams.loader.js";
+
+const DATA_PARTS = 4;
+const WASM_PARTS = 4;
+
+const canvas = document.querySelector("#unity-canvas");
+const loadingCover = document.querySelector("#loading-cover");
+const statusText = document.querySelector("#status-text");
+
+async function MergeAndLoad(baseUrl, count, type) {
+  const parts = [];
+  for (let i = 0; i < count; i++) {
+    const res = await fetch(`${baseUrl}.${i}`);
+    if (!res.ok) throw new Error("Missing part " + i);
+    parts.push(await res.arrayBuffer());
+  }
+  const blob = new Blob(parts, { type: type });
+  return URL.createObjectURL(blob);
+}
+
+async function StartApp() {
+  try {
+    statusText.innerText = "Downloading Content...";
+    const [dataUrl, wasmUrl] = await Promise.all([
+      MergeAndLoad(buildUrl + "/CS2Teams.data.br", DATA_PARTS, "application/octet-stream"),
+      MergeAndLoad(buildUrl + "/CS2Teams.wasm.br", WASM_PARTS, "application/wasm")
+    ]);
+
+    const config = {
+      dataUrl: dataUrl,
+      frameworkUrl: buildUrl + "/CS2Teams.framework.js",
+      codeUrl: wasmUrl,
+      streamingAssetsUrl: "StreamingAssets",
+      companyName: "DefaultCompany",
+      productName: "FPS_Shooter",
+      productVersion: "1.0",
+    };
+
+    const script = document.createElement("script");
+    script.src = loaderUrl;
+    script.onload = () => {
+      createUnityInstance(canvas, config, (p) => {
+        statusText.innerText = "Loading: " + Math.round(p * 100) + "%";
+      }).then((instance) => {
+        myGameInstance = instance;
+        loadingCover.style.display = "none";
+      });
+    };
+    document.body.appendChild(script);
+  } catch (err) {
+    statusText.innerText = "Load Failed. Check Console.";
+    console.error(err);
+  }
+}
+
+window.onload = StartApp;
+</script>
+</body>
+</html>

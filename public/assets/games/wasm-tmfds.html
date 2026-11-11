@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <title>The Message From Deep Space</title>
+    <style>
+      /* black, not the Unity brown: whatever the canvas does not cover reads as a
+         letterbox bar rather than a strip of a different colour hanging off the bottom */
+      html, body { margin: 0; padding: 0; background: #000; height: 100%;
+                   overflow: hidden; }
+      #wrap { display: flex; flex-direction: column; align-items: center;
+              justify-content: center; height: 100%; background: #000; }
+      #unity-canvas { background: #000; max-width: 100%; max-height: 100%;
+                      outline: none; display: block; }
+      #bar { width: 320px; height: 12px; margin-top: 14px; border: 1px solid #555;
+             display: none; }
+      #barfill { width: 0%; height: 100%; background: #7cc242; }
+      #msg { color: #bbb; font: 13px/1.5 system-ui, sans-serif; margin-top: 10px;
+             text-align: center; }
+      #credit { position: fixed; right: 10px; bottom: 8px; z-index: 10;
+                color: #8a8a8a; font: 12px/1.4 system-ui, sans-serif;
+                text-align: right; pointer-events: auto; }
+      #credit a { color: #7cc242; text-decoration: none; }
+      #credit a:hover { text-decoration: underline; }
+      #fs { position: fixed; left: 10px; bottom: 8px; z-index: 10; display: none;
+            background: rgba(255,255,255,0.08); color: #ddd; border: 1px solid #555;
+            border-radius: 4px; padding: 6px 12px; cursor: pointer;
+            font: 12px/1 system-ui, sans-serif; }
+      #fs:hover { background: rgba(255,255,255,0.18); }
+    </style>
+    <script>
+      // Stop Unity taking the page fullscreen on its own, and stop the refusal showing up
+      // as a crash dialog.
+      //
+      // Unity queues a fullscreen request in its deferred-call list and fires it from a key
+      // handler -- Ctrl and Alt both do it, and so does locking the pointer. By then the
+      // user gesture that opened the queue has ended, so the browser refuses:
+      //     TypeError: Fullscreen request denied
+      //       JSEvents_requestFullscreen <- runDeferredCalls <- jsEventHandler
+      // Unity attaches no catch, so it surfaces as an uncaught error.
+      //
+      // The build's own index.html has had this guard for a while; this standalone page is
+      // generated separately and did not, which is why pressing Ctrl on the hosted copy
+      // still produced the dialog.
+      (function () {
+        window.__webportAllowFullscreen = false;
+        var proto = Element.prototype;
+        ['requestFullscreen', 'webkitRequestFullscreen',
+         'mozRequestFullScreen', 'msRequestFullscreen'].forEach(function (name) {
+          var original = proto[name];
+          if (!original) { return; }
+          proto[name] = function () {
+            if (!window.__webportAllowFullscreen) {
+              // Resolve rather than reject: Unity does not handle a rejection here, and an
+              // unhandled one is exactly the dialog being avoided.
+              return Promise.resolve();
+            }
+            window.__webportAllowFullscreen = false;
+            try { return original.apply(this, arguments); }
+            catch (e) { return Promise.resolve(); }
+          };
+        });
+
+        // Same story for pointer lock: requested from the frame loop, refused, and logged
+        // as an uncaught rejection on every click. Retry on the next real gesture.
+        var lockOriginal = proto.requestPointerLock;
+        if (lockOriginal && !proto.__webportPointerLockWrapped) {
+          proto.__webportPointerLockWrapped = true;
+          proto.requestPointerLock = function () {
+            var el = this, r;
+            try { r = lockOriginal.apply(el, arguments); } catch (e) { r = null; }
+            if (r && typeof r.catch === 'function') {
+              return r.catch(function () {
+                var retry = function () {
+                  window.removeEventListener('pointerdown', retry, true);
+                  try { lockOriginal.call(el); } catch (e2) {}
+                };
+                window.addEventListener('pointerdown', retry, true);
+              });
+            }
+            return r;
+          };
+        }
+      })();
+
+      // Second line of defence, in case anything still throws it.
+      window.addEventListener('error', function (e) {
+        if (e && e.message && e.message.indexOf('Fullscreen request denied') >= 0) {
+          e.stopImmediatePropagation(); e.preventDefault(); return true;
+        }
+      }, true);
+      window.addEventListener('unhandledrejection', function (e) {
+        var m = e && e.reason && (e.reason.message || String(e.reason));
+        if (m && m.indexOf('Fullscreen request denied') >= 0) { e.preventDefault(); }
+      });
+    </script>
+  </head>
+  <body>
+    <div id="wrap">
+      <canvas id="unity-canvas" width="960" height="600" tabindex="-1"></canvas>
+      <div id="bar"><div id="barfill"></div></div>
+      <div id="msg">Loading…</div>
+    </div>
+    <button id="fs" type="button">Fullscreen</button>
+    <div id="credit">
+      ported by @._.dasher._.<br>
+      <a href="https://wasm.rip/" target="_blank" rel="noopener">wasm.rip</a>
+    </div>
+    <script>
+      // Manifest written by make_cdn_bundle.py. Each entry is either a plain file or a
+      // list of parts that must be concatenated back together in order.
+      var MANIFEST = {
+  "data": {
+    "file": "b70.data.unityweb",
+    "parts": [
+      "b70.data.unityweb.part000",
+      "b70.data.unityweb.part001",
+      "b70.data.unityweb.part002"
+    ],
+    "bytes": 54829683
+  },
+  "code": {
+    "file": "b70.wasm.unityweb",
+    "bytes": 8353010
+  },
+  "framework": {
+    "file": "b70.framework.js.unityweb",
+    "bytes": 81016
+  },
+  "loader": {
+    "file": "b70.loader.js",
+    "bytes": 117365
+  }
+};
+      var BUILD = "Build";
+      // Empty for a same-origin build. When set, <base> already redirects the fetches on
+      // this page; this stamps the same root onto our own URL so the C# level streamer
+      // (which resolves bundle URLs against Application.absoluteURL, ignoring <base>)
+      // fetches LevelBundles from the CDN too instead of from wherever the page is hosted.
+      var CDN_BASE = "";
+      if (CDN_BASE) {
+        var u = new URL(window.location.href);
+        if (u.searchParams.get("cdn") !== CDN_BASE) {
+          u.searchParams.set("cdn", CDN_BASE);
+          history.replaceState(null, "", u.toString());
+        }
+      }
+
+      // Cache Storage key. Unity's own dataCaching only works when it fetches the URL
+      // itself; here the loader is handed a blob: URL, so Unity caches nothing and every
+      // refresh would re-download the whole payload. We therefore cache the raw parts
+      // ourselves, keyed on the release tag so a new release invalidates the old copy.
+      var CACHE_KEY = "tmfds-dashiellbenton-ports-tmfds-default";
+
+      var canvas  = document.querySelector("#unity-canvas");
+      var bar     = document.querySelector("#bar");
+      var barfill = document.querySelector("#barfill");
+      var msg     = document.querySelector("#msg");
+
+      function setMsg(t) { msg.textContent = t; }
+      function mb(bytes) { return (bytes / 1048576).toFixed(1); }
+
+      // Total download size, measured at package time — no HEAD requests needed, and it
+      // stays correct even if the CDN omits Content-Length on a streamed response.
+      var TOTAL = MANIFEST.data.bytes + MANIFEST.framework.bytes + MANIFEST.code.bytes;
+      var downloaded = 0;
+
+      function report(label, fromCache) {
+        bar.style.display = "block";
+        var pct = TOTAL ? downloaded / TOTAL : 0;
+        barfill.style.width = (pct * 100).toFixed(1) + "%";
+        setMsg((fromCache ? "Loading cached " : "Downloading ") + label + "… " +
+               mb(downloaded) + " / " + mb(TOTAL) +
+               " MB (" + Math.floor(pct * 100) + "%)");
+      }
+
+      // Open the part cache and evict every older release's cache. Cache Storage needs a
+      // secure context (https, or localhost) — on plain http:// it is simply absent, so
+      // every call is guarded and a failure degrades to "download every time", never to a
+      // broken page.
+      var cachePromise = (async function () {
+        try {
+          if (!window.caches) return null;
+          var names = await caches.keys();
+          for (var i = 0; i < names.length; i++) {
+            if (names[i].indexOf("tmfds-") === 0 && names[i] !== CACHE_KEY) {
+              await caches.delete(names[i]);
+            }
+          }
+          return await caches.open(CACHE_KEY);
+        } catch (e) {
+          return null;
+        }
+      })();
+
+      // Fetch every part and glue them into one Blob, then expose it as a blob: URL.
+      // Unity's loader treats it like any other URL, so splitting stays invisible to it.
+      // The body is read through a stream reader so the byte counter moves continuously
+      // instead of jumping once per completed part.
+      async function assemble(entry, label) {
+        var urls = entry.parts || [entry.file];
+        var cache = await cachePromise;
+        var buffers = [];
+        for (var i = 0; i < urls.length; i++) {
+          var url = BUILD + "/" + urls[i];
+          var res = null;
+          var fromCache = false;
+          if (cache) {
+            try {
+              res = await cache.match(url);
+              fromCache = !!res;
+            } catch (e) { res = null; }
+          }
+          if (!res) {
+            res = await fetch(url);
+            if (!res.ok) throw new Error("failed to fetch " + url + " (" + res.status + ")");
+            // Store a clone before the body is consumed by the reader below.
+            if (cache) {
+              try { await cache.put(url, res.clone()); } catch (e) { /* quota/opaque */ }
+            }
+          }
+          if (res.body && res.body.getReader) {
+            var reader = res.body.getReader();
+            while (true) {
+              var step = await reader.read();
+              if (step.done) break;
+              buffers.push(step.value);
+              downloaded += step.value.byteLength;
+              report(label, fromCache);
+            }
+          } else {
+            // no streaming support: fall back to whole-part reads
+            var buf = await res.arrayBuffer();
+            buffers.push(buf);
+            downloaded += buf.byteLength;
+            report(label, fromCache);
+          }
+        }
+        return URL.createObjectURL(new Blob(buffers));
+      }
+
+      (async function () {
+        try {
+          var dataUrl      = await assemble(MANIFEST.data, "game data");
+          var frameworkUrl = await assemble(MANIFEST.framework, "framework");
+          var codeUrl      = await assemble(MANIFEST.code, "code");
+
+          setMsg("Starting…");
+          var script = document.createElement("script");
+          script.src = BUILD + "/" + MANIFEST.loader.file;
+          script.onload = function () {
+            createUnityInstance(canvas, {
+              dataUrl: dataUrl,
+              frameworkUrl: frameworkUrl,
+              codeUrl: codeUrl,
+              streamingAssetsUrl: "StreamingAssets",
+              companyName: "Applesinmypants",
+              productName: "The Message From Deep Space",
+              productVersion: "1.0",
+            }, function (p) {
+              bar.style.display = "block";
+              barfill.style.width = Math.round(p * 100) + "%";
+              setMsg("Loading… " + Math.round(p * 100) + "%");
+            }).then(function (instance) {
+              window.unityInstance = instance;
+              bar.style.display = "none";
+              setMsg("");
+              // Unity's own SetFullscreen keeps the canvas sized to the screen; the
+              // Fullscreen API on the element alone leaves the render target unchanged.
+              var fs = document.querySelector("#fs");
+              fs.style.display = "block";
+              fs.onclick = function () {
+                // Lift the gate for exactly this call: a click IS a live user gesture, so
+                // the browser will honour the request.
+                window.__webportAllowFullscreen = true;
+                if (instance.SetFullscreen) instance.SetFullscreen(1);
+                else if (canvas.requestFullscreen) canvas.requestFullscreen();
+                window.__webportAllowFullscreen = false;
+                canvas.focus();
+              };
+            }).catch(function (e) {
+              setMsg("Failed to start: " + e);
+            });
+          };
+          script.onerror = function () { setMsg("Failed to load " + script.src); };
+          document.body.appendChild(script);
+        } catch (e) {
+          setMsg(String(e));
+        }
+      })();
+    </script>
+  </body>
+</html>

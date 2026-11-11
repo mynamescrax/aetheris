@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <title>Unity WebGL Player | birthday bash</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        background: #000;
+        overflow: hidden;
+      }
+
+      #loading-text {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: #fff;
+        font: 24px Arial;
+        text-align: center;
+        z-index: 10;
+      }
+
+      #unity-canvas {
+        width: 100vw;
+        height: 100vh;
+        display: block;
+      }
+
+      #unity-mobile-warning {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: #fff;
+        background: rgba(0, 0, 0, .9);
+        padding: 20px;
+        border-radius: 8px;
+        font: 14px Arial;
+        z-index: 20;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="unity-mobile-warning">WebGL not supported on mobile</div>
+    <div id="loading-text">Loading</div>
+    <canvas id="unity-canvas"></canvas>
+<script>
+alert("this web port was made by crackers (woahhcrackers)");
+
+const lt = document.getElementById("loading-text");
+const cv = document.getElementById("unity-canvas");
+const mw = document.getElementById("unity-mobile-warning");
+
+
+
+
+const base = "https://cdn.jsdelivr.net/gh/woahhcrackers/BirthdayBashWeb@main/Build/";
+const name = "BirthdayBashWeb";
+
+
+
+
+if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+  const m = document.createElement("meta");
+  m.name = "viewport";
+  m.content = "width=device-width,height=device-height,initial-scale=1,user-scalable=no";
+  document.head.appendChild(m);
+  mw.style.display = "block";
+  setTimeout(() => mw.style.display = "none", 5000);
+}
+
+const ex = async u => {
+  try { return (await fetch(u, { method: "HEAD" })).ok } catch { return false }
+};
+
+const parts = async ext => {
+  const out = [];
+
+  for (let i = 1; i < 100; i++) {
+    const p = `${base}${name}.${ext}.${String(i).padStart(3,"0")}`;
+    const r = await fetch(p, { method: "HEAD" });
+
+    if (r.status !== 200) break;
+
+    out.push(p);
+  }
+
+  return out;
+};
+
+const merge = async urls => {
+  const bufs = await Promise.all(urls.map(u => fetch(u).then(r => r.arrayBuffer())));
+  return URL.createObjectURL(new Blob(bufs));
+};
+
+(async () => {
+  let data = `${base}${name}.data`;
+  if (!(await ex(data))) data = await merge(await parts("data"));
+
+  let wasm = `${base}${name}.wasm`;
+  if (!(await ex(wasm))) wasm = await merge(await parts("wasm"));
+
+  const sc = document.createElement("script");
+  sc.src = `${base}${name}.loader.js`;
+
+  sc.onload = () => {
+    createUnityInstance(cv, {
+      dataUrl: data,
+      frameworkUrl: `${base}${name}.framework.js`,
+      codeUrl: wasm,
+      streamingAssetsUrl: "StreamingAssets",
+      companyName: "crackers",
+      productName: name,
+      productVersion: "1.0"
+    }).then(() => lt.remove()).catch(console.error);
+  };
+
+  document.body.appendChild(sc);
+  
+  
+  alert("this web port was made by crackers (woahhcrackers)");
+})();
+</script>
+  </body>
+</html>

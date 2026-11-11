@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <script src="./js/site.js?v=20261110.1"></script>
+
+    <link
+      rel="shortcut icon"
+      href="./assets/images/icon.png"
+      type="image/png"
+    />
+    <title>Aetheris Cheats</title>
+
+    <link rel="stylesheet" href="./css/main.css?v=20261011.2" />
+    <link rel="stylesheet" href="./css/cards.css?v=20260907.1" />
+    <link rel="stylesheet" href="./css/themes.css?v=20261101.1" />
+    <link rel="stylesheet" href="./css/nav.css?v=20261102.1" />
+    <script src="./js/theme.js?v=20261101.1"></script>
+
+    <meta name="theme-color" content="#0f0f0f" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+
+    <script src="register-sw.js?v=20260907.1" defer></script>
+    <script src="/scramjet/scramjet.js" defer></script>
+    <script src="/controller/controller.api.js" defer></script>
+    <script src="/js/scramjet-init.js?v=20261108.3"></script>
+    <script defer src="./js/preload.js?v=20261008.1"></script>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <style>
+      .page-wrapper {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .cheats-title {
+        font-size: clamp(2.5rem, 5vw, 3.5rem);
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        text-transform: lowercase;
+        margin-bottom: 6px;
+        text-shadow: 0 0 25px rgba(0, 0, 0, 0.7);
+      }
+
+      .cheats-subtitle {
+        font-size: 0.95rem;
+        opacity: 0.8;
+        margin-bottom: 32px;
+      }
+
+      .cheats-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 18px;
+        justify-content: center;
+        margin-bottom: 26px;
+      }
+
+      .cheat-card {
+        background: var(--surface-1);
+        border-radius: var(--radius-pill);
+        padding: 14px 28px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border: 1px solid var(--border-subtle);
+        cursor: pointer;
+        color: inherit;
+        font-family: inherit;
+        min-width: 190px;
+        justify-content: center;
+        transition:
+          transform 0.18s var(--ease),
+          box-shadow 0.18s var(--ease),
+          background-color 0.18s var(--ease),
+          border-color 0.18s var(--ease);
+        box-shadow: var(--shadow-md);
+        text-decoration: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      .cheat-card:hover,
+      .cheat-card[aria-pressed="true"] {
+        background: var(--surface-2);
+        border-color: color-mix(
+          in srgb,
+          var(--accent) 45%,
+          var(--border-strong)
+        );
+      }
+
+      .cheat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+      }
+
+      .cheat-card:active {
+        transform: translateY(0) scale(0.98);
+        transition-duration: 0.08s;
+      }
+
+      .cheat-card span.icon {
+        font-size: 1.3rem;
+      }
+      .cheat-card span.label {
+        font-size: 0.95rem;
+        font-weight: 500;
+        text-transform: lowercase;
+        letter-spacing: 0.03em;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      .menu-section {
+        width: min(1100px, 92vw);
+        margin: 0 auto;
+      }
+
+      .menu-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 200px));
+        justify-content: center;
+        gap: 14px;
+      }
+
+      .menu-item {
+        background: var(--surface-1);
+        border-radius: 18px;
+        border: 1px solid var(--border-subtle);
+        cursor: pointer;
+        padding: 10px 10px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        transition:
+          transform 0.15s var(--ease),
+          box-shadow 0.15s var(--ease),
+          border-color 0.15s var(--ease),
+          background-color 0.15s var(--ease);
+      }
+
+      .menu-item:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+        background: var(--surface-2);
+        border-color: var(--border-strong);
+      }
+
+      .menu-item-img {
+        width: 100%;
+        border-radius: 14px;
+        aspect-ratio: 2 / 3;
+        background:
+          radial-gradient(
+            circle at top,
+            color-mix(in srgb, var(--accent) 40%, transparent),
+            transparent 70%
+          ),
+          var(--surface-2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        overflow: hidden;
+      }
+
+      .menu-item-body {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .menu-item-title {
+        font-size: 0.95rem;
+        font-weight: 600;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .menu-item-meta {
+        font-size: 0.75rem;
+        opacity: 0.7;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+      }
+      .menu-item-tag {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        padding: 2px 7px;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--accent) 18%, transparent);
+        border: 1px solid color-mix(in srgb, var(--accent) 65%, transparent);
+      }
+      .menu-item-note {
+        font-size: 0.72rem;
+        opacity: 0.6;
+      }
+    </style>
+    <link rel="stylesheet" href="./css/usability.css?v=20261103.3" />
+  </head>
+
+  <body>
+    <div class="page-wrapper">
+      <h1 class="cheats-title">Cheats</h1>
+      <p class="cheats-subtitle">Choose a game, then pick a method</p>
+
+      <div class="cheats-grid">
+        <button
+          type="button"
+          class="cheat-card"
+          data-game="kahoot"
+          aria-pressed="false"
+          onclick="openmenu('kahoot')"
+        >
+          <span class="icon" aria-hidden="true">❓</span>
+          <span class="label">Kahoot</span>
+        </button>
+        <button
+          type="button"
+          class="cheat-card"
+          data-game="blooket"
+          aria-pressed="false"
+          onclick="openmenu('blooket')"
+        >
+          <span class="icon" aria-hidden="true">📦</span>
+          <span class="label">Blooket</span>
+        </button>
+      </div>
+
+      <div id="menuSection" class="menu-section hidden">
+        <div id="menuGrid" class="menu-grid"></div>
+      </div>
+    </div>
+
+    <script>
+      var CHEAT_DATA = {
+        kahoot: {
+          items: [
+            {
+              name: "theres none",
+              emoji: "✅✔️☑️",
+              url: "",
+              tag: "website",
+              note: ".",
+            },
+          ],
+        },
+
+        blooket: {
+          items: [
+            {
+              name: "AIO GUI bookmark",
+              emoji: "🧐",
+              copyText:
+                "javascript:(function(){var s=document.createElement('script');s.src='https://aetheris.win/assets/games/blooketcheat.js?'+Date.now();document.body.appendChild(s);})();",
+              tag: "bookmark",
+              note: "AIO/All In One Cheat.",
+            },
+          ],
+        },
+      };
+
+      function openmenu(gamekey) {
+        var gamedata = CHEAT_DATA[gamekey];
+        if (!gamedata) return;
+
+        var cards = document.querySelectorAll(".cheat-card[data-game]");
+        cards.forEach(function (b) {
+          var on = b.getAttribute("data-game") === gamekey;
+          b.setAttribute("aria-pressed", on ? "true" : "false");
+        });
+
+        var menusection = document.getElementById("menuSection");
+        var menugrid = document.getElementById("menuGrid");
+
+        menugrid.innerHTML = "";
+
+        gamedata.items.forEach(function (item) {
+          var card = document.createElement("div");
+          card.className = "menu-item";
+          card.setAttribute("role", "button");
+          card.tabIndex = 0;
+          card.addEventListener("keydown", function (event) {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              card.click();
+            }
+          });
+          card.onclick = function () {
+            clickcheat(item);
+          };
+
+          function el(tag, className, text) {
+            var node = document.createElement(tag);
+            if (className) node.className = className;
+            if (text) node.textContent = text;
+            return node;
+          }
+          var img = el("div", "menu-item-img");
+          img.appendChild(el("span", "", item.emoji || "🎮"));
+          var meta = el("div", "menu-item-meta");
+          meta.appendChild(
+            item.tag ? el("span", "menu-item-tag", item.tag) : el("span"),
+          );
+          if (item.note) meta.appendChild(el("span", "menu-item-note", item.note));
+          var body = el("div", "menu-item-body");
+          body.append(el("div", "menu-item-title", item.name), meta);
+          card.append(img, body);
+
+          menugrid.appendChild(card);
+        });
+
+        menusection.classList.remove("hidden");
+        menusection.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+
+      function clickcheat(item) {
+        if (item.copyText) {
+          copyclipboard(buildcopytext(item.copyText), item.name);
+          return;
+        }
+        if (item.url) {
+          openinproxy(item.url, item.name);
+          return;
+        }
+        // placeholder entries have no action; say so instead of doing nothing
+        var grid = document.getElementById("menuGrid");
+        if (!grid || grid.querySelector(".cheat-unavailable")) return;
+        var note = document.createElement("p");
+        note.className = "cheat-unavailable";
+        note.setAttribute("role", "status");
+        note.textContent = "no cheats for this one yet, check back later.";
+        note.style.cssText = "opacity:0.7;font-size:0.85rem;";
+        grid.appendChild(note);
+      }
+
+      // point the bookmarklet at whatever origin is serving this page
+      function buildcopytext(text) {
+        return String(text).replace(
+          /https:\/\/aetheris\.win(?=\/)/,
+          location.origin,
+        );
+      }
+
+      async function getproxy() {
+        return window.aetherisProxy.getController();
+      }
+
+      function closeproxyoverlay() {
+        var existing = document.getElementById("cheat-overlay");
+        if (existing) existing.remove();
+        document.removeEventListener("keydown", cheatesc);
+      }
+
+      function cheatesc(event) {
+        if (event.key === "Escape") closeproxyoverlay();
+      }
+
+      function showproxyerror(container, error) {
+        container.replaceChildren();
+        var p = document.createElement("p");
+        p.style.cssText = "color:#f87171;padding:20px;";
+        p.setAttribute("role", "alert");
+        p.textContent =
+          "Failed to load through the proxy: " +
+          ((error && error.message) || String(error));
+        container.appendChild(p);
+      }
+
+      async function openinproxy(url, displayname) {
+        var existing = document.getElementById("cheat-overlay");
+        if (existing) existing.remove();
+
+        var label = displayname || url;
+
+        var overlay = document.createElement("div");
+        overlay.id = "cheat-overlay";
+        overlay.setAttribute("role", "dialog");
+        overlay.setAttribute("aria-modal", "true");
+        overlay.setAttribute("aria-label", label);
+        overlay.style.cssText =
+          "position:fixed;inset:0;z-index:9999;background:#000;display:flex;flex-direction:column;";
+
+        var topbar = document.createElement("div");
+        topbar.style.cssText =
+          "display:flex;align-items:center;justify-content:space-between;padding:6px 14px;background:rgba(15,23,42,0.95);border-bottom:1px solid rgba(148,163,184,0.2);flex-shrink:0;";
+        var title = document.createElement("span");
+        title.style.cssText = "font-size:0.85rem;opacity:0.7;";
+        title.textContent = label;
+        var close = document.createElement("button");
+        close.id = "cheat-close-btn";
+        close.type = "button";
+        close.setAttribute("aria-label", "Close proxy view");
+        close.style.cssText =
+          "background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:inherit;border-radius:6px;padding:4px 12px;cursor:pointer;font-size:0.85rem;";
+        close.textContent = "✕ close";
+        close.addEventListener("click", closeproxyoverlay);
+        topbar.append(title, close);
+
+        var contentarea = document.createElement("div");
+        contentarea.id = "cheat-frame-container";
+        contentarea.style.cssText = "flex:1;width:100%;overflow:hidden;";
+        var loading = document.createElement("div");
+        loading.style.cssText =
+          "color:#aaa;padding:20px;font-size:0.9rem;";
+        loading.setAttribute("role", "status");
+        loading.textContent = "Loading " + label + "…";
+        contentarea.appendChild(loading);
+
+        overlay.appendChild(topbar);
+        overlay.appendChild(contentarea);
+        document.body.appendChild(overlay);
+        close.focus();
+        document.addEventListener("keydown", cheatesc);
+
+        try {
+          var p = await getproxy();
+          var frameel = document.createElement("iframe");
+          frameel.style.cssText = "width:100%;height:100%;border:0;";
+          // iPad Safari needs these delegated for audio/fullscreen
+          frameel.allow = "autoplay; fullscreen; encrypted-media";
+          var frame = p.createFrame(frameel);
+          contentarea.replaceChildren(frameel);
+          try {
+            await window.aetherisProxy.go(frame, url);
+          } catch (error) {
+            console.error("proxy navigation failed:", error);
+            try {
+              if (window.aetherisProxy) window.aetherisProxy.reset();
+            } catch (_) {}
+            showproxyerror(contentarea, error);
+          }
+        } catch (err) {
+          console.error("proxy load failed:", err);
+          try {
+            if (window.aetherisProxy) window.aetherisProxy.reset();
+          } catch (_) {}
+          showproxyerror(contentarea, err);
+        }
+      }
+
+      function copyclipboard(text, itemname) {
+        if (!itemname) itemname = "text";
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard
+            .writeText(text)
+            .then(function () {
+              alert(
+                'Copied "' +
+                  itemname +
+                  '" to clipboard!\n\nPaste into a new bookmark (Ctrl+D or right-click bookmark bar → Add page)',
+              );
+            })
+            .catch(function (err) {
+              console.error("clipboard api failed:", err);
+              copyfallback(text, itemname);
+            });
+        } else {
+          copyfallback(text, itemname);
+        }
+      }
+
+      function copyfallback(text, itemname) {
+        var textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.setAttribute("readonly", "");
+        textarea.style.cssText = "position:fixed;left:-9999px;";
+        document.body.appendChild(textarea);
+        textarea.select();
+        textarea.setSelectionRange(0, 99999);
+
+        try {
+          var worked = document.execCommand("copy");
+          alert(
+            worked
+              ? 'Copied "' + itemname + '" to clipboard!'
+              : "copy failed, copy it manually.",
+          );
+        } catch (err) {
+          alert("copy failed, copy it manually.");
+          console.error("fallback copy error:", err);
+        }
+
+        document.body.removeChild(textarea);
+      }
+    </script>
+  </body>
+</html>

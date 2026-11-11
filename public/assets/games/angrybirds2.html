@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<!-- Full credit goes to Reeyuki for the port. https://reeyuki.nekoweb.org -->
+<html lang="en-us">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Angry Birds 2</title>
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: #121212;
+            color: #ffffff;
+            font-family: sans-serif;
+            overflow: hidden;
+        }
+
+        #unityContainer {
+            width: 100vw !important;
+            height: 100vh !important;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        #loadingContainer {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 28px;
+            font-weight: bold;
+            color: #4CAF50;
+            text-shadow: 2px 2px 4px #000;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .spinner {
+            border: 6px solid #333;
+            border-top: 6px solid #4CAF50;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        #fullscreenBtn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            z-index: 20;
+            background: rgba(0, 0, 0, 0.6);
+            color: #fff;
+            border: 1px solid #555;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 16px;
+            border-radius: 6px;
+            transition: background 0.3s;
+        }
+
+        #fullscreenBtn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="loadingContainer">
+        <div class="spinner"></div>
+        <span id="loadingText">Loading... 0%</span>
+    </div>
+    <div id="unityContainer"></div>
+    <button id="fullscreenBtn" onclick="toggleFullscreen()">Fullscreen</button>
+    <script>
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
+        let preloadedFiles = {};
+        const OrigXHR = window.XMLHttpRequest;
+        window.XMLHttpRequest = class CustomXHR {
+            constructor() {
+                this.xhr = new OrigXHR();
+                this.listeners = {};
+                this._responseType = '';
+                this.isMocked = false;
+                this.mockData = null;
+                this.readyState = 0;
+                this.status = 0;
+                const events = ['readystatechange', 'load', 'error', 'progress', 'loadstart', 'loadend'];
+                events.forEach(e => {
+                    this.xhr.addEventListener(e, (ev) => {
+                        if (!this.isMocked) {
+                            this.readyState = this.xhr.readyState;
+                            this.status = this.xhr.status;
+                            this.dispatchEvent(new Event(e));
+                            if (this[`on${e}`]) this[`on${e}`](ev);
+                        }
+                    });
+                });
+            }
+            open(method, url) {
+                let name = url.toString().split('/').pop();
+                if (preloadedFiles[name]) {
+                    this.isMocked = true;
+                    this.mockData = preloadedFiles[name];
+                    this.readyState = 1;
+                } else {
+                    this.xhr.open(method, url);
+                }
+            }
+            send(body) {
+                if (this.isMocked) {
+                    setTimeout(() => {
+                        this.readyState = 4;
+                        this.status = 200;
+                        let pr = new Event('progress');
+                        pr.lengthComputable = true;
+                        pr.loaded = this.mockData.length;
+                        pr.total = this.mockData.length;
+                        this.dispatchEvent(pr);
+                        if (this.onprogress) this.onprogress(pr);
+                        let ev = new Event('readystatechange');
+                        this.dispatchEvent(ev);
+                        if (this.onreadystatechange) this.onreadystatechange(ev);
+                        let ld = new Event('load');
+                        this.dispatchEvent(ld);
+                        if (this.onload) this.onload(ld);
+                    }, 0);
+                } else {
+                    this.xhr.send(body);
+                }
+            }
+            get responseType() { return this.isMocked ? this._responseType : this.xhr.responseType; }
+            set responseType(val) {
+                this._responseType = val;
+                if (!this.isMocked) this.xhr.responseType = val;
+            }
+            get response() {
+                if (this.isMocked) {
+                    if (this._responseType === 'arraybuffer') {
+                        return this.mockData.buffer.slice(this.mockData.byteOffset, this.mockData.byteOffset + this.mockData.byteLength);
+                    }
+                    if (this._responseType === 'json') {
+                        return JSON.parse(new TextDecoder().decode(this.mockData));
+                    }
+                    return new TextDecoder().decode(this.mockData);
+                }
+                return this.xhr.response;
+            }
+            get responseText() {
+                if (this.isMocked) {
+                    if (this._responseType === '' || this._responseType === 'text') {
+                        return new TextDecoder().decode(this.mockData);
+                    }
+                    return "";
+                }
+                if (this.xhr.responseType === '' || this.xhr.responseType === 'text') {
+                    return this.xhr.responseText;
+                }
+                return "";
+            }
+            get statusText() { return this.isMocked ? "OK" : this.xhr.statusText; }
+            get responseURL() { return this.isMocked ? "" : this.xhr.responseURL; }
+            addEventListener(type, listener) {
+                if (!this.listeners[type]) this.listeners[type] = [];
+                this.listeners[type].push(listener);
+            }
+            removeEventListener(type, listener) {
+                if (this.listeners[type]) {
+                    this.listeners[type] = this.listeners[type].filter(l => l !== listener);
+                }
+            }
+            dispatchEvent(event) {
+                if (this.listeners[event.type]) {
+                    this.listeners[event.type].forEach(l => l(event));
+                }
+            }
+            setRequestHeader(k, v) { if (!this.isMocked) this.xhr.setRequestHeader(k, v); }
+            getResponseHeader(k) { return this.isMocked ? null : this.xhr.getResponseHeader(k); }
+            getAllResponseHeaders() { return this.isMocked ? "" : this.xhr.getAllResponseHeaders(); }
+            abort() { if (!this.isMocked) this.xhr.abort(); }
+            overrideMimeType(m) { if (!this.isMocked) this.xhr.overrideMimeType(m); }
+            get withCredentials() { return this.isMocked ? false : this.xhr.withCredentials; }
+            set withCredentials(v) { if (!this.isMocked) this.xhr.withCredentials = v; }
+        };
+        const baseUrl = "https://cdn.jsdelivr.net/gh/Reeyuki/angry2@main/";
+        const filesConfig = [
+            { name: "angry.data.unityweb", parts: 6 },
+            { name: "angry.wasm.code.unityweb", parts: 2 },
+            { name: "angry.wasm.framework.unityweb", parts: 1 },
+            { name: "angry.json", parts: 1 }
+        ];
+        let totalFiles = 0;
+        let loadedFiles = 0;
+        let fetchPromises = filesConfig.map(config => {
+            let partPromises = [];
+            for (let i = 0; i < config.parts; i++) {
+                let partName = config.parts > 1 ? config.name + i.toString().padStart(2, '0') : config.name;
+                totalFiles++;
+                partPromises.push(
+                    fetch(baseUrl + "Build/" + partName)
+                        .then(res => res.arrayBuffer())
+                        .then(buf => {
+                            loadedFiles++;
+                            let p = Math.floor((loadedFiles / totalFiles) * 100);
+                            document.getElementById('loadingText').innerText = "Loading... " + p + "%";
+                            return new Uint8Array(buf);
+                        })
+                );
+            }
+            return Promise.all(partPromises).then(arrays => {
+                if (arrays.length === 1) {
+                    preloadedFiles[config.name] = arrays[0];
+                } else {
+                    let totalLength = arrays.reduce((acc, arr) => acc + arr.length, 0);
+                    let merged = new Uint8Array(totalLength);
+                    let offset = 0;
+                    for (let arr of arrays) {
+                        merged.set(arr, offset);
+                        offset += arr.length;
+                    }
+                    preloadedFiles[config.name] = merged;
+                }
+            });
+        });
+        Promise.all(fetchPromises).then(() => {
+            document.getElementById('loadingContainer').style.display = 'none';
+            let script = document.createElement('script');
+            script.src = baseUrl + "Build/UnityLoader.js";
+            script.onload = () => {
+                window.unityInstance = UnityLoader.instantiate("unityContainer", baseUrl + "Build/angry.json");
+            };
+            document.body.appendChild(script);
+        });
+    </script>
+</body>
+
+</html>

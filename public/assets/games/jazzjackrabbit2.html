@@ -1,0 +1,209 @@
+<!-- Ultimate Game Stash file-->
+<!-- For the regularly updating doc go to https://docs.google.com/document/d/1_FmH3BlSBQI7FGgAQL59-ZPe8eCxs35wel6JUyVaG8Q/ -->
+
+<!doctype html>
+<html>
+<head>
+<base href="https://rawcdn.githack.com/Stinkalistic/UGS/cead580593b0a81e9dc197057521ccbcb7e7ca61/MISC/jazz2/">
+	<meta charset="UTF-8">
+	<title>Jazz² Resurrection</title>
+
+	<link rel="canonical" href="https://deat.tk/jazz2/wasm/" />
+	<link rel="shortcut icon" id="favicon" type="image/png" href="./favicon.png">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, minimal-ui, viewport-fit=cover">
+	<meta name="apple-mobile-web-app-capable" content="yes">
+	<meta name="mobile-web-app-capable" content="yes">
+	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+	<meta name="theme-color" content="#000000">
+	<link rel="manifest" href="manifest.json" />
+	<link rel="prefetch" href="manifest.json" />
+
+	<meta property="og:type" content="website" />
+	<meta property="og:title" content="Jazz² Resurrection" />
+	<meta property="og:description" content="Play Jazz² Resurrection (open-source Jazz Jackrabbit 2 reimplementation) directly in the browser" />
+	<meta property="og:image" content="http://deat.tk/jazz2/images/logo.gif" />
+
+	<style>
+		body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen-Sans,Ubuntu,Cantarell,"Helvetica Neue",sans-serif;font-size:.74em;background:#000;color:#fff;}
+		html, body, #game-container, .emscripten{margin:0;padding:0;width:100%;height:100%;position:absolute;top:0;user-select:none;}
+		a{color:#6af;}
+		#loading-screen{width:100%;min-height:100%;text-align:center;transition:1s opacity}
+		.jazz2-logo{display:block;margin:0 auto;padding:33px 0 60px 0;transform:translateX(-5px);image-rendering:auto;image-rendering:crisp-edges;image-rendering:pixelated;}
+		#info-message{height:140px;color:#FFF;font-size:120%;font-weight:700;}
+		.more-info{padding-bottom:20px;color:#aaa;}
+		.emscripten{display:none;z-index:100000;touch-action:none;}
+		#update-available{position:absolute;top:1.8em;left:2.2em;z-index: 200000;color:#fff;background:rgba(40,40,40,0.4);-webkit-backdrop-filter:blur(1em);backdrop-filter:blur(0.6em);border-radius:4px;border:1px solid #888;padding:6px 8px;border: 1px solid rgba(255,255,255,0.4);box-shadow:0 3px 6px rgba(0,0,0,0.4);text-shadow:0 2px 2px rgba(0,0,0,0.4);transition:background-color 500ms ease-out,border 500ms ease-out;user-select:none;}
+		#update-available:hover{background:rgba(40,40,40,0.6);border:1px solid rgba(200,200,200,0.6);}
+		#update-available:focus{border:1px solid rgba(255,255,255,1.0);}
+		#update-available:active{background:rgba(40,40,40,0.8);border:1px solid rgba(120,120,120,0.6);}
+		#titlebar-transition{display:none;}
+		@media (display-mode: window-controls-overlay) {
+			body.has-windows-titlebar #titlebar-transition{display:block;position:absolute;top:0;right:0;width:540px;height:100px;background-image:radial-gradient(ellipse farthest-side at right top, #000 60%,transparent 100%);z-index:160000;-webkit-app-region:drag;app-region:drag;}
+		}
+	</style>
+	
+	<!---->
+</head>
+<body>
+	<div id="game-container">
+		<div id="loading-screen">
+			<img src="logo.gif" class="jazz2-logo" draggable="false">
+			<div id="info-message">Downloading game assets…</div>
+			<div class="more-info">
+				This is a WebAssembly port of <b>Jazz² Resurrection</b>. Further information can be found <a href="https://deat.tk/jazz2/">here</a>.<br>
+				It requires Google Chrome, Microsoft Edge, Mozilla Firefox or other browser supporting <i>WebAssembly</i>.<br><br>
+				This preview uses the game data coming from <b>Jazz Jackrabbit 2 Shareware Demo</b> available for free.<br>
+				The original <code>LICENSE.TXT</code> file of the demo can be found <a href="jj2-license.txt" target="_blank">here</a>.
+			</div>
+		</div>
+		<canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()"></canvas>
+		<div id="titlebar-transition"></div>
+	</div>
+
+	<script type='text/javascript'>
+	// Replace XMLHttpRequest with fetch
+	class XMLHttpRequest{open(t,e){"GET"!=t&&console.error("Method not implemented:",t),this._url=e}get status(){return this._status}get statusText(){return this._statusText}set onprogress(t){this._onprogress=t}set onerror(t){this._onerror=t}set onload(t){this._onload=t}set responseType(t){"arraybuffer"!=t&&console.error("Response type not implemented",t)}send(){fetch(this._url).then(t=>(this._status=t.status,this._statusText=t.statusText,t.arrayBuffer())).then(t=>{this._arrayBuffer=t,this._onload&&this._onload({})}).catch(t=>{this._onerror&&(console.error("Could not fetch:",t),this._onerror({}))})}get responseText(){console.error("Not implemented: getting responseText")}get response(){return this._arrayBuffer}}
+
+	// Emscripten module definition
+	var Module = {
+		preRun: [],
+		postRun: [],
+		arguments: [],
+		print: function(text) {
+			console.log(Array.prototype.slice.call(arguments).join(' '));
+		},
+		printErr: function(text) {
+			console.error(Array.prototype.slice.call(arguments).join(' '));
+		},
+		canvas: (function() {
+			var canvas = document.getElementById('canvas');
+			canvas.addEventListener("webglcontextlost", function(e) { Module.onAbort(); e.preventDefault(); }, false);
+			return canvas;
+		})(),
+		onAbort: function() {
+			var info = document.getElementById('info-message');
+			info.innerHTML = "The application crashed.<br/>Refresh the page or check the browser console for details.";
+			var loading = document.getElementById('loading-screen');
+			loading.style.display = 'block';
+			var canvas = document.getElementById('canvas');
+			canvas.style.display = 'none';
+		},
+		setInfo: function(text) {
+			var info = document.getElementById('info-message');
+			info.innerHTML = text;
+		},
+		setStatus: function(text) {
+			if (text.length >= 24 && text.substr(0, 19) === 'Downloading data...') {
+				var s = text.indexOf('(');
+				if (s == -1) return;
+				var m = text.indexOf('/', s + 1);
+				if (m == -1) return;
+				var e = text.indexOf(')', m + 1);
+				if (e == -1) return;
+				var current = (parseInt(text.substr(s + 1, m - s - 1)) / 1048576).toFixed(1);
+				var total = (parseInt(text.substr(m + 1, e - m - 1)) / 1048576).toFixed(1);
+				Module.setInfo('Downloading game assets…<br/>' + current + ' MB / ' + total + ' MB');
+			}
+		},
+		monitorRunDependencies: function(left) {
+		},
+		onRuntimeInitialized: function() {
+			var loading = document.getElementById('loading-screen');
+			loading.style.display = 'none';
+			var canvas = document.getElementById('canvas');
+			canvas.style.display = 'block';
+			window.scrollTo(0, 1);
+		},
+		locateFile: function(path) {
+			//if (path === "jazz2.data" && window.location.hostname === "deat.tk" && window.location.hash !== "#fallback") {
+			//	return "http://deat.wz.cz/jazz2/jazz2.data";
+			//}
+			return path;
+		}
+	};
+	if (typeof window == 'object') {
+		const args = decodeURIComponent(window.location.search.substr(1)).trim().split('&');
+		for (let i = 0; i != args.length; ++i) {
+			let j = args[i].indexOf('=');
+			if(j != -1) {
+				Module.arguments.push('/' + args[i].substring(0, j));
+				Module.arguments.push(args[i].substring(j + 1));
+			} else {
+				Module.arguments.push('/' + args[i]);
+			}
+		}
+	}
+	window.onerror = function() {
+		console.log("onerror: " + event);
+	};
+	
+	// Window controls overlay
+	var debounce=function n(r,o){var a;return function n(){for(var t=arguments.length,u=Array(t),v=0;v<t;v++)u[v]=arguments[v];var c=function n(){clearTimeout(a),r.apply(void 0,u)};clearTimeout(a),a=setTimeout(c,o)}};
+    
+	if ('windowControlsOverlay' in navigator) {
+        function refreshTitlebarTransition() {
+            var rect = navigator.windowControlsOverlay.getTitlebarAreaRect();
+            if (rect.x === 0 && rect.height > 0) {
+                // Window controls are on the right (like on Windows),
+                // Chrome menu is left of the window controls
+                document.body.classList.add('has-windows-titlebar');
+            } else {
+                // Window controls are on the left (like on macOS) or hidden completely,
+                // Chrome menu is right of the window controls overlay
+                document.body.classList.remove('has-windows-titlebar');
+            }
+        }
+	
+        refreshTitlebarTransition();
+        navigator.windowControlsOverlay.addEventListener('geometrychange', debounce((e) => refreshTitlebarTransition(), 250));
+	}
+	
+	// Service worker
+	function invokeServiceWorkerUpdateFlow(registration) {
+		var button = document.createElement('button');
+        button.textContent = 'Update Available';
+        button.id = 'update-available';
+		button.addEventListener('click', () => {
+			if (registration.waiting) {
+				registration.waiting.postMessage('SKIP_WAITING');
+			}
+		});
+        var container = document.getElementById('game-container');
+        container.appendChild(button);
+	}
+
+	if ('serviceWorker' in navigator) {
+		window.addEventListener('load', async () => {
+			const registration = await navigator.serviceWorker.register('service-worker.js')
+			if (registration.waiting) {
+				invokeServiceWorkerUpdateFlow(registration);
+			}
+
+			registration.addEventListener('updatefound', () => {
+				if (registration.installing) {
+					registration.installing.addEventListener('statechange', () => {
+						if (registration.waiting) {
+							if (navigator.serviceWorker.controller) {
+								invokeServiceWorkerUpdateFlow(registration);
+							} else {
+								//console.log('Service Worker initialized for the first time');
+							}
+						}
+					});
+				}
+			});
+
+			var refreshing = false;
+			navigator.serviceWorker.addEventListener('controllerchange', () => {
+				if (!refreshing) {
+					window.location.reload();
+					refreshing = true;
+				}
+			});
+		});
+	}
+	</script>
+	<script type='text/javascript' src='jazz2.js'></script>
+
+</body>
+</html>

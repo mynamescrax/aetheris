@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <script src="./js/site.js?v=20261110.1"></script>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link
+      rel="shortcut icon"
+      href="./assets/images/icon.png"
+      type="image/png"
+    />
+    <title>Aetheris - Movies</title>
+
+    <link rel="stylesheet" href="./css/main.css?v=20261011.2" />
+    <link rel="stylesheet" href="./css/cards.css?v=20260907.1" />
+    <link rel="stylesheet" href="./css/themes.css?v=20261101.1" />
+    <link rel="stylesheet" href="./css/nav.css?v=20261102.1" />
+    <link rel="stylesheet" href="./css/movies.css?v=20261106.2" />
+    <script defer src="./js/preload.js?v=20261008.1"></script>
+    <script src="./js/theme.js?v=20261101.1"></script>
+
+    <link rel="stylesheet" href="./css/usability.css?v=20261103.3" />
+  </head>
+
+  <body>
+    <div class="movies-header">
+      <div class="movies-nav">
+        <div class="movies-title">
+          <span class="cinema-mark" aria-hidden="true">▥</span> Movies &amp;
+          shows
+        </div>
+        <div class="mode-btns">
+          <button class="mode-btn active" data-type="all" aria-pressed="true">
+            Discover
+          </button>
+          <button class="mode-btn" data-type="movie" aria-pressed="false">
+            Movies
+          </button>
+          <button class="mode-btn" data-type="tv" aria-pressed="false">
+            TV shows
+          </button>
+        </div>
+        <div class="search-wrap">
+          <input
+            id="search"
+            type="search"
+            aria-label="Search movies or TV shows"
+            placeholder="Search movies or TV shows"
+            autocomplete="off"
+          />
+        </div>
+      </div>
+    </div>
+
+    <main id="movies-content">
+      <section
+        class="featured"
+        id="featured"
+        aria-label="Featured titles"
+        hidden
+      >
+        <img class="featured-art" id="featured-art" alt="" />
+        <div class="featured-copy">
+          <p class="eyebrow">
+            In the spotlight <span> / </span> Trending this week
+          </p>
+          <h1 id="featured-title"></h1>
+          <p class="featured-meta" id="featured-meta"></p>
+          <p class="featured-overview" id="featured-overview"></p>
+          <button class="featured-play" id="featured-play">
+            <span aria-hidden="true">▶</span> Watch now
+          </button>
+        </div>
+        <div
+          class="featured-pagination"
+          id="featured-pagination"
+          aria-label="Choose featured title"
+        ></div>
+      </section>
+      <section id="recent-section" aria-labelledby="recent-title" hidden>
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Your viewing history · This browser</p>
+            <h2 id="recent-title">Recently watched</h2>
+          </div>
+          <button type="button" class="history-clear" id="recent-clear">
+            Clear history
+          </button>
+        </div>
+        <div class="trending-rail" id="recent-rail"></div>
+        <p class="history-note">Titles you’ve opened, ready to watch again.</p>
+      </section>
+      <section
+        class="trending-section"
+        id="trending-section"
+        aria-labelledby="trending-title"
+        hidden
+      >
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">The weekly selection</p>
+            <h2 id="trending-title">Trending now</h2>
+          </div>
+          <span class="section-note">The titles everyone’s watching</span>
+        </div>
+        <div class="trending-rail" id="trending-rail"></div>
+      </section>
+      <div class="section-heading catalogue-heading">
+        <div>
+          <p class="eyebrow">Find your next watch</p>
+          <h2 id="catalogue-title">Explore the collection</h2>
+        </div>
+        <span class="section-note" id="catalogue-count"></span>
+      </div>
+      <div class="grid" id="grid"></div>
+      <button class="load-more" id="movies-more" hidden>Load more</button>
+      <div class="status-msg" id="status" role="status">Loading…</div>
+      <button class="load-more" id="movies-retry" hidden>Try again</button>
+    </main>
+
+    <div
+      class="modal"
+      id="modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modalTitle"
+    >
+      <div class="modal-box">
+        <div class="modal-top">
+          <div class="modal-title" id="modalTitle">Loading…</div>
+          <select
+            class="source-sel"
+            id="sourceSel"
+            aria-label="Playback source"
+          ></select>
+          <button
+            class="modal-close"
+            id="modalFs"
+            title="Fullscreen"
+            aria-label="Expand movie player"
+            style="display: grid; place-items: center"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 14 14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M1 5V1h4M9 1h4v4M13 9v4H9M5 13H1V9" />
+            </svg>
+          </button>
+          <button
+            class="modal-close"
+            id="modalClose"
+            aria-label="Close movie player"
+          >
+            ✕
+          </button>
+        </div>
+        <div class="ep-bar" id="epBar">
+          <label for="seasonSel">Season</label>
+          <select id="seasonSel"></select>
+          <label>Episode</label>
+          <div class="ep-btns" id="epBtns"></div>
+        </div>
+        <div class="player-wrap">
+          <iframe
+            id="player"
+            title="Movie player"
+            src="about:blank"
+            allowfullscreen
+            webkitallowfullscreen
+            allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+            referrerpolicy="origin"
+          ></iframe>
+          <div class="player-status hidden" id="playerStatus">
+            Loading provider…
+          </div>
+        </div>
+        <p id="playerHint" class="player-hint" role="status"></p>
+      </div>
+    </div>
+
+    <script defer src="register-sw.js?v=20260907.1"></script>
+    <script defer src="/movie-relay-config.js"></script>
+    <script defer src="./js/movie-sources.js?v=20261102.3"></script>
+    <script defer src="./js/movies-ui.js?v=20261106.3"></script>
+  </body>
+</html>

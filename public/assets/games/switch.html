@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <base href="https://cdn.jsdelivr.net/gh/mynamescrax/gamesforaetheris@main/switch/">
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+  <title>Switch!</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; background: #13141E; overflow: hidden; }
+
+    #unity-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; outline: none; }
+
+    #loading {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: linear-gradient(180deg, #090C15 0%, #16143C 50%, #452A65 100%);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      color: #fff; font-family: Arial, sans-serif; z-index: 10;
+    }
+    #progress-bar-container {
+      width: 200px; height: 6px; background: rgba(255,255,255,0.2);
+      border-radius: 3px; margin-top: 20px; overflow: hidden;
+    }
+    #progress-bar { height: 100%; width: 0%; background: #fff; border-radius: 3px; transition: width 0.2s; }
+    #loading-text { margin-top: 12px; opacity: 0.5; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <canvas id="unity-canvas"></canvas>
+  <div id="loading">
+    <svg width="46" height="50" viewBox="0 0 46 50" fill="white" style="opacity:0.5">
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M39.9436 1.74993C39.685 1.46063 39.3511 1.33714 38.9704 1.33714L38.9668 1.35126C37.5519 1.35126 35.4655 3.05179 34.004 4.4348C30.9264 2.96006 27.145 2.2368 22.552 2.2368C17.959 2.2368 14.1776 2.96006 11.1036 4.43127C9.64206 3.04826 7.55563 1.34773 6.14434 1.34773C5.76009 1.34773 5.42971 1.47121 5.17116 1.76051C2.97341 4.23723 2.76513 10.1679 2.84414 13.5831C1.853 16.2504 1.35025 19.3692 1.35025 22.9325C1.35025 30.4191 3.53362 35.9653 7.83215 39.4334C10.7302 41.7655 14.5116 43.1097 19.3308 43.5119C19.1291 43.6103 18.9246 43.7083 18.7177 43.8075C18.3463 43.9855 17.9671 44.1673 17.5819 44.3621L15.8367 45.2018L14.8455 45.6781C14.5704 45.8188 14.2933 45.9551 14.013 46.0931C13.3089 46.4395 12.5847 46.7959 11.8218 47.2552L11.5597 47.3892C11.4843 47.4421 11.4161 47.5303 11.4017 47.6327C11.3658 47.8232 11.4986 48.0031 11.6926 48.0313C11.996 48.0753 12.2985 48.1241 12.6008 48.1729C13.2681 48.2806 13.935 48.3883 14.6121 48.4441L15.3483 48.5253C15.5925 48.55 15.8331 48.5711 16.0845 48.5852L17.5604 48.6664C17.7902 48.6734 18.0201 48.6734 18.2499 48.6734C19.9987 48.6734 21.7548 48.557 23.4929 48.2889C25.4608 47.996 27.3964 47.4563 29.253 46.7048C31.106 45.9533 32.8728 44.9725 34.4744 43.7835C37.6489 41.3597 40.1447 38.0998 41.6278 34.4694C42.1701 33.1534 42.5795 31.788 42.8668 30.4015C43.4557 28.1753 43.7537 25.6845 43.7537 22.9255C43.7537 19.3727 43.2546 16.2609 42.267 13.5937C42.3496 10.182 42.1449 4.23017 39.9436 1.74993Z"/>
+    </svg>
+    <div id="loading-text">bypassed by crax https://crax.lol aetheris.win, legally if you see this, you cant run this game.</div>
+    <div id="progress-bar-container"><div id="progress-bar"></div></div>
+  </div>
+
+<script src="Build/Switch.loader.js"></script>
+
+
+
+
+<script>
+  // thank you claude
+  // SiteLock reads document.URL via _JS_SystemInfo_GetDocumentURL to validate the host.
+  // Needs to contain 'crazygames' within the last 3 domain parts.
+  Object.defineProperty(document, 'URL',         { get: () => 'https://www.crazygames.com/game/switch', configurable: true });
+  Object.defineProperty(document, 'documentURI', { get: () => 'https://www.crazygames.com/game/switch', configurable: true });
+
+  // _InitSDK fires during [RuntimeInitializeOnLoadMethod], before the createUnityInstance
+  // promise resolves, so SendMessage would hit a dead stub. Queue it, flush on load.
+  var msgQueue = [];
+  var gameInstance = null;
+
+  function sendToUnity(obj, method, param) {
+    if (gameInstance) gameInstance.SendMessage(obj, method, param);
+    else msgQueue.push([obj, method, param]);
+  }
+
+  window.unityInstance = { SendMessage: sendToUnity };
+
+  // framework.js calls window.Crazygames — lowercase 'g', not CrazyGames
+  var sdk = {
+    init: function(cfg) {
+      if (cfg && cfg.crazySDKObjectName) sendToUnity(cfg.crazySDKObjectName, 'OnSDKInit');
+      return true;
+    },
+    gameplayStart:    function() { return true; },
+    gameplayStop:     function() { return true; },
+    happytime:        function() { return true; },
+    requestAd: function() {
+      setTimeout(function() {
+        sendToUnity('CrazyGames', 'OnAdCompleted');
+        sendToUnity('CrazyGames', 'OnAdFinished', 'true');
+      }, 50);
+      return true;
+    },
+    requestBanners:     function() { return true; },
+    requestInviteUrl:   function() { return true; },
+    screenshotReceived: function() { return true; }
+  };
+
+  window.Crazygames = sdk;
+  window.CrazyGames = sdk;
+
+  document.getElementById('unity-canvas').addEventListener('webglcontextlost', function(e) {
+    e.preventDefault();
+  });
+
+//end of sitelock bypass
+
+
+
+
+  createUnityInstance(document.getElementById('unity-canvas'), {
+    dataUrl:           'Build/Switch.data',
+    frameworkUrl:      'Build/Switch.framework.js',
+    codeUrl:           'Build/Switch.wasm',
+    streamingAssetsUrl: 'StreamingAssets',
+    companyName:       'CrazyGames',
+    productName:       'Switch!',
+    productVersion:    '1.0',
+  }, function(p) {
+    document.getElementById('progress-bar').style.width = (p * 100) + '%';
+  }).then(function(inst) {
+    gameInstance = inst;
+    window.unityInstance = inst;
+    msgQueue.forEach(function(m) { inst.SendMessage(m[0], m[1], m[2]); });
+    msgQueue = [];
+    document.getElementById('loading').style.display = 'none';
+  }).catch(function(err) {
+    document.getElementById('loading-text').textContent = 'Failed to load: ' + err;
+    console.error(err);
+  });
+</script>
+
+</body>
+</html>

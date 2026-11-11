@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <base href="https://raw.githubusercontent.com/mynamescrax/gamesforaetheris/main/capuchin/">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Capuchin</title>
+    <link rel="shortcut icon" href="TemplateData/favicon.ico">
+    <link rel="manifest" href="manifest.webmanifest">
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui,sans-serif;background:#0a0a0c;overflow:hidden;width:100vw;height:100vh}#ls{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;transition:opacity .6s,visibility .6s}#ls.h{opacity:0;visibility:hidden;pointer-events:none}#bg{position:absolute;inset:0;background:url(TemplateData/bg.webp) center/cover no-repeat;z-index:0}#bg::after{content:'';position:absolute;inset:0;background:rgba(0,0,0,.35)}#lg{position:relative;z-index:1;height:240px;object-fit:contain}#br{position:relative;z-index:1;width:141px;height:18px;background:url(TemplateData/progress-bar-empty-dark.png) no-repeat center}#fl{width:0;height:18px;background:url(TemplateData/progress-bar-full-dark.png) no-repeat center}#uc{width:100vw;height:100vh}#cv{width:100%;height:100%;display:block}#uw{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:200}
+    </style>
+</head>
+
+<body>
+    <div id="ls">
+        <div id="bg"></div><img id="lg" src="TemplateData/capu.webp" alt="Capuchin">
+        <div id="br">
+            <div id="fl"></div>
+        </div>
+    </div>
+    <div id="uc">
+        <canvas id="cv" tabindex="-1"></canvas>
+        <div id="uw"></div>
+    </div>
+    <script>
+        "use strict";(()=>{const C="https://raw.githubusercontent.com/mynamescrax/gamesforaetheris/main/capuchin/",B=C+"Build",$=s=>document.getElementById(s),fl=$("fl"),ls=$("ls");function sp(r){fl.style.width=Math.min(Math.round(r*100),100)+"%"}async function gf(u,cb){const r=await fetch(u);if(!r.ok)throw Error(u+" "+r.status);const t=+r.headers.get("Content-Length")||0,rd=r.body.getReader(),ch=[];let n=0;for(;;){const{done,value}=await rd.read();if(done)break;ch.push(value);n+=value.length;if(cb&&t)cb(n,t)}const o=new Uint8Array(n);let f=0;for(const c of ch){o.set(c,f);f+=c.length}return o}async function sf(name,cnt,up){const sz=await Promise.all(Array.from({length:cnt},(_,i)=>fetch(B+"/"+name+".part"+(i+1),{method:"HEAD"}).then(r=>r.ok?+r.headers.get("Content-Length")||0:0).catch(()=>0)));const tot=sz.reduce((a,b)=>a+b,0),bu=[];let ld=0;for(let i=1;i<=cnt;i++){const d=await gf(B+"/"+name+".part"+i,l=>up(name,ld+l,tot||1));ld+=d.length;up(name,ld,tot||1);bu.push(d)}const o=new Uint8Array(ld);let f=0;for(const b of bu){o.set(b,f);f+=b.length}return o}const bl=(d,m)=>URL.createObjectURL(new Blob([d],{type:m}));(async()=>{sp(0);const mf=await fetch(B+"/parts.json").then(async r=>{if(!r.ok)throw Error(B+"/parts.json "+r.status);return r.json()});const whole=["CapuchinBog.framework.js"];const all=[...Object.keys(mf),...whole];const pr={},fd={};const up=(name,l,t)=>{pr[name]={l,t};let sL=0,sT=0;for(const k of all){const p=pr[k]||{l:0,t:1};sL+=p.l;sT+=p.t}sp(sT>0?sL/sT*.85:0)};for(const[name,cnt]of Object.entries(mf))fd[name]=await sf(name,cnt,up);for(const name of whole)fd[name]=await gf(B+"/"+name,(l,t)=>up(name,l,t));sp(.88);const dU=bl(fd["CapuchinBog.data"],"application/octet-stream"),wU=bl(fd["CapuchinBog.wasm"],"application/wasm"),fU=bl(fd["CapuchinBog.framework.js"],"application/javascript");sp(.9);const ld=await gf(B+"/CapuchinBog.loader.js"),s=document.createElement("script");s.src=bl(ld,"application/javascript");await new Promise((ok,no)=>{s.onload=ok;s.onerror=no;document.body.appendChild(s)});const cv=$("cv"),uw=$("uw");if(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)){const m=document.createElement("meta");m.name="viewport";m.content="width=device-width,height=device-height,initial-scale=1,user-scalable=no,shrink-to-fit=yes";document.head.appendChild(m)}createUnityInstance(cv,{dataUrl:dU,frameworkUrl:fU,codeUrl:wU,streamingAssetsUrl:C+"StreamingAssets",companyName:"DuttBust",productName:"Capuchin",productVersion:"1.5",showBanner(m,t){const d=document.createElement("div");d.innerHTML=m;uw.appendChild(d);d.style.cssText=t==="error"?"background:red;padding:10px;color:#fff;border-radius:8px":"background:#f5c542;padding:10px;border-radius:8px";if(t!=="error")setTimeout(()=>d.remove(),5e3)}},p=>sp(.9+p*.1)).then(()=>{sp(1);setTimeout(()=>ls.classList.add("h"),400)}).catch(e=>alert(e))})()})();
+    </script>
+</body>
+
+</html>

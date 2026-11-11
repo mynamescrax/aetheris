@@ -1,0 +1,218 @@
+/* Account access and management stay inside chat. */
+#auth-page {
+  overflow-y: auto;
+  padding: 24px;
+}
+.auth-card {
+  width: min(410px, 100%);
+  gap: 11px;
+  padding: 28px;
+  border-color: var(--border-strong);
+  background: var(--navbar, #141416);
+  text-align: left;
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+}
+.auth-logo {
+  font-size: 14px;
+  text-align: left;
+  letter-spacing: -0.02em;
+  margin-bottom: 12px;
+}
+.auth-logo em {
+  color: #c6b390;
+}
+.auth-card h1 {
+  font-size: 1.8rem;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 1.15;
+}
+#auth-description {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+.auth-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #d5d5db;
+  margin-top: 3px;
+}
+#confirm-password-wrap .auth-label {
+  margin-bottom: 10px;
+}
+.auth-help {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+.auth-card .auth-tabs {
+  margin-bottom: 7px;
+}
+.auth-card .auth-tabs button {
+  min-height: 40px;
+}
+.auth-card .auth-tabs button.active {
+  background: #ffffff14;
+}
+.auth-card .abtn {
+  background: #d9c9ad;
+  color: #1a1713;
+  min-height: 44px;
+}
+.auth-card .abtn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+.auth-card .keep-row {
+  margin-top: 4px;
+}
+.auth-card .auth-err {
+  min-height: 0;
+  text-align: left;
+  line-height: 1.5;
+}
+.auth-card .auth-err:empty {
+  display: none;
+}
+.chat-account-dialog {
+  width: min(480px, calc(100% - 32px));
+  max-height: calc(100dvh - 40px);
+  padding: 0;
+  margin: auto;
+  background: var(--navbar, #141416);
+  color: var(--text-color, #e5e5e5);
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+  text-align: left;
+  overflow-y: auto;
+  box-shadow: 0 24px 90px #0009;
+}
+.chat-account-dialog::backdrop {
+  background: #08090dbb;
+  backdrop-filter: blur(5px);
+}
+.chat-account-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 22px 26px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.account-eyebrow {
+  color: #b5a281;
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 7px;
+}
+.chat-account-head h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+.chat-account-body {
+  padding: 24px 26px;
+}
+.chat-account-identity {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.chat-account-identity strong {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.chat-account-identity p,
+.chat-account-section > p {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.6;
+  margin-top: 6px;
+}
+.chat-account-section {
+  margin-top: 24px;
+  padding-top: 22px;
+  border-top: 1px solid var(--border-subtle);
+}
+.chat-account-section h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.chat-account-section label {
+  display: block;
+  font-size: 0.76rem;
+  margin: 15px 0 7px;
+}
+.chat-account-section input {
+  width: 100%;
+  min-height: 44px;
+  border-radius: 7px;
+  border: 1px solid var(--border-strong);
+  padding: 10px 12px;
+  color: inherit;
+  background: #ffffff06;
+  font: inherit;
+  font-size: 0.85rem;
+}
+.chat-account-dialog .mbtn {
+  min-height: 44px;
+  border-radius: 7px;
+  font-size: 0.8rem;
+}
+.chat-account-section .account-feedback {
+  font-size: 0.76rem;
+  color: #d2bf9d;
+  line-height: 1.5;
+  margin-top: 12px;
+}
+.account-feedback:empty {
+  display: none;
+}
+.chat-account-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 25px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-subtle);
+}
+.account-delete {
+  border: 0;
+  background: transparent;
+  color: #e5a3a3;
+  min-height: 44px;
+  padding: 8px;
+  cursor: pointer;
+  font-size: 0.76rem;
+}
+.chat-account-dialog :focus-visible,
+.auth-card :focus-visible {
+  outline: 2px solid #d7c3a0;
+  outline-offset: 3px;
+}
+.chat-account-dialog .keep-row {
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.chat-account-dialog input[type="checkbox"] {
+  accent-color: #c6b390;
+}
+[hidden] {
+  display: none !important;
+}
+@media (max-width: 480px) {
+  .chat-account-body {
+    padding: 20px;
+  }
+  .chat-account-head {
+    padding: 18px 20px;
+  }
+}

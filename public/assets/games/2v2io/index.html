@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+  <!-- stop skidding from aetheris.win nigger, this file is NOT a singlefile HTML and has been modified by aetheris.win to run ONLY on my site, without proper hosting this will not work for you. STOP HERE and tell me if u want this game u fucking nigger or iframe it that might work -->
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <base href="./">
+  <title>2v2.io | Building Simulator, Battle Royale Shooting Game</title>
+  <link rel="canonical" href="https://2v2.io/">
+  <link rel="icon" href="./favicon/favicon.ico" type="image/x-icon">
+  <link rel="preload" href="./main.css" as="style" onload="this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="./main.css"></noscript>
+  <script>
+    var unityLoadingIsSDKDependant = false;
+    var _sdk = document.createElement("script");
+    _sdk.src = "./sdk.js";
+    document.head.appendChild(_sdk);
+
+    function waitForSDKThenStart(callback) {
+      if (!unityLoadingIsSDKDependant) { callback(); return; }
+      var maxWait = 10000, interval = 10, waited = 0;
+      var check = function() {
+        if (window.SDK && typeof window.SDK.getBuildURL === "function") {
+          callback();
+        } else if (waited >= maxWait) {
+          callback();
+        } else {
+          waited += interval;
+          setTimeout(check, interval);
+        }
+      };
+      check();
+    }
+  </script>
+</head>
+<body style="background-color:black;color:black;">
+  <div id="videoad"></div>
+  <div id="unity-container"><canvas id="unity-canvas"></canvas></div>
+  <div id="unity-loading-container">
+    <div id="loading-percentage">1%</div>
+    <img src="./logo.webp" class="logo" alt="Logo" decoding="async" fetchpriority="high">
+    <div id="unity-loading-bar"><div id="unity-loading-bar-inner"></div></div>
+  </div>
+  <script>
+    waitForSDKThenStart(function() {
+      var buildUrl = "./Build";
+      var config = {
+        dataUrl:            buildUrl + "/67d9397da32a7b59352a033ea2e372e1.data",
+        frameworkUrl:       buildUrl + "/8116b766f16e09afe6db69039b10217d.framework.js",
+        codeUrl:            buildUrl + "/918e681849787a4e0455259ac28bfc6d.wasm",
+        streamingAssetsUrl: "./StreamingAssets",
+        companyName:        "LEGiON Platforms",
+        productName:        "2v2.io",
+        productVersion:     "0.0.2766",
+        autoSyncPersistentDataPath: true,
+        devicePixelRatio:   1.0
+      };
+
+      var canvas           = document.getElementById("unity-canvas");
+      var loadingContainer = document.getElementById("unity-loading-container");
+      var loadingBar       = document.getElementById("unity-loading-bar-inner");
+      var loadingPct       = document.getElementById("loading-percentage");
+      var target = 51;
+
+      var prog = setInterval(function() {
+        target = Math.min(target + 0.12, 99);
+        loadingBar.style.width = target + "%";
+        loadingPct.textContent = Math.floor(target) + "%";
+      }, 100);
+
+      if (window.SDK && typeof window.SDK.loadingStart === "function")
+        window.SDK.loadingStart();
+
+      function startUnity() {
+        createUnityInstance(canvas, config, function(p) {
+          var a = Math.min(Math.max(p * 100, 51), 99);
+          if (a > target) target = a;
+        }).then(function(ui) {
+          window.unityInstance = ui;
+          if (window.SDK && typeof window.SDK.loadingEnd === "function")
+            window.SDK.loadingEnd();
+          target = 100;
+          loadingBar.style.width = "100%";
+          loadingPct.textContent = "100%";
+          clearInterval(prog);
+          if (loadingContainer) loadingContainer.remove();
+        }).catch(function(e) { clearInterval(prog); console.error(e); });
+      }
+
+      var loaderUrl = buildUrl + "/b73f39f30596a7d23f6102564eb06566.loader.js";
+      var s = document.createElement("script");
+      s.src = loaderUrl;
+      s.addEventListener("load", startUnity, { once: true });
+      s.addEventListener("error", function() {
+        clearInterval(prog);
+        loadingPct.textContent = "Load failed. Please refresh.";
+      }, { once: true });
+      document.body.appendChild(s);
+    });
+  </script>
+  <noscript>Please enable JavaScript to run this game.</noscript>
+  <script src="./s/cursor.js" defer></script>
+  <script src="./s/pwa.js" defer></script>
+  <script src="./s/utils.js" defer></script>
+  <script src="./s/pinger.js" defer></script>
+  <script src="./s/exit-intent.js" defer></script>
+  <script src="./s/analytics.js" defer></script>
+</body>
+</html>

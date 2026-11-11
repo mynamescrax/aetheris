@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <script src="./js/site.js?v=20261110.1"></script>
+    <link
+      rel="shortcut icon"
+      href="./assets/images/icon.png"
+      type="image/png"
+    />
+    <title>Aetheris</title>
+
+    <script>
+      // detect if we're inside the parent shell's iframe (index.html → #main-frame)
+      // set a class on <html> early so css in-iframe overrides apply on the first frame
+      try {
+        if (window.self !== window.top) {
+          document.documentElement.classList.add("in-iframe");
+        }
+      } catch (_) {
+        document.documentElement.classList.add("in-iframe");
+      }
+    </script>
+
+    <link rel="stylesheet" href="./css/main.css?v=20261011.2" />
+    <link rel="stylesheet" href="./css/themes.css?v=20261101.1" />
+    <link rel="stylesheet" href="./css/nav.css?v=20261102.1" />
+    <link rel="stylesheet" href="./css/games.css?v=20261105.2" />
+    <link rel="stylesheet" href="./css/cards.css?v=20260907.1" />
+    <script src="./js/theme.js?v=20261101.1"></script>
+    <script defer src="./js/preload.js?v=20261008.1"></script>
+    <script
+      defer
+      src="./assets/data/games.js?v=20261105.3"
+      onerror="window.gamesLoadErrors = ['catalog']; window.gamesloaded = true; window.dispatchEvent(new Event('gamesloaded'));"
+    ></script>
+    <script defer src="./js/games.js?v=20261106.2"></script>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <link rel="stylesheet" href="./css/usability.css?v=20261103.3" />
+  </head>
+
+  <body>
+    <div id="game-popup">
+      <div id="game-popup-header">
+        <span>Game not working?</span>
+        <button
+          type="button"
+          class="close-btn"
+          aria-label="Dismiss game tips"
+          onclick="closegamepopup()"
+        >
+          &times;
+        </button>
+      </div>
+
+      <div id="game-popup-content">
+        Use the <strong>fullscreen button</strong> on the right to fill the
+        screen. If it's lagging, refresh the page or turn on performance mode
+        in settings.
+      </div>
+      <div id="game-popup-footer">
+        <label id="dont-show-label">
+          <input type="checkbox" id="dont-show-again" /> Don't show again
+        </label>
+      </div>
+    </div>
+    <div class="games-shell">
+      <div class="page-wrapper">
+        <h1>Games</h1>
+
+        <div class="games-topbar">
+          <div class="games-search-wrap">
+            <input
+              type="search"
+              id="search-box"
+              aria-label="Search games"
+              placeholder="Search games"
+              autocomplete="off"
+            />
+            <span class="search-focus-ring" aria-hidden="true"></span>
+          </div>
+
+          <div style="display: flex; gap: 8px; align-items: center">
+            <button
+              class="random-game-btn"
+              id="random-game-btn"
+              type="button"
+              aria-label="Open a random item"
+              title="Open a random item"
+              disabled
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="15"
+                height="15"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <polyline points="16 3 21 3 21 8"></polyline>
+                <line x1="4" y1="20" x2="21" y2="3"></line>
+                <polyline points="21 16 21 21 16 21"></polyline>
+                <line x1="15" y1="15" x2="21" y2="21"></line>
+              </svg>
+              Random
+            </button>
+            <button
+              class="sort-plays-btn"
+              id="sort-plays-btn"
+              type="button"
+              aria-label="Sort by most played"
+              aria-pressed="false"
+              title="Sort by most played"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="15"
+                height="15"
+                fill="currentColor"
+                stroke="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M12 2C9.5 5.5 7 8.5 7 12a5 5 0 0 0 10 0c0-2.2-1.2-4.3-2.8-5.8-.3 1.2-.8 2.3-1.7 3.3C12.2 8 12 5 12 2z"
+                />
+              </svg>
+              Most played
+            </button>
+          </div>
+        </div>
+
+        <div class="tag-bar">
+          <div class="tag-group" id="tag-container">
+            <span style="color: rgba(255, 255, 255, 0.5); font-size: 13px"
+              >Loading tags…</span
+            >
+          </div>
+          <div style="display: flex; justify-content: flex-end">
+            <button
+              class="clear-tags-btn"
+              id="clear-all-tags-btn"
+              style="display: none"
+            >
+              Clear tags
+            </button>
+          </div>
+        </div>
+
+        <div class="section-label" id="popular-label" style="display: none">
+          Popular
+        </div>
+        <div class="card-container" id="populargames"></div>
+        <div class="section-label" id="favorites-label" style="display: none">
+          Favorites
+        </div>
+        <div class="card-container" id="favoritedgames"></div>
+        <div class="card-container" id="gamecards"></div>
+        <p id="games-status" class="library-status" role="status">
+          Loading…
+        </p>
+        <button id="games-more" type="button" class="library-more" hidden>
+          Show more
+        </button>
+        <button id="games-clear" type="button" class="library-more" hidden>
+          Clear search &amp; filters
+        </button>
+        <button id="games-retry" type="button" class="library-more" hidden>
+          Retry loading catalog
+        </button>
+      </div>
+    </div>
+  </body>
+</html>

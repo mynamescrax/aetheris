@@ -1,0 +1,459 @@
+:root {
+  --sidebar-width: 220px;
+  --sidebar-bg: linear-gradient(
+    180deg,
+    rgba(18, 20, 34, 0.96),
+    rgba(12, 14, 26, 0.98)
+  );
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-shadow: 0 32px 80px rgba(0, 0, 0, 0.45);
+  --sidebar-top-bg: rgba(255, 255, 255, 0.04);
+  --sidebar-divider: rgba(255, 255, 255, 0.07);
+  --surface-hover: rgba(255, 255, 255, 0.07);
+  --surface-active: linear-gradient(135deg, #9ab9ff 0%, #f59ac7 100%);
+  --nav-text: rgba(238, 242, 255, 0.82);
+  --nav-active-text: #2d2950;
+  --sidebar-handle-bg: rgba(24, 28, 48, 0.96);
+  --sidebar-handle-color: #f6e27a;
+  --active-shadow: 0 8px 24px rgba(245, 154, 199, 0.22);
+  --logo-glow: rgba(255, 255, 255, 0.08);
+  --sidebar-inner-line: rgba(255, 255, 255, 0.04);
+  --nav-item-radius: 13px;
+}
+
+.nav-toggle {
+  position: fixed;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.nav-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 5, 14, 0.6);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.26s ease;
+  z-index: 9997;
+}
+
+@supports (-webkit-touch-callout: none) {
+  .sidebar,
+  .nav-overlay {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+.sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: var(--sidebar-width);
+  display: flex;
+  flex-direction: column;
+  z-index: 9998;
+  transform: translateX(-100%);
+  will-change: transform;
+  transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+
+  background-image: var(--sidebar-bg);
+  background-color: #121622;
+  border-right: 1px solid var(--sidebar-border);
+  box-shadow: none;
+}
+
+.sidebar::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.12),
+    transparent
+  );
+  pointer-events: none;
+}
+
+.sidebar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-right: 1px solid var(--sidebar-inner-line);
+  pointer-events: none;
+}
+
+.nav-toggle:checked ~ .sidebar {
+  transform: translateX(0);
+  box-shadow: var(--sidebar-shadow);
+}
+
+.nav-toggle:checked ~ .nav-overlay {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.nav-toggle:not(:checked) ~ .sidebar {
+  box-shadow: none;
+}
+
+.sidebar-edge {
+  position: absolute;
+  top: 12px;
+  right: 8px;
+  width: 44px;
+  height: 44px;
+  z-index: 2;
+  padding: 0;
+  font-size: 26px;
+  background: transparent;
+  color: var(--nav-text);
+  cursor: pointer;
+}
+
+.nav-handle {
+  position: fixed;
+  top: 13px;
+  left: 13px;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  z-index: 9999;
+  color: transparent;
+  background: var(--sidebar-handle-bg);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition:
+    transform 0.16s ease,
+    opacity 0.18s ease;
+}
+
+.nav-handle::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 16px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--sidebar-handle-color);
+  box-shadow:
+    0 6px 0 0 var(--sidebar-handle-color),
+    0 12px 0 0 var(--sidebar-handle-color);
+}
+
+.nav-handle::after {
+  display: none;
+}
+
+.nav-handle:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.nav-handle:active {
+  transform: scale(0.96);
+}
+
+.nav-toggle:checked + .nav-handle {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.logo {
+  position: relative;
+  padding: 16px 52px 14px 14px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  border-bottom: 1px solid var(--sidebar-divider);
+  background: var(--sidebar-top-bg);
+  flex-shrink: 0;
+}
+
+.logo::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.1),
+    transparent
+  );
+}
+
+.logo a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  box-shadow: inset 0 1px 0 var(--logo-glow);
+  flex-shrink: 0;
+  text-decoration: none;
+}
+
+.logo-img {
+  width: 24px !important;
+  height: 24px;
+  object-fit: contain;
+}
+
+.logo-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.logo-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--nav-text);
+  letter-spacing: 0.025em;
+  opacity: 1;
+  filter: brightness(1.15);
+}
+
+.logo-version {
+  font-size: 10px;
+  color: var(--nav-text);
+  opacity: 0.38;
+  letter-spacing: 0.04em;
+}
+
+.navitems {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 9px;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+}
+
+.navitems::-webkit-scrollbar {
+  display: none;
+}
+
+.navitems-bottom {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 9px 10px;
+  border-top: 1px solid var(--sidebar-divider);
+  flex-shrink: 0;
+}
+
+.navitem a {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: var(--nav-item-radius);
+  color: var(--nav-text);
+  text-decoration: none;
+  background: transparent;
+  border: 1px solid transparent;
+  transition: transform 0.16s ease;
+  will-change: transform;
+}
+
+.navitem a:hover {
+  background: var(--surface-hover);
+  border-color: rgba(255, 255, 255, 0.06);
+  transform: translateX(2px);
+  text-decoration: none;
+  color: rgba(238, 242, 255, 1);
+}
+
+.navitem a:active {
+  transform: translateX(1px) scale(0.98);
+}
+
+.navitem a.is-active {
+  background: var(--surface-active);
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: var(--active-shadow);
+  color: var(--nav-active-text);
+  transform: none;
+}
+
+.navitem a.is-active:hover {
+  transform: none;
+  filter: brightness(1.04);
+}
+
+.navitem a.is-active::before {
+  content: "";
+  position: absolute;
+  left: -9px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 22px;
+  border-radius: 0 3px 3px 0;
+  background: var(--surface-active);
+  opacity: 0.9;
+}
+
+.navitem img {
+  width: 22px !important;
+  height: 22px;
+  object-fit: contain;
+  flex: 0 0 22px;
+  opacity: 0.88;
+  transition: opacity 0.16s ease;
+}
+
+.navitem a[data-page="ai"] img {
+  filter: brightness(0) invert(1);
+}
+
+.navitem a:hover img,
+.navitem a.is-active img {
+  opacity: 1;
+}
+
+.nav-label {
+  font-size: 17px;
+  font-weight: 600;
+  color: #ffffff;
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+
+/* The active pill is light in every theme, so its label and icon use the
+   theme's dark --nav-active-text instead of white. */
+.navitem a.is-active .nav-label {
+  color: var(--nav-active-text);
+}
+
+.navitem a.is-active img,
+.navitem a.is-active[data-page="ai"] img {
+  filter: brightness(0);
+  opacity: 0.8;
+}
+
+/* ── Nav item stagger when sidebar opens ── */
+@keyframes navitemIn {
+  from {
+    opacity: 0;
+    transform: translateX(-14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.nav-toggle:checked ~ .sidebar .navitems .navitem,
+.nav-toggle:checked ~ .sidebar .navitems-bottom .navitem {
+  animation: navitemIn 0.22s ease both;
+}
+
+.nav-toggle:checked ~ .sidebar .navitems .navitem:nth-child(1) {
+  animation-delay: 0.06s;
+}
+.nav-toggle:checked ~ .sidebar .navitems .navitem:nth-child(2) {
+  animation-delay: 0.11s;
+}
+.nav-toggle:checked ~ .sidebar .navitems .navitem:nth-child(3) {
+  animation-delay: 0.15s;
+}
+.nav-toggle:checked ~ .sidebar .navitems .navitem:nth-child(4) {
+  animation-delay: 0.19s;
+}
+.nav-toggle:checked ~ .sidebar .navitems .navitem:nth-child(5) {
+  animation-delay: 0.22s;
+}
+.nav-toggle:checked ~ .sidebar .navitems .navitem:nth-child(6) {
+  animation-delay: 0.25s;
+}
+.nav-toggle:checked ~ .sidebar .navitems .navitem:nth-child(7) {
+  animation-delay: 0.27s;
+}
+.nav-toggle:checked ~ .sidebar .navitems-bottom .navitem:nth-child(1) {
+  animation-delay: 0.3s;
+}
+.nav-toggle:checked ~ .sidebar .navitems-bottom .navitem:nth-child(2) {
+  animation-delay: 0.33s;
+}
+
+/* ── Logo fade-in on open ── */
+.nav-toggle:checked ~ .sidebar .logo {
+  animation: navitemIn 0.22s ease both;
+  animation-delay: 0.02s;
+}
+
+@media (max-width: 1024px) and (min-width: 701px) {
+  .sidebar {
+    width: 240px;
+  }
+
+  .navitem a {
+    min-height: 48px;
+    padding: 0 14px;
+  }
+
+  .nav-label {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 700px) {
+  .sidebar {
+    width: min(100vw, 260px);
+  }
+
+  .nav-handle {
+    top: 10px;
+    left: 10px;
+    width: 42px;
+    height: 42px;
+    border-radius: 13px;
+  }
+
+  .nav-handle::before {
+    left: 11px;
+    right: 11px;
+    top: 15px;
+  }
+
+  .navitem a {
+    min-height: 48px;
+    padding: 0 14px;
+  }
+
+  .nav-label {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 380px) {
+  .sidebar {
+    width: 100vw;
+    border-radius: 0;
+  }
+}

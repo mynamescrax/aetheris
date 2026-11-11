@@ -1,0 +1,151 @@
+<!-- shxyder -->
+<!-- ultimate game stash file -->
+
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <base href="https://cdn.jsdelivr.net/gh/shayderrr/idk@9e725a46f19a20886415a1e9f3db460b8aa2dd2f/doors/431552/i01khpvku9bchpe64ncydwtn7raup5d5_brotli/">
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <title>Doors Castle</title>
+  <script src="https://cdn.jsdelivr.net/gh/shayderrr/idk@9e725a46f19a20886415a1e9f3db460b8aa2dd2f/doors/sdk.js"></script>
+  <style>
+    html, body { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; background: #000; }
+    #unity-canvas { width: 100%; height: 100%; background: #000; display: block; }
+    #loading-text {
+      font-weight: bold;
+      background: linear-gradient(270deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #8f00ff);
+      background-size: 400% 400%;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: rainbow 3s ease infinite;
+      font-size: 48px; font-family: cursive; text-align: center; margin-top: 20px;
+    }
+    @keyframes rainbow {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+  </style>
+</head>
+<body>
+  <div id="loading-text"> LOADING... </div>
+  <canvas id="unity-canvas"></canvas>
+  <script src="Build/BuildeWeb.loader.js"></script>
+  <script>
+    var loadingText = document.querySelector("#loading-text");
+    const NO_DATA = 'no data';
+    var ysdk = null, player = null, ygGameInstance = null, initGame = false;
+    var playerData = NO_DATA, cloudSaves = NO_DATA, paymentsData = NO_DATA, nowFullAdOpen = false;
+    let loadedBytes = 0;
+
+    function LogStyledMessage(m, s) { console.log('%c' + m, s || 'color: #FFDF73; background-color: #454545'); }
+
+    async function fetchWithProgress(url) {
+      const response = await fetch(url);
+      const reader = response.body.getReader();
+      let chunks = [];
+      let received = 0;
+      while (true) {
+        const {done, value} = await reader.read();
+        if (done) break;
+        received += value.length;
+        loadedBytes += value.length;
+        chunks.push(value);
+        let mbDone = (loadedBytes / (1024 * 1024)).toFixed(2);
+        loadingText.textContent = `LOADING... ${mbDone} MB`;
+      }
+      let fullBuffer = new Uint8Array(received);
+      let offset = 0;
+      for (let chunk of chunks) {
+        fullBuffer.set(chunk, offset);
+        offset += chunk.length;
+      }
+      return fullBuffer.buffer;
+    }
+
+    async function mergeFiles(parts) {
+      const buffers = await Promise.all(parts.map(part => fetchWithProgress(part)));
+      return URL.createObjectURL(new Blob(buffers));
+    }
+
+    function getParts(file, count) {
+      let p = [];
+      for (let i = 1; i <= count; i++) p.push(file + ".part" + i);
+      return p;
+    }
+
+    function YG2Instance(m, a) {
+      if (ygGameInstance) {
+        if (a !== undefined) ygGameInstance.SendMessage('YG2Instance', m, a);
+        else ygGameInstance.SendMessage('YG2Instance', m);
+      }
+    }
+
+    function InitGame() {
+      initGame = true;
+      LogStyledMessage('PluginYG2: InitGame called');
+      setTimeout(() => { if (nowFullAdOpen) YG2Instance('OpenInterAdv'); }, 100);
+    }
+
+    async function InitPlayer() {
+      try {
+        if (!ysdk) return;
+        player = await ysdk.getPlayer({ scopes: false });
+        playerData = JSON.stringify({
+          "playerAuth": player.getMode() === 'lite' ? "rejected" : "resolved",
+          "playerName": player.getName(),
+          "playerId": player.getUniqueID(),
+          "playerPhoto": player.getPhoto('medium'),
+          "payingStatus": player.getPayingStatus()
+        });
+      } catch (e) { playerData = JSON.stringify({"playerAuth": "rejected"}); }
+      YG2Instance('SetAuth', playerData);
+    }
+
+    function LoadCloud() {
+      if (player) {
+        player.getData(["saves"]).then(d => {
+          cloudSaves = d.saves ? JSON.stringify(d.saves) : NO_DATA;
+          YG2Instance('SetLoadSaves', cloudSaves);
+        }).catch(() => YG2Instance('SetLoadSaves', NO_DATA));
+      } else YG2Instance('SetLoadSaves', NO_DATA);
+    }
+    function SaveCloud(j, f) { if(player) player.setData({ saves: [j] }, f); }
+    function InitPayments() { YG2Instance('PaymentsEntries', NO_DATA); }
+    function BuyPayments(id) { if(ysdk && ysdk.getPayments) { ysdk.getPayments().then(p => p.purchase(id).then(()=>YG2Instance('OnPurchaseSuccess', id))); } }
+    function ConsumePurchases() { if(ysdk && ysdk.getPayments) { ysdk.getPayments().then(p => p.getPurchases().then(ps => ps.forEach(x => { p.consumePurchase(x.purchaseToken); YG2Instance('OnPurchaseSuccess', x.productID); }))); } }
+    function InitLeaderboards() { YG2Instance('LeaderboardEntries', NO_DATA); }
+    function RewardedAdvShow(id) { if(ysdk) ysdk.adv.showRewardedVideo({ callbacks: { onOpen:()=>YG2Instance('OpenRewardedAdv'), onClose:()=>{YG2Instance('CloseRewardedAdv');window.focus();}, onRewarded:()=>YG2Instance('RewardAdv', id), onError:()=>YG2Instance('ErrorRewardedAdv') } }); }
+    function InterAdvShow() { if(ysdk) ysdk.adv.showFullscreenAdv({ callbacks: { onOpen:()=>{nowFullAdOpen=true;YG2Instance('OpenInterAdv');}, onClose:(s)=>{nowFullAdOpen=false;YG2Instance('CloseInterAdv',s.toString());window.focus();}, onError:()=>YG2Instance('ErrorInterAdv') } }); }
+
+    (async () => {
+      try {
+        const sdkP = YaGames.init();
+        const timeout = new Promise((_, r) => setTimeout(() => r(), 3000));
+        ysdk = await Promise.race([sdkP, timeout]);
+        await InitPlayer();
+      } catch (e) { LogStyledMessage('SDK Timeout'); }
+
+      const [dataUrl, wasmUrl] = await Promise.all([
+        mergeFiles(getParts("Build/BuildeWeb.data.br", 3)),
+        mergeFiles(getParts("Build/BuildeWeb.wasm.br", 3)),
+      ]);
+
+      createUnityInstance(document.querySelector("#unity-canvas"), {
+        dataUrl: dataUrl,
+        frameworkUrl: "Build/BuildeWeb.framework.js",
+        codeUrl: wasmUrl,
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "Linkor",
+        productName: "Doors Castle",
+        productVersion: "24",
+      }).then(i => {
+        ygGameInstance = i;
+        loadingText.remove();
+        YG2Instance('InitSDKComplete');
+      });
+    })();
+  </script>
+</body>
+</html>

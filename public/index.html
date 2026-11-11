@@ -1,0 +1,888 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <script src="./js/site.js?v=20261110.1"></script>
+    <script defer src="./js/tutorial.js?v=20261103.1"></script>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Aetheris</title>
+    <link
+      rel="shortcut icon"
+      href="./assets/images/icon.png"
+      type="image/png"
+    />
+
+    <script>
+      (function () {
+        var title = Aetheris.storage.getItem("tabName") || "Google";
+        var icon =
+          Aetheris.storage.getItem("tabIcon") ||
+          "https://www.google.com/favicon.ico";
+        document.title = title;
+        if (icon) {
+          var link = document.querySelector('link[rel*="icon"]');
+          if (!link) {
+            link = document.createElement("link");
+            link.rel = "icon";
+            document.head.appendChild(link);
+          }
+          link.href = icon;
+        }
+
+        // An explicit choice in settings wins; low-memory devices only default on.
+        var perfsaved = Aetheris.storage.getItem("performanceMode");
+        var lowmem = navigator.deviceMemory && navigator.deviceMemory <= 2;
+        if (perfsaved === "true" || (perfsaved === null && lowmem)) {
+          document.documentElement.classList.add("power-saving");
+        }
+      })();
+
+      // theme name -> theme-color. The shell doesn't load theme.js, so this
+      // copies its theme list; keep both in sync (tests/client.test.js checks).
+      Aetheris.themeColors = {
+        dark: "#0f0f0f",
+        "charcoal-gold": "#0f0f0f",
+        "dark-blue": "#020617",
+      };
+      Aetheris.isTheme = function (theme) {
+        return Object.prototype.hasOwnProperty.call(
+          Aetheris.themeColors,
+          theme,
+        );
+      };
+
+      (function () {
+        var THEME_KEY = "aetheris-theme";
+
+        if (
+          !Aetheris.storage.getItem(THEME_KEY) &&
+          Aetheris.storage.getItem("theme")
+        ) {
+          Aetheris.storage.setItem(
+            THEME_KEY,
+            Aetheris.storage.getItem("theme"),
+          );
+          Aetheris.storage.removeItem("theme");
+        }
+        var t = Aetheris.storage.getItem(THEME_KEY) || "dark";
+        if (t === "dark blue") {
+          t = "dark-blue";
+          Aetheris.storage.setItem(THEME_KEY, t);
+        }
+        if (t === "charcoal gold") {
+          t = "charcoal-gold";
+          Aetheris.storage.setItem(THEME_KEY, t);
+        }
+        if (!Aetheris.isTheme(t)) {
+          t = "dark";
+          Aetheris.storage.setItem(THEME_KEY, t);
+        }
+
+        document.documentElement.setAttribute("theme", t);
+        document.addEventListener(
+          "DOMContentLoaded",
+          function () {
+            document.body.setAttribute("theme", t);
+          },
+          { once: true },
+        );
+
+        function applythemeearly(theme) {
+          document.documentElement.setAttribute("theme", theme);
+          if (document.body) document.body.setAttribute("theme", theme);
+        }
+
+        window.addEventListener("message", function (e) {
+          if (e.origin !== location.origin) return;
+          var mf = document.getElementById("mainframe");
+          if (mf && e.source !== mf.contentWindow) return;
+          if (
+            e.data &&
+            e.data.type === "theme-changed" &&
+            Aetheris.isTheme(e.data.theme)
+          ) {
+            Aetheris.storage.setItem(THEME_KEY, e.data.theme);
+            applythemeearly(e.data.theme);
+          }
+        });
+      })();
+    </script>
+
+    <link rel="stylesheet" href="./css/cards.css?v=20260907.1" />
+    <link rel="stylesheet" href="./css/themes.css?v=20261101.1" />
+    <link rel="stylesheet" href="./css/nav.css?v=20261102.1" />
+    <link rel="stylesheet" href="./css/main.css?v=20261011.2" />
+    <script src="register-sw.js?v=20260907.1" defer></script>
+
+    <meta name="theme-color" content="#0f0f0f" />
+    <script>
+      (function () {
+        function updatethemecolor(t) {
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta && Aetheris.isTheme(t))
+            meta.content = Aetheris.themeColors[t];
+        }
+        var t =
+          document.documentElement.getAttribute("theme") ||
+          Aetheris.storage.getItem("aetheris-theme") ||
+          "dark";
+        updatethemecolor(t);
+        window.addEventListener("message", function (e) {
+          if (e.origin !== location.origin) return;
+          if (e.data && e.data.type === "theme-changed" && e.data.theme)
+            updatethemecolor(e.data.theme);
+        });
+      })();
+    </script>
+
+    <style>
+      body:focus,
+      #mainframe:focus,
+      iframe:focus,
+      canvas:focus,
+      label:focus,
+      label:active,
+      input[type="checkbox"]:focus {
+        outline: none;
+        box-shadow: none;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+
+      body {
+        background: #0a0a0f !important;
+        background-image: none !important;
+      }
+
+      body::before {
+        display: none !important;
+        background: none !important;
+        animation: none !important;
+      }
+
+      body,
+      canvas,
+      .sitewrap,
+      #mainframe {
+        outline: none;
+        border: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      .sitewrap {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        z-index: 2;
+        background: transparent;
+        transition: height 0.05s ease-out;
+      }
+
+      #mainframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+        outline: none;
+        background: transparent;
+        display: block;
+        transition:
+          opacity 0.18s ease,
+          height 0.05s ease-out;
+      }
+
+      #mainframe.fading {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      #nav-loading {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        background: rgba(10, 10, 15, 0.72);
+        color: var(--text-color, #e5e5e5);
+        font-family: var(--font-sans, system-ui, sans-serif);
+        font-size: 0.95rem;
+        z-index: 5;
+      }
+      #nav-loading[hidden] {
+        display: none;
+      }
+      #nav-loading-spinner {
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        border: 3px solid rgba(255, 255, 255, 0.2);
+        border-top-color: #fff;
+        animation: nav-spin 0.9s linear infinite;
+      }
+      @keyframes nav-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      iframe {
+        border: 0;
+        outline: none;
+      }
+
+      .nav-overlay {
+        background-color: rgba(0, 0, 0, 0.5);
+      }
+
+      body.sidebar-open {
+        overflow: hidden;
+      }
+
+      #status-toast {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        background: color-mix(in srgb, var(--navbar) 96%, transparent);
+        border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+        border-left: 3px solid var(--accent);
+        color: var(--text-color);
+        font-family: var(--font-sans, system-ui, sans-serif);
+        padding: 12px 16px;
+        border-radius: 10px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(12px);
+        transition:
+          opacity 0.3s ease,
+          transform 0.3s ease;
+        z-index: 9999;
+        min-width: 200px;
+      }
+      #status-toast.show {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      #status-toast-title {
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--accent);
+        margin-bottom: 4px;
+      }
+      #status-toast-body {
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--text-color);
+      }
+
+      .chat-badge {
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        min-width: 16px;
+        height: 16px;
+        border-radius: 8px;
+        background: #ef4444;
+        color: #fff;
+        font-size: 9px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 3px;
+        pointer-events: none;
+        line-height: 1;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+        animation: badgePop 0.2s ease;
+      }
+      @keyframes badgePop {
+        from {
+          transform: scale(0.5);
+          opacity: 0;
+        }
+        to {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+    </style>
+    <link rel="stylesheet" href="./css/usability.css?v=20261103.3" />
+  </head>
+
+  <body class="app-mode">
+    <div id="status-toast" role="status">
+      <div id="status-toast-title">Aetheris</div>
+      <div id="status-toast-body">ready!</div>
+    </div>
+    <input
+      type="checkbox"
+      id="nav-toggle"
+      class="nav-toggle"
+      tabindex="-1"
+      aria-hidden="true"
+    />
+    <button
+      type="button"
+      class="nav-handle"
+      aria-label="Open sidebar"
+      aria-expanded="false"
+      aria-controls="sidebar"
+    >
+      Menu
+    </button>
+
+    <nav class="sidebar" id="sidebar" aria-label="Main navigation" inert>
+      <button type="button" class="sidebar-edge" aria-label="Close sidebar">
+        ×
+      </button>
+
+      <div class="logo">
+        <a href="#" data-page="home" title="Home">
+          <img
+            src="./assets/images/icon.png"
+            draggable="false"
+            class="logo-img"
+            alt="Aetheris logo"
+          />
+        </a>
+        <div class="logo-text">
+          <span class="logo-name">Aetheris</span>
+          <span class="logo-version">the best site</span>
+        </div>
+      </div>
+
+      <div class="navitems">
+        <div class="navitem">
+          <a href="#" data-page="home"
+            ><img src="./assets/images/home.png" alt="" /><span
+              class="nav-label"
+              >Home</span
+            ></a
+          >
+        </div>
+        <div class="navitem">
+          <a href="#" data-page="games"
+            ><img src="./assets/images/games.png" alt="" /><span
+              class="nav-label"
+              >Games</span
+            ></a
+          >
+        </div>
+        <div class="navitem">
+          <a href="#" data-page="apps"
+            ><img src="./assets/images/apps.png" alt="" /><span
+              class="nav-label"
+              >Apps</span
+            ></a
+          >
+        </div>
+        <div class="navitem">
+          <a href="#" data-page="tiktok"
+            ><img src="./assets/images/tiktok.webp" alt="" /><span
+              class="nav-label"
+              >TikTok</span
+            ></a
+          >
+        </div>
+        <div class="navitem">
+          <a href="#" data-page="cheats"
+            ><img src="./assets/images/cheats.png" alt="" /><span
+              class="nav-label"
+              >Cheats</span
+            ></a
+          >
+        </div>
+        <div class="navitem">
+          <a href="#" data-page="search"
+            ><img src="./assets/images/search.png" alt="" /><span
+              class="nav-label"
+              >Search</span
+            ></a
+          >
+        </div>
+        <div class="navitem">
+          <a href="#" data-page="chat"
+            ><img src="./assets/images/chat.png" alt="" /><span
+              class="nav-label"
+              >Chat</span
+            ></a
+          >
+        </div>
+        <div class="navitem">
+          <a href="#" data-page="ai"
+            ><img src="./assets/images/ai.png" alt="" /><span class="nav-label"
+              >AI</span
+            ></a
+          >
+        </div>
+        <div class="navitem">
+          <a href="#" data-page="movies"
+            ><img src="./assets/images/movies.png" alt="" /><span
+              class="nav-label"
+              >Movies</span
+            ></a
+          >
+        </div>
+      </div>
+
+      <div class="navitems-bottom">
+        <div class="navitem">
+          <a href="#" data-page="settings"
+            ><img src="./assets/images/settings.png" alt="" /><span
+              class="nav-label"
+              >Settings</span
+            ></a
+          >
+        </div>
+        <div class="navitem">
+          <a href="#" data-page="about"
+            ><img src="./assets/images/about.png" alt="" /><span
+              class="nav-label"
+              >About</span
+            ></a
+          >
+        </div>
+        <div class="navitem">
+          <button
+            type="button"
+            class="quick-exit"
+            onclick="Aetheris.quickExit()"
+          >
+            Quick exit ↗
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <button
+      type="button"
+      class="nav-overlay"
+      tabindex="-1"
+      aria-label="Close sidebar"
+      aria-hidden="true"
+    ></button>
+
+    <div class="sitewrap">
+      <div id="nav-loading" hidden role="status">
+        <span id="nav-loading-spinner" aria-hidden="true"></span>
+        <span>Loading…</span>
+      </div>
+      <iframe
+        id="mainframe"
+        class="embed-frame"
+        allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+        frameborder="0"
+        referrerpolicy="no-referrer"
+        title="content"
+      ></iframe>
+    </div>
+
+    <script>
+      var mainframe = document.getElementById("mainframe");
+      var navcheck = document.getElementById("nav-toggle");
+      var sidebar = document.getElementById("sidebar");
+      var navhandle = document.querySelector(".nav-handle");
+
+      function setSidebar(open, restoreFocus) {
+        if (open && document.body.classList.contains("backup-open")) return;
+        navcheck.checked = open;
+        sidebar.inert = !open;
+        document.querySelector(".sitewrap").inert = open;
+        document.body.classList.toggle("sidebar-open", open);
+        navhandle.setAttribute("aria-expanded", String(open));
+        if (open) sidebar.querySelector(".sidebar-edge").focus();
+        else if (restoreFocus) navhandle.focus();
+      }
+      navhandle.addEventListener("click", function () {
+        setSidebar(true);
+      });
+      document
+        .querySelector(".sidebar-edge")
+        .addEventListener("click", function () {
+          setSidebar(false, true);
+        });
+      document
+        .querySelector(".nav-overlay")
+        .addEventListener("click", function () {
+          setSidebar(false, true);
+        });
+      document.addEventListener("keydown", function (event) {
+        if (!navcheck.checked) return;
+        if (event.key === "Escape") {
+          event.preventDefault();
+          setSidebar(false, true);
+        }
+        if (event.key !== "Tab") return;
+        var controls = Array.from(sidebar.querySelectorAll("a, button"));
+        var first = controls[0],
+          last = controls[controls.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      });
+
+      var navigationTimer = null;
+      var fadeTimer = null;
+      var requestedUrl = null;
+      var navigating = false;
+      var navLoading = document.getElementById("nav-loading");
+
+      function showNavLoading() {
+        if (navLoading) navLoading.hidden = false;
+      }
+      function hideNavLoading() {
+        if (navLoading) navLoading.hidden = true;
+      }
+
+      function updateActiveNav(name) {
+        if (name === "load") name = "games";
+        if (name === "maths") name = "games";
+        document.querySelectorAll(".navitem a").forEach(function (link) {
+          var active = link.getAttribute("data-page") === name;
+          link.classList.toggle("is-active", active);
+          if (active) link.setAttribute("aria-current", "page");
+          else link.removeAttribute("aria-current");
+        });
+      }
+
+      function gopage(value, fromHistory) {
+        var route = Aetheris.parseRoute(value) || Aetheris.parseRoute("home");
+        if (route.name === "chat") chatbadge(0);
+        updateActiveNav(
+          route.name === "load" && route.url.includes("app=")
+            ? "apps"
+            : route.name,
+        );
+        setSidebar(false);
+        document.body.classList.remove("immersive-mode");
+        document.body.classList.remove("backup-open");
+        if (!fromHistory && location.hash !== "#" + route.route)
+          history.pushState(null, "", "#" + route.route);
+        if (requestedUrl === route.url) {
+          if (!navigating) {
+            mainframe.classList.remove("fading");
+            hideNavLoading();
+          }
+          return;
+        }
+        clearTimeout(navigationTimer);
+        clearTimeout(fadeTimer);
+        requestedUrl = route.url;
+        navigating = true;
+        mainframe.classList.add("fading");
+        showNavLoading();
+        navigationTimer = setTimeout(
+          function () {
+            navigationTimer = null;
+            // Replace the child history entry; the shell owns menu history.
+            try {
+              mainframe.contentWindow.location.replace(route.url);
+            } catch (_) {
+              mainframe.src = route.url;
+            }
+            fadeTimer = setTimeout(function () {
+              mainframe.classList.remove("fading");
+              hideNavLoading();
+            }, 1500);
+          },
+          matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 100,
+        );
+      }
+      window.navigateApp = gopage;
+      window.addEventListener("popstate", function () {
+        gopage(location.hash.slice(1), true);
+      });
+      window.addEventListener("hashchange", function () {
+        gopage(location.hash.slice(1), true);
+      });
+      mainframe.addEventListener("load", function () {
+        clearTimeout(fadeTimer);
+        mainframe.classList.remove("fading");
+        hideNavLoading();
+        try {
+          var route = Aetheris.routeForUrl(
+            mainframe.contentWindow.location.href,
+          );
+          if (!route) return;
+          if (navigating && route.url !== requestedUrl) return;
+          navigating = false;
+          // A card clicked inside the frame has its own history entry.
+          if (navigationTimer !== null) clearTimeout(navigationTimer);
+          navigationTimer = null;
+          requestedUrl = route.url;
+          history.replaceState(null, "", "#" + route.route);
+          updateActiveNav(
+            route.name === "load" && route.url.includes("app=")
+              ? "apps"
+              : route.name,
+          );
+          document.body.classList.remove("immersive-mode");
+          document.body.classList.remove("backup-open");
+        } catch (_) {}
+      });
+      // The frame has no src in the markup, so a deep link like /#games loads
+      // only that page instead of fetching home.html first.
+      var initialRoute =
+        Aetheris.parseRoute(location.hash.slice(1) || "home") ||
+        Aetheris.parseRoute("home");
+      requestedUrl = initialRoute.url;
+      mainframe.src = initialRoute.url;
+      gopage(location.hash.slice(1) || "home", true);
+
+      // gtag.js only runs in this shell (see site.js). The shell's own
+      // page_view covers the first page; report the ones opened after it.
+      var framepages = 0;
+      mainframe.addEventListener("load", function () {
+        try {
+          var doc = mainframe.contentDocument;
+          if (!doc || !Aetheris.routeForUrl(doc.location.href)) return;
+          if (framepages++ === 0 || typeof window.gtag !== "function") return;
+          window.gtag("event", "page_view", {
+            page_location: doc.location.href,
+            page_title: doc.title,
+          });
+        } catch (_) {}
+      });
+
+      document.querySelectorAll(".navitem a, .logo a").forEach(function (el) {
+        el.href = "#" + el.getAttribute("data-page");
+        el.addEventListener("click", function (e) {
+          e.preventDefault();
+          var page = this.getAttribute("data-page");
+          if (page) gopage(page);
+        });
+      });
+
+      function applytheme(theme) {
+        var t =
+          theme || Aetheris.storage.getItem("aetheris-theme") || "dark";
+        if (!Aetheris.isTheme(t)) t = "dark";
+        document.documentElement.setAttribute("theme", t);
+        if (document.body && document.body.getAttribute("theme") !== t) {
+          document.body.setAttribute("theme", t);
+        }
+        if (mainframe && mainframe.contentWindow) {
+          try {
+            mainframe.contentWindow.postMessage(
+              { type: "theme-changed", theme: t },
+              location.origin,
+            );
+          } catch (_) {}
+        }
+      }
+      applytheme();
+      window.addEventListener("aetheris-update-ready", function () {
+        var toast = document.getElementById("status-toast");
+        document.getElementById("status-toast-body").textContent =
+          "Site update ready. Reload when convenient.";
+        toast.classList.add("show");
+        setTimeout(function () {
+          toast.classList.remove("show");
+        }, 6000);
+      });
+
+      window.addEventListener("message", function (ev) {
+        if (ev.source !== mainframe.contentWindow) return;
+        if (ev.origin !== location.origin) return;
+
+        var msg = ev.data || {};
+
+        if (msg.type === "chat-unread") chatbadge(msg.count);
+        if (msg.type === "navigate") gopage(msg.page);
+        if (msg.type === "immersive-mode")
+          document.body.classList.toggle("immersive-mode", msg.active === true);
+        if (msg.type === "backup-modal") {
+          var backupOpen = msg.active === true;
+          document.body.classList.toggle("backup-open", backupOpen);
+          navhandle.disabled = backupOpen;
+          if (backupOpen) setSidebar(false);
+        }
+        if (msg.type === "performance-changed")
+          document.documentElement.classList.toggle(
+            "power-saving",
+            msg.enabled === true,
+          );
+        if (msg.type === "set-tab") {
+          document.title = String(msg.name || "Google");
+          var favicon = document.querySelector('link[rel*="icon"]');
+          var icon = Aetheris.httpUrl(
+            msg.icon || "https://www.google.com/favicon.ico",
+          );
+          if (favicon && icon) favicon.href = icon;
+        }
+
+        if (msg.type === "backend-status") {
+          var toast = document.getElementById("status-toast");
+          document.getElementById("status-toast-body").textContent = msg.message;
+          toast.classList.add("show");
+          setTimeout(function () {
+            toast.classList.remove("show");
+          }, 3000);
+        }
+
+        if (
+          msg.type === "theme-changed" &&
+          Aetheris.isTheme(msg.theme)
+        ) {
+          Aetheris.storage.setItem("aetheris-theme", msg.theme);
+          applytheme(msg.theme);
+        }
+      });
+
+      function chatbadge(count) {
+        var chatnav = document.querySelector('.navitem a[data-page="chat"]');
+        if (!chatnav) return;
+        var badge = chatnav.querySelector(".chat-badge");
+        if (count > 0) {
+          if (!badge) {
+            badge = document.createElement("span");
+            badge.className = "chat-badge";
+            chatnav.appendChild(badge);
+          }
+          badge.textContent = count > 99 ? "99+" : count;
+        } else if (badge) {
+          badge.remove();
+        }
+      }
+
+      (function () {
+        async function checkunread() {
+          // Hidden tabs skip the poll; visibilitychange catches up on return.
+          if (document.hidden) return;
+          var token = Aetheris.getToken();
+          if (!token) {
+            chatbadge(0);
+            return;
+          }
+          var active = document.querySelector(".navitem a.is-active");
+          if (active && active.getAttribute("data-page") === "chat") return;
+          try {
+            var r = await fetch("/api/dm-inbox", {
+              headers: { Authorization: "Bearer " + token },
+            });
+            if (!r.ok) return;
+            var d = await r.json();
+            if (!d.ok) return;
+            var convos = Array.isArray(d.conversations) ? d.conversations : [];
+            var total = convos.reduce(function (s, c) {
+              return s + (Number(c && c.unread) || 0);
+            }, 0);
+            chatbadge(total);
+          } catch (_) {}
+        }
+
+        checkunread();
+        setInterval(checkunread, 15000);
+        document.addEventListener("visibilitychange", function () {
+          if (!document.hidden) checkunread();
+        });
+      })();
+
+      (function () {
+        if (typeof EventSource === "undefined") return;
+        var lastcount = null;
+
+        function sendcount(n) {
+          try {
+            mainframe.contentWindow.postMessage(
+              { type: "online-count", count: n },
+              location.origin,
+            );
+          } catch (_) {}
+        }
+
+        mainframe.addEventListener("load", function () {
+          applytheme();
+          if (lastcount !== null) sendcount(lastcount);
+        });
+
+        // one id per browser so extra tabs/reconnects count once online
+        function clientid() {
+          var key = "aetheris-client-id";
+          var id = Aetheris.storage.getItem(key);
+          if (!id) {
+            id =
+              window.crypto && typeof crypto.randomUUID === "function"
+                ? crypto.randomUUID()
+                : "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+            Aetheris.storage.setItem(key, id);
+          }
+          return id;
+        }
+
+        function connect() {
+          var es = new EventSource("/online?c=" + encodeURIComponent(clientid()));
+          es.onmessage = function (e) {
+            var n = parseInt(e.data, 10);
+            if (isNaN(n)) return;
+            lastcount = n;
+            sendcount(n);
+          };
+          es.onerror = function () {
+            es.close();
+            setTimeout(connect, 5000);
+          };
+        }
+        connect();
+      })();
+
+      (function () {
+        var wrap = document.querySelector(".sitewrap");
+        if (!wrap) return;
+        function resize() {
+          var vv = window.visualViewport;
+          var h =
+            Math.round(vv && vv.scale === 1 ? vv.height : window.innerHeight) +
+            "px";
+          wrap.style.height = h;
+          mainframe.style.height = h;
+        }
+        window.addEventListener("resize", resize);
+        if (window.visualViewport)
+          window.visualViewport.addEventListener("resize", resize);
+        resize();
+      })();
+
+      // panic key for the shell; framed pages get it from preload.js / sw.js
+      document.addEventListener(
+        "keydown",
+        function (e) {
+          try {
+            var key = Aetheris.storage.getItem("panickey");
+            if (!key || e.key !== key) return;
+            // don't fire a single-character key while the user is typing
+            var t = e.target;
+            if (
+              e.key.length === 1 &&
+              t &&
+              (t.tagName === "INPUT" ||
+                t.tagName === "TEXTAREA" ||
+                t.isContentEditable)
+            )
+              return;
+            e.preventDefault();
+            Aetheris.quickExit();
+          } catch (_) {}
+        },
+        true,
+      );
+    </script>
+  </body>
+</html>

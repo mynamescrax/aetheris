@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+        <base href="https://cdn.jsdelivr.net/gh/mynamescrax/gamesforaetheris@main/mcpe/">
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#000000">
+    <title>Game - WebAssembly Port</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="icon.png">
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Inter', sans-serif;
+            touch-action: none;
+        }
+
+        #canvas {
+            position: fixed;
+            top: env(safe-area-inset-top, 0px);
+            left: env(safe-area-inset-left, 0px);
+            right: env(safe-area-inset-right, 0px);
+            bottom: env(safe-area-inset-bottom, 0px);
+            width: calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
+            height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+            display: block;
+            outline: none;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            touch-action: none;
+        }
+
+        @media (display-mode: standalone) {
+            #canvas {
+                bottom: 0;
+                height: calc(100dvh - env(safe-area-inset-top, 0px));
+            }
+        }
+
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            text-align: center;
+        }
+
+        #loading h1 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        #progress-container {
+            width: 200px;
+            height: 10px;
+            background: #444;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        #progress {
+            width: 0%;
+            height: 100%;
+            background: #3b82f6;
+            transition: width 0.3s;
+        }
+
+        .error-message {
+            color: #ef4444;
+            display: none;
+        }
+
+        #startup-recovery {
+            display: none;
+            margin-top: 12px;
+            padding: 8px 12px;
+            border: 1px solid #666;
+            background: #202020;
+            color: #fff;
+            font: inherit;
+        }
+
+        #storage-tool-button {
+            position: fixed;
+            right: 12px;
+            bottom: 12px;
+            z-index: 30;
+            display: none;
+            padding: 8px 12px;
+            border: 2px solid #1a1a1a;
+            background: rgba(64, 64, 64, 0.9);
+            color: #fff;
+            font: 12px/1 monospace;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="loading">
+        <h1>Game</h1>
+        <div id="progress-container">
+            <div id="progress"></div>
+        </div>
+        <p id="status">Preparing...</p>
+        <p id="error" class="error-message">Wasm build failed to load.</p>
+        <button id="startup-recovery" type="button">Reload Without Cached Files</button>
+    </div>
+
+    <canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+    <button id="storage-tool-button" type="button">Storage Tool</button>
+    <script src="MCPEBridge.js"></script>
+    <script src="storage-test-tool.js"></script>
+    <script>
+        // Set canvas pixel resolution to match window size (DPR-aware, capped for mobile)
+        var canvas = null;
+        var _resizeTimer = null;
+        var _canvasObserver = null;
+        var _canvasBindAttempts = 0;
+        function resolveCanvas() {
+            return document.getElementById('canvas') || document.querySelector('canvas');
+        }
+        function ensureCanvas() {
+            canvas = resolveCanvas();
+            if (canvas && window.Module) {
+                window.Module.canvas = canvas;
+            }
+            return canvas;
+        }
+        function resizeCanvas() {
+            var activeCanvas = ensureCanvas();
+            if (!activeCanvas) {
+                return;
+            }
+            var dpr = (window.MCPEBridge && typeof window.MCPEBridge.getEffectiveDevicePixelRatio === 'function')
+                ? window.MCPEBridge.getEffectiveDevicePixelRatio()
+                : Math.min(window.devicePixelRatio || 1, 2.0);
+            var rect = activeCanvas.getBoundingClientRect();
+            var w = rect.width;
+            var h = rect.height;
+            var pw = Math.max(1, (w * dpr) | 0);
+            var ph = Math.max(1, (h * dpr) | 0);
+            activeCanvas.width = pw;
+            activeCanvas.height = ph;
+        }
+        function bindCanvas() {
+            var activeCanvas = ensureCanvas();
+            if (!activeCanvas) {
+                if (_canvasBindAttempts < 20) {
+                    _canvasBindAttempts++;
+                    setTimeout(bindCanvas, 50);
+                } else {
+                    console.error('[Web-Port] Canvas element was not found. WebGL bootstrap aborted.');
+                    var errorElement = document.getElementById('error');
+                    if (errorElement) {
+                        errorElement.textContent = 'Canvas element missing. Check cached HTML or browser extensions.';
+                        errorElement.style.display = 'block';
+                    }
+                }
+                return;
+            }
+            resizeCanvas();
+            if (typeof ResizeObserver !== 'undefined' && !_canvasObserver) {
+                _canvasObserver = new ResizeObserver(function () {
+                    requestAnimationFrame(resizeCanvas);
+                });
+                _canvasObserver.observe(activeCanvas);
+            }
+        }
+        // Debounced version for external resize events to avoid rapid-fire calls
+        function debouncedResize() {
+            resizeCanvas(); // Immediate sync to fix graphical glitch on resize
+            if (_resizeTimer) clearTimeout(_resizeTimer);
+            _resizeTimer = setTimeout(resizeCanvas, 100);
+        }
+        bindCanvas();
+        window.resizeGame = resizeCanvas;
+
+        window.addEventListener('resize', debouncedResize);
+        window.addEventListener('orientationchange', function () {
+            setTimeout(resizeCanvas, 300);
+            setTimeout(resizeCanvas, 800);
+        });
+
+
+        function loadRtcConfig() {
+            return fetch('/rtc-config', {
+                cache: 'no-store',
+                credentials: 'same-origin'
+            })
+                .then(function (res) {
+                    if (!res.ok) throw new Error('RTC config request failed: ' + res.status);
+                    return res.json();
+                })
+                .then(function (config) {
+                    if (!config || typeof config !== 'object') return;
+                    if (Array.isArray(config.iceServers) && config.iceServers.length > 0) {
+                        window.__MCPE_ICE_SERVERS = config.iceServers;
+                    }
+                    window.__MCPE_ICE_TRANSPORT_POLICY = config.iceTransportPolicy === 'relay' ? 'relay' : 'all';
+                    if (config.relay && typeof config.relay === 'object') {
+                        window.__MCPE_RELAY_CONFIG = {
+                            maxWsBufferedAmount: Number(config.relay.maxWsBufferedAmount) || undefined,
+                            maxRelayQueueBytes: Number(config.relay.maxRelayQueueBytes) || undefined,
+                            maxRelayQueueAgeMs: Number(config.relay.maxRelayQueueAgeMs) || undefined,
+                            joinSyncGraceMs: Number(config.relay.joinSyncGraceMs) || undefined,
+                            joinWarmupMaxPackets: Number(config.relay.joinWarmupMaxPackets) || undefined,
+                            host: config.relay.host && typeof config.relay.host === 'object' ? {
+                                maxWsBufferedAmount: Number(config.relay.host.maxWsBufferedAmount) || undefined,
+                                maxRelayQueueBytes: Number(config.relay.host.maxRelayQueueBytes) || undefined,
+                                maxRelayQueueAgeMs: Number(config.relay.host.maxRelayQueueAgeMs) || undefined,
+                                joinSyncGraceMs: Number(config.relay.host.joinSyncGraceMs) || undefined,
+                                joinWarmupMaxPackets: Number(config.relay.host.joinWarmupMaxPackets) || undefined
+                            } : undefined
+                        };
+                    }
+                })
+                .catch(function (err) {
+                    console.warn('[RTC] Using default ICE config:', err && err.message ? err.message : err);
+                });
+        }
+
+        var MCPE_WEB_BUILD_ID = 'game-web-v16';
+        var MCPE_CACHE_PREFIX = 'game-web-';
+        var _mcpeBootstrapReady = false;
+        var _mcpeFirstFrameReady = false;
+        var _mcpeStartupCompleted = false;
+        var _mcpeStartupRecoveryKey = 'mcpe-startup-recovered:' + MCPE_WEB_BUILD_ID;
+
+        function setStartupShellVisible(visible) {
+            var loadingElement = document.getElementById('loading');
+            if (!loadingElement) return;
+            loadingElement.style.display = visible ? 'block' : 'none';
+        }
+
+        function showStartupError(message, allowRecovery) {
+            var statusElement = document.getElementById('status');
+            var errorElement = document.getElementById('error');
+            var recoveryButton = document.getElementById('startup-recovery');
+            setStartupShellVisible(true);
+            if (statusElement && message) {
+                statusElement.textContent = message;
+            }
+            if (errorElement) {
+                errorElement.textContent = message || 'Wasm build failed to load.';
+                errorElement.style.display = 'block';
+            }
+            if (recoveryButton) {
+                recoveryButton.style.display = allowRecovery === false ? 'none' : 'inline-block';
+            }
+        }
+
+        function maybeFinishStartup() {
+            if (_mcpeStartupCompleted || !_mcpeBootstrapReady || !_mcpeFirstFrameReady) {
+                return;
+            }
+            _mcpeStartupCompleted = true;
+            try { sessionStorage.removeItem(_mcpeStartupRecoveryKey); } catch (e) { }
+            var errorElement = document.getElementById('error');
+            var recoveryButton = document.getElementById('startup-recovery');
+            if (errorElement) errorElement.style.display = 'none';
+            if (recoveryButton) recoveryButton.style.display = 'none';
+            setStartupShellVisible(false);
+        }
+
+        async function clearCachedBuildState() {
+            if ('serviceWorker' in navigator) {
+                try {
+                    const regs = await navigator.serviceWorker.getRegistrations();
+                    await Promise.all(regs.map((reg) => reg.unregister()));
+                } catch (err) {
+                    console.warn('[Web-Port] Failed to unregister service workers:', err);
+                }
+            }
+            if (window.caches && typeof window.caches.keys === 'function') {
+                try {
+                    const keys = await window.caches.keys();
+                    await Promise.all(keys
+                        .filter((key) => key && key.indexOf(MCPE_CACHE_PREFIX) === 0)
+                        .map((key) => window.caches.delete(key)));
+                } catch (err) {
+                    console.warn('[Web-Port] Failed to clear caches:', err);
+                }
+            }
+        }
+
+        async function purgeCachesAndReload(reason, force) {
+            if (!force) {
+                try {
+                    if (sessionStorage.getItem(_mcpeStartupRecoveryKey)) {
+                        return;
+                    }
+                    sessionStorage.setItem(_mcpeStartupRecoveryKey, '1');
+                } catch (e) { }
+            }
+            showStartupError((reason || 'Startup failed.') + ' Reloading with fresh cached data...', false);
+            try {
+                if (window.MCPEBridge && typeof window.MCPEBridge.syncFS === 'function') {
+                    await window.MCPEBridge.syncFS(false);
+                }
+            } catch (e) { }
+            await clearCachedBuildState();
+            try {
+                localStorage.setItem('mcpe-web-build-id', MCPE_WEB_BUILD_ID);
+            } catch (e) { }
+            var url = new URL(window.location.href);
+            url.searchParams.set('cacheBust', String(Date.now()));
+            window.location.replace(url.toString());
+        }
+
+        function maybeAutoRecoverStartup(message) {
+            if (_mcpeStartupCompleted) return;
+            try {
+                if (sessionStorage.getItem(_mcpeStartupRecoveryKey)) {
+                    showStartupError(message, true);
+                    return;
+                }
+            } catch (e) { }
+            purgeCachesAndReload(message || 'Startup failed.', false);
+        }
+
+        window.__mcpeOnFirstFrame = function () {
+            if (_mcpeFirstFrameReady) return;
+            _mcpeFirstFrameReady = true;
+            maybeFinishStartup();
+        };
+
+        (function reconcileBuildVersion() {
+            try {
+                var previousBuildId = localStorage.getItem('mcpe-web-build-id');
+                localStorage.setItem('mcpe-web-build-id', MCPE_WEB_BUILD_ID);
+                if (previousBuildId && previousBuildId !== MCPE_WEB_BUILD_ID) {
+                    clearCachedBuildState().catch(function (err) {
+                        console.warn('[Web-Port] Failed to clear previous build caches:', err);
+                    });
+                }
+            } catch (e) { }
+        })();
+
+        setStartupShellVisible(true);
+
+        function markBootstrapReady() {
+            _mcpeBootstrapReady = true;
+            maybeFinishStartup();
+        }
+
+        var Module = {
+            canvas: ensureCanvas(),
+            preRun: [function () {
+                // Mount both the legacy and current roots so startup migration can
+                // read old data and write it into the new location in one run.
+                if (typeof FS !== 'undefined') {
+                    try { FS.mkdirTree("/home/webuser"); } catch (e) { }
+                    try { FS.mkdirTree("/home/webuser/minecraft"); } catch (e) { }
+                    try { FS.mkdirTree("/home/webuser/game"); } catch (e) { }
+
+                    var idbfs = (FS.filesystems && FS.filesystems.IDBFS) || (Module.IDBFS) || (window.IDBFS);
+                    if (idbfs) {
+                        try { FS.mount(idbfs, {}, "/home/webuser/minecraft"); } catch (e) { }
+                        FS.mount(idbfs, {}, "/home/webuser/game");
+
+                        // Block game start until IDBFS data is loaded
+                        addRunDependency('idbfs-load');
+                        FS.syncfs(true, function (err) {
+                            if (err) console.error('Storage load error:', err);
+                            else console.log('Worlds and options loaded from IndexedDB!');
+                            if (window.MCPEStorageTool && window.MCPEStorageTool.onFsReady) {
+                                window.MCPEStorageTool.onFsReady();
+                            }
+                            removeRunDependency('idbfs-load');
+                        });
+                    }
+                }
+            }],
+            postRun: [function () {
+                Promise.resolve().then(function () {
+                    var activeCanvas = ensureCanvas();
+                    if (!activeCanvas) {
+                        throw new Error('Canvas element missing during postRun');
+                    }
+                    MCPEBridge.keyboard.init();
+                    MCPEBridge.inputManager.init(activeCanvas);
+                    resizeCanvas();
+                    return loadRtcConfig().then(function () {
+                        MCPEBridge.network.init();
+                        markBootstrapReady();
+                    });
+                }).catch(function (err) {
+                    var message = err && err.message ? err.message : String(err || 'The game failed to start.');
+                    showStartupError(message, true);
+                    maybeAutoRecoverStartup(message);
+                });
+
+                // Validate session on startup
+                var runtimeUuidForValidation = '';
+                if (window.MCPEBridge && typeof window.MCPEBridge.getClientUUID === 'function') {
+                    runtimeUuidForValidation = window.MCPEBridge.getClientUUID();
+                }
+                fetch('/auth/validate', {
+                    cache: 'no-store',
+                    credentials: 'same-origin',
+                    headers: runtimeUuidForValidation ? { 'X-MCPE-UUID': runtimeUuidForValidation } : {}
+                })
+                    .then(res => res.text().then(text => {
+                        let data = { authenticated: false };
+                        if (text) {
+                            try {
+                                data = JSON.parse(text);
+                            } catch (e) {
+                                throw new Error('Invalid auth validation response');
+                            }
+                        }
+                        return data;
+                    }))
+                    .then(data => {
+                        if (data && data.csrfToken) {
+                            window.__orynxCsrfToken = data.csrfToken;
+                        }
+                        if (data.authenticated) {
+                            if (window.Module && window.Module.ccall) {
+                                Module.ccall('mcpe_setAuthState', 'v', ['number', 'string'], [1, data.username]);
+                            }
+                            if (window.MCPEBridge && typeof window.MCPEBridge.setAuthenticatedSession === 'function') {
+                                window.MCPEBridge.setAuthenticatedSession(data.username, data.mcpeUuid);
+                            }
+                            if (window.MCPEBridge && typeof window.MCPEBridge.reconnectLobby === 'function') {
+                                window.MCPEBridge.reconnectLobby();
+                            }
+                        }
+                    })
+                    .catch(err => console.log("[Auth] Offline or validation failed. Defaulting to Guest."));
+            }],
+            print: (function () {
+                return function (text) {
+                    if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+                    console.log(text);
+                };
+            })(),
+            onAbort: function (reason) {
+                var message = reason ? String(reason) : 'The game failed to start.';
+                showStartupError(message, true);
+                maybeAutoRecoverStartup(message);
+            },
+            setStatus: function (text) {
+                if (!Module.setStatus.last) Module.setStatus.last = { time: Date.now(), text: '' };
+                if (text === Module.setStatus.last.text) return;
+                var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
+                var statusElement = document.getElementById('status');
+                var progressElement = document.getElementById('progress');
+                if (statusElement && progressElement) {
+                    if (m) {
+                        text = m[1];
+                        progressElement.style.width = (parseInt(m[2]) / parseInt(m[4]) * 100) + '%';
+                    }
+                    statusElement.innerHTML = text;
+                }
+            }
+        };
+
+        window.addEventListener('load', function () {
+            var button = document.getElementById('storage-tool-button');
+            var recoveryButton = document.getElementById('startup-recovery');
+            if (recoveryButton) {
+                recoveryButton.addEventListener('click', function () {
+                    purgeCachesAndReload('Manual cache recovery requested.', true);
+                });
+            }
+            if (button) {
+                var enabled = /[?&]storageTool=1\b/.test(window.location.search);
+                if (enabled) {
+                    button.style.display = 'block';
+                    button.addEventListener('click', function () {
+                        if (window.MCPEStorageTool) {
+                            window.MCPEStorageTool.openPanel();
+                        }
+                    });
+                }
+            }
+        });
+
+        // Touch & mouse input is handled by C++ Emscripten callbacks (registered in main_web.h)
+        // No JavaScript handlers needed here - they would double-fire events
+
+        window.addEventListener('error', function (event) {
+            if (_mcpeStartupCompleted) return;
+            var message = event && event.message ? event.message : 'A startup error occurred.';
+            showStartupError(message, true);
+            maybeAutoRecoverStartup(message);
+        });
+        window.addEventListener('unhandledrejection', function (event) {
+            if (_mcpeStartupCompleted) return;
+            var reason = event && event.reason;
+            var message = reason && reason.message ? reason.message : String(reason || 'A startup error occurred.');
+            showStartupError(message, true);
+            maybeAutoRecoverStartup(message);
+        });
+
+    </script>
+    <script>
+        // Register Service Worker for offline support
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                let hasReloadedForSw = false;
+                navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then((reg) => {
+                    console.log('[Web-Port] Service Worker registered.');
+                    reg.update().catch(() => {});
+
+                    // Notify when the content is locally cached
+                    reg.addEventListener('updatefound', () => {
+                        const newWorker = reg.installing;
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                console.log('[Web-Port] Update available, activating now.');
+                                newWorker.postMessage({ type: 'SKIP_WAITING' });
+                            } else if (newWorker.state === 'activated') {
+                                console.log('[Web-Port] App is now ready for offline use!');
+                            }
+                        });
+                    });
+
+                    navigator.serviceWorker.addEventListener('controllerchange', () => {
+                        if (hasReloadedForSw) return;
+                        hasReloadedForSw = true;
+                        console.log('[Web-Port] Service worker controller updated; new assets will be used on the next load.');
+                    });
+                }).catch((err) => {
+                    console.error('[Web-Port] Service Worker registration failed:', err);
+                });
+            });
+        }
+    </script>
+    <script defer src="minecraft.js"></script>
+</body>
+
+</html>

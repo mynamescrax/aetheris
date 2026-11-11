@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>Unity Web Player | Ages of Conflict</title>
+  <base
+          href="https://cdn.jsdelivr.net/gh/SomeRandomFella/portsandrips@master/AgesOfConflict/"
+  />
+  <link rel="shortcut icon" href="TemplateData/favicon.ico" />
+  <link rel="stylesheet" href="TemplateData/style.css" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #000;
+      overflow: hidden;
+    }
+
+    #custom-loading-screen {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      font-family: Arial, sans-serif;
+      color: #fff;
+      gap: 8px;
+      transition: opacity 0.6s ease;
+    }
+
+    #custom-loading-screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #loading-label {
+      font-size: 14px;
+      font-weight: normal;
+    }
+
+    #loading-mb {
+      font-size: 13px;
+      color: #666;
+      min-height: 1.2em;
+    }
+
+    #unity-container {
+      width: 100%;
+      height: 100%;
+    }
+
+    #unity-canvas {
+      display: block;
+    }
+
+    #unity-warning {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 10000;
+    }
+  </style>
+</head>
+<body>
+<div id="custom-loading-screen">
+  <div id="loading-label">Loading</div>
+  <div id="loading-mb"></div>
+</div>
+
+<div id="unity-container">
+  <canvas
+          id="unity-canvas"
+          width="1280"
+          height="720"
+          tabindex="-1"
+  ></canvas>
+  <div id="unity-warning"></div>
+</div>
+
+<script>
+  var container = document.querySelector("#unity-container");
+  var canvas = document.querySelector("#unity-canvas");
+  var warningBanner = document.querySelector("#unity-warning");
+  var loadingScreen = document.querySelector("#custom-loading-screen");
+  var loadingMb = document.querySelector("#loading-mb");
+
+  function unityShowBanner(msg, type) {
+    function updateBannerVisibility() {
+      warningBanner.style.display = warningBanner.children.length
+              ? "block"
+              : "none";
+    }
+    var div = document.createElement("div");
+    div.innerHTML = msg;
+    warningBanner.appendChild(div);
+    if (type == "error") div.style = "background: red; padding: 10px;";
+    else {
+      if (type == "warning")
+        div.style = "background: yellow; padding: 10px;";
+      setTimeout(function () {
+        warningBanner.removeChild(div);
+        updateBannerVisibility();
+      }, 5000);
+    }
+    updateBannerVisibility();
+  }
+
+  if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+    var meta = document.createElement("meta");
+    meta.name = "viewport";
+    meta.content =
+            "width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes";
+    document.getElementsByTagName("head")[0].appendChild(meta);
+  }
+
+  function formatMB(bytes) {
+    return (bytes / (1024 * 1024)).toFixed(2) + " MB";
+  }
+
+  function fetchParts(baseName, partCount, onProgress) {
+    var parts = [];
+    for (var i = 1; i <= partCount; i++) {
+      parts.push(baseName + ".part" + String(i).padStart(3, "0"));
+    }
+
+    var loaded = new Array(partCount).fill(0);
+    var totals = new Array(partCount).fill(0);
+
+    var fetches = parts.map(function (url, idx) {
+      return fetch(url).then(function (res) {
+        if (!res.ok) throw new Error("Failed to fetch " + url);
+        var contentLength = res.headers.get("content-length");
+        totals[idx] = contentLength ? parseInt(contentLength, 10) : 0;
+        var reader = res.body.getReader();
+        var chunks = [];
+        function read() {
+          return reader.read().then(function (result) {
+            if (result.done) return chunks;
+            chunks.push(result.value);
+            loaded[idx] += result.value.length;
+            var totalLoaded = loaded.reduce(function (a, b) {
+              return a + b;
+            }, 0);
+            var totalSize = totals.reduce(function (a, b) {
+              return a + b;
+            }, 0);
+            if (onProgress) onProgress(totalLoaded, totalSize);
+            return read();
+          });
+        }
+        return read();
+      });
+    });
+
+    return Promise.all(fetches).then(function (allChunks) {
+      var combined = allChunks.map(function (chunks) {
+        var totalLen = chunks.reduce(function (a, c) {
+          return a + c.length;
+        }, 0);
+        var out = new Uint8Array(totalLen);
+        var offset = 0;
+        chunks.forEach(function (c) {
+          out.set(c, offset);
+          offset += c.length;
+        });
+        return out;
+      });
+      var totalLen = combined.reduce(function (a, c) {
+        return a + c.length;
+      }, 0);
+      var merged = new Uint8Array(totalLen);
+      var offset = 0;
+      combined.forEach(function (c) {
+        merged.set(c, offset);
+        offset += c.length;
+      });
+      return merged.buffer;
+    });
+  }
+
+  var buildUrl = "Build";
+  var loaderUrl = buildUrl + "/AgesOfConflict.loader.js";
+
+  var wasmLoaded = 0,
+          wasmTotal = 0;
+  var dataLoaded = 0,
+          dataTotal = 0;
+
+  function updateProgress() {
+    var totalLoaded = wasmLoaded + dataLoaded;
+    loadingMb.textContent = formatMB(totalLoaded);
+  }
+
+  var wasmPromise = fetchParts(
+          buildUrl + "/AgesOfConflict.wasm",
+          4,
+          function (loaded, total) {
+            wasmLoaded = loaded;
+            wasmTotal = total;
+            updateProgress();
+          },
+  );
+
+  var dataPromise = fetchParts(
+          buildUrl + "/AgesOfConflict.data",
+          4,
+          function (loaded, total) {
+            dataLoaded = loaded;
+            dataTotal = total;
+            updateProgress();
+          },
+  );
+
+  var script = document.createElement("script");
+  script.src = loaderUrl;
+  script.onload = function () {
+    Promise.all([wasmPromise, dataPromise])
+            .then(function (results) {
+              var wasmBuffer = results[0];
+              var dataBuffer = results[1];
+
+              var config = {
+                arguments: [],
+                dataUrl: URL.createObjectURL(
+                        new Blob([dataBuffer], { type: "application/octet-stream" }),
+                ),
+                frameworkUrl: buildUrl + "/AgesOfConflict.framework.js",
+                codeUrl: URL.createObjectURL(
+                        new Blob([wasmBuffer], { type: "application/wasm" }),
+                ),
+                streamingAssetsUrl: "StreamingAssets",
+                companyName: "JoySparkGames",
+                productName: "Ages of Conflict",
+                productVersion: "4.4.0",
+                showBanner: unityShowBanner,
+              };
+
+              createUnityInstance(canvas, config, function (progress) {})
+                      .then(function (unityInstance) {
+                        loadingScreen.classList.add("hidden");
+                        setTimeout(function () {
+                          loadingScreen.style.display = "none";
+                        }, 700);
+                      })
+                      .catch(function (message) {
+                        alert(message);
+                      });
+            })
+            .catch(function (err) {
+              alert(`failed! ${err.message}`);
+            });
+  };
+  document.body.appendChild(script);
+</script>
+</body>
+</html>

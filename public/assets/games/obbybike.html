@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+
+
+<!-- Ultimate Game Stash file--> 
+<!-- For the regularly updating doc go to https://docs.google.com/document/d/1_FmH3BlSBQI7FGgAQL59-ZPe8eCxs35wel6JUyVaG8Q/ -->
+
+
+<html lang="en-us">
+<base href="https://cdn.jsdelivr.net/gh/bubbls/UGS-Assets@main/obby-bike/">
+<head>
+    <meta charset="utf-8" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Obby on a bike</title>
+  <link rel="stylesheet" href="TemplateData/style.css" />
+  <script src="TemplateData/gamepush-unity.js"></script>
+  <script>
+    const projectId = "7601";
+    const publicToken = "zUd31AcyKWQdb78Kjp2jPZBNCHImJ14T";
+    const showPreloaderAd = "true";
+    const overlayBackgroundColor = "black";
+    const progressBarFillColor = "orange";
+    const progressBarBackgroundColor = "black";
+    const progressBarBorderColor = "white";
+  </script>
+  <script>
+    var _unityAwaiter = {};
+    _unityAwaiter.ready = new Promise((resolve, reject) => {
+      _unityAwaiter.done = resolve;
+      _unityAwaiter.abort = reject;
+    });
+
+    var _gpAwaiter = {};
+    _gpAwaiter.ready = new Promise((resolve) => {
+      _gpAwaiter.done = resolve;
+    });
+
+    window.unityInstance = null;
+    window.onGPError = () => _gpAwaiter.done();
+
+    window.onGPInit = async (gp) => {
+
+      gp.analytics.goal("GP_Init");
+      window.GamePush = new GamePushUnity(gp);
+      //gp.player.ready.finally(_gpAwaiter.done);
+
+      await gp.player.ready
+
+      if (gp.payments.has("no_ads") || gp.payments.has("pack_1") || gp.payments.has("magic_pack")) {
+        gp.ads.closeSticky();
+      } else {
+        gp.ads.showSticky();
+        gp.ads.showPreloader();
+      }
+
+      _gpAwaiter.done()
+
+      await _unityAwaiter.ready;
+    };
+
+    function GetMobileOperatingSystem() {
+      var userAgent = navigator.userAgent || navigator.vendor || window.opera;
+
+      if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
+        return "true";
+      }
+
+      return "false";
+    }
+  </script>
+  <script>
+    ((g, a, m, e) => {
+      let o = () => {
+        let p = document.createElement("script");
+        p.src = `${a[0]}?projectId=${m}&publicToken=${e}`, p.onerror = () => {
+          a.shift(), a.length > 0 ? (o(), p.remove()) : "onGPError" in g && g.onGPError()
+        }, document.head.appendChild(p)
+      };
+      o()
+    })(window, ["https://gs.eponesh.com/sdk/gamepush.js", "https://s3.eponesh.com/files/gs/sdk/gamepush.js", "gp-bundle/gamepush.js"], projectId, publicToken);
+  </script>
+</head>
+   <script>
+      window.fileMergerConfig = {
+        files: [
+          { name: '87e078793133c4d3864be347264705c6.data.br', parts: 3 },
+          { name: 'e015e0ddf28b9cc20906ccec2345fcbf.wasm.br', parts: 3 },
+        ],
+        basePath: 'Build/',
+        debug: true
+      };
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/gh/bubbls/UGS-Assets@ac5cdfc0042aca584e72619375b4aca948a9243c/merge.js"></script>
+<body class="dark">
+  <div id="unity-container" class="unity-desktop">
+    <canvas id="unity-canvas"></canvas>
+  </div>
+  <div id="loading-cover" style="display:none;">
+    <div id="unity-loading-bar">
+      <div id="unity-logo"><img src="logo.png" /></div>
+      <div id="unity-progress-bar-empty" style="display: none;">
+        <div id="unity-progress-bar-full"></div>
+      </div>
+      <div class="spinner"></div>
+    </div>
+  </div>
+  <script>
+    const buildUrl = "Build";
+    const loaderUrl = buildUrl + "/76f034cff49013ce85bd6945ebf32347.loader.js";
+    const config = {
+      dataUrl: buildUrl + "/87e078793133c4d3864be347264705c6.data.br",
+      frameworkUrl: buildUrl + "/64f4e1ca2b061268ad5db0b0bbceeddc.framework.js",
+      codeUrl: buildUrl + "/e015e0ddf28b9cc20906ccec2345fcbf.wasm.br",
+      streamingAssetsUrl: "StreamingAssets",
+      companyName: "GingerPlay",
+      productName: "Obby on a bike",
+      productVersion: "1.24.5",
+    };
+
+    const container = document.querySelector("#unity-container");
+    const canvas = document.querySelector("#unity-canvas");
+    const loadingCover = document.querySelector("#loading-cover");
+    const progressBarEmpty = document.querySelector("#unity-progress-bar-empty");
+    const progressBarFull = document.querySelector("#unity-progress-bar-full");
+    const spinner = document.querySelector('.spinner');
+
+    if (overlayBackgroundColor !== "-" && overlayBackgroundColor !== " " && overlayBackgroundColor !== "")
+      canvas.style.background = overlayBackgroundColor;
+
+    if (progressBarFillColor !== "-" && progressBarFillColor !== " " && progressBarFillColor !== "")
+      progressBarFull.style.background = progressBarFillColor;
+
+    if (progressBarBackgroundColor !== "-" && progressBarBackgroundColor !== " " && progressBarBackgroundColor !== "")
+      progressBarEmpty.style.background = progressBarBackgroundColor;
+
+    if (progressBarBorderColor !== "-" && progressBarBorderColor !== " " && progressBarBorderColor !== "")
+      progressBarEmpty.style.border.color = progressBarBorderColor;
+
+
+    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+      container.className = "unity-mobile";
+    }
+
+    loadingCover.style.display = "";
+
+    const unityLoader = document.createElement("script");
+    unityLoader.src = loaderUrl;
+    unityLoader.onload = async () => {
+      await _gpAwaiter.ready;
+      createUnityInstance(canvas, config, (progress) => {
+        spinner.style.display = "none";
+        progressBarEmpty.style.display = "";
+        progressBarFull.style.width = `${100 * progress}%`;
+      }).then((unityInstance) => {
+        window.unityInstance = unityInstance;
+        _unityAwaiter.done(unityInstance);
+        loadingCover.style.display = "none";
+      }).catch((message) => {
+        _unityAwaiter.abort(message);
+        alert(message);
+      });
+    };
+    document.body.appendChild(unityLoader);
+
+    document.addEventListener("pointerdown", () => {
+      container.focus();
+      window.focus();
+      canvas.focus();
+    });
+  </script>
+</body>
+
+</html>

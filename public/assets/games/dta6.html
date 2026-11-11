@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+
+<html lang="en-us">
+
+<head>
+<base href="https://cdn.jsdelivr.net/gh/greeniYT/dta6@main/" />   
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>DTA6</title>
+    <link rel="stylesheet" href="TemplateData/style.css" />
+    <script src="TemplateData/gamepush-unity.js"></script>
+    <script>
+        const projectId = "10947";
+        const publicToken = "1jUALf4gEH9NVcmbDHHMyFvrKj9BkqrY";
+        const showPreloaderAd = "true";
+        const overlayBackgroundColor = "";
+        const progressBarFillColor = "";
+        const progressBarBackgroundColor = "";
+        const progressBarBorderColor = "";
+
+        const autocallGameReady = "";
+    </script>
+    <script>
+        var _unityAwaiter = {};
+        _unityAwaiter.ready = new Promise((resolve, reject) => {
+            _unityAwaiter.done = resolve;
+            _unityAwaiter.abort = reject;
+        });
+
+        var _gpAwaiter = {};
+        _gpAwaiter.ready = new Promise((resolve) => {
+            _gpAwaiter.done = resolve;
+        });
+
+        window.unityInstance = null;
+        window.onGPError = () => _gpAwaiter.done();
+
+        window.onGPInit = async(gp) => {
+            if (showPreloaderAd == "true" || showPreloaderAd == "1") {
+                gp.ads.showPreloader();
+            }
+
+            window.GamePush = new GamePushUnity(gp);
+            gp.player.ready.finally(_gpAwaiter.done);
+
+            await _unityAwaiter.ready;
+
+            if (autocallGameReady != null && parseFloat(autocallGameReady) > 0) {
+                setTimeout(() => gp.gameStart(), parseFloat(autocallGameReady));
+            }
+        };
+    </script>
+    <script>
+        ((g, a, m, e) => {
+            let o = () => {
+                let p = document.createElement("script");
+                p.src = `${a[0]}?projectId=${m}&publicToken=${e}`, p.onerror = () => {
+                    a.shift(), a.length > 0 ? (o(), p.remove()) : "onGPError" in g && g.onGPError()
+                }, document.head.appendChild(p)
+            };
+            o()
+        })(window, ["./gamepush.js", "./gamepush.js", "./gamepush.js"], projectId, publicToken);
+    </script>
+</head>
+
+<body class="light">
+    <div id="unity-container" class="unity-desktop">
+        <canvas id="unity-canvas"></canvas>
+    </div>
+    <div id="loading-cover" style="display:none;">
+        <div id="unity-loading-bar">
+            <div id="unity-logo"><img src="logo.png" /></div>
+            <div id="unity-progress-bar-empty" style="display: none;">
+                <div id="unity-progress-bar-full"></div>
+            </div>
+            <div class="spinner"></div>
+        </div>
+    </div>
+    <script>
+        (async () => {
+            const buildUrl = "https://cdn.jsdelivr.net/gh/greeniYT/dta6@main/Build/";
+            
+            const parts = [
+                buildUrl + "/cb329eb1ef692e19f43f5fddf5d5b128.data.unityweb.part1",
+                buildUrl + "/cb329eb1ef692e19f43f5fddf5d5b128.data.unityweb.part2"
+            ];
+
+            try {
+                console.log("Downloading and merging data parts...");
+                
+                const responses = await Promise.all(parts.map(url => fetch(url).then(r => {
+                    if (!r.ok) throw new Error("Failed to load part: " + url);
+                    return r.arrayBuffer();
+                })));
+
+                const mergedBlob = new Blob(responses, { type: "application/octet-stream" });
+                const mergedUrl = URL.createObjectURL(mergedBlob);
+            
+                const loaderUrl = buildUrl + "/Builds.loader.js";
+                const config = {
+                    dataUrl: mergedUrl,
+                    frameworkUrl: buildUrl + "/3dffb3ed1e706df32d3b7b014ff04f0b.js.unityweb",
+                    codeUrl: buildUrl + "/efd904c4e9e86d7a5592528dd74dfe59.wasm.unityweb",
+                    streamingAssetsUrl: "StreamingAssets",
+                    companyName: "vsegon",
+                    productName: "DTA6",
+                    productVersion: "1",
+                };
+
+                const container = document.querySelector("#unity-container");
+                const canvas = document.querySelector("#unity-canvas");
+                const loadingCover = document.querySelector("#loading-cover");
+                const progressBarEmpty = document.querySelector("#unity-progress-bar-empty");
+                const progressBarFull = document.querySelector("#unity-progress-bar-full");
+                const spinner = document.querySelector('.spinner');
+
+                if (overlayBackgroundColor !== "-" && overlayBackgroundColor !== " " && overlayBackgroundColor !== "")
+                    canvas.style.background = overlayBackgroundColor;
+
+                if (progressBarFillColor !== "-" && progressBarFillColor !== " " && progressBarFillColor !== "")
+                    progressBarFull.style.background = progressBarFillColor;
+
+                if (progressBarBackgroundColor !== "-" && progressBarBackgroundColor !== " " && progressBarBackgroundColor !== "")
+                    progressBarEmpty.style.background = progressBarBackgroundColor;
+
+                if (progressBarBorderColor !== "-" && progressBarBorderColor !== " " && progressBarBorderColor !== "")
+                    progressBarEmpty.style.border.color = progressBarBorderColor;
+
+
+                if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+                    container.className = "unity-mobile";
+                }
+
+                loadingCover.style.display = "";
+
+                const unityLoader = document.createElement("script");
+                unityLoader.src = loaderUrl;
+                unityLoader.onload = async() => {
+                    await _gpAwaiter.ready;
+                    createUnityInstance(canvas, config, (progress) => {
+                        spinner.style.display = "none";
+                        progressBarEmpty.style.display = "";
+                        progressBarFull.style.width = `${100 * progress}%`;
+                    }).then((unityInstance) => {
+                        window.unityInstance = unityInstance;
+                        _unityAwaiter.done(unityInstance);
+                        loadingCover.style.display = "none";
+                    }).catch((message) => {
+                        _unityAwaiter.abort(message);
+                        alert(message);
+                    });
+                };
+                document.body.appendChild(unityLoader);
+
+                document.addEventListener("pointerdown", () => {
+                    container.focus();
+                    window.focus();
+                    canvas.focus();
+                });
+            } catch (error) {
+                console.error("Error loading game data:", error);
+                alert("Failed to load game: " + error.message);
+                _unityAwaiter.abort(error);
+            }
+        })();
+    </script>
+
+</body>
+
+</html>

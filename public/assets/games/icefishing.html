@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+
+
+<!-- Ultimate Game Stash file--> 
+<!-- For the regularly updating doc go to https://docs.google.com/document/d/1_FmH3BlSBQI7FGgAQL59-ZPe8eCxs35wel6JUyVaG8Q/ -->
+
+
+<html lang="en"><head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html">
+    <title>Ice fishing 3D</title>
+    <base href="https://cdn.jsdelivr.net/gh/bubbls/UGS-Assets@894fe3e7ab8b4c0c7345174b75bf8241d001a1f2/ice-fishing/">
+    <style>
+        html, body { 
+            overflow: hidden;
+            width:100%; 
+            height:100%;
+            margin: 0;
+            padding: 0;   
+        }
+
+        #game_canvas {
+            width: 100%;
+            height: 100%;
+            outline: none;
+            touch-action: none;
+        }
+    </style>
+<style>[touch-action="none"]{ -ms-touch-action: none; touch-action: none; }
+[touch-action="auto"]{ -ms-touch-action: auto; touch-action: auto; }
+[touch-action~="pan-x"]{ -ms-touch-action: pan-x; touch-action: pan-x; }
+[touch-action~="pan-y"]{ -ms-touch-action: pan-y; touch-action: pan-y; }
+[touch-action~="pan-up"]{ -ms-touch-action: pan-up; touch-action: pan-up; }
+[touch-action~="pan-down"]{ -ms-touch-action: pan-down; touch-action: pan-down; }
+[touch-action~="pan-left"]{ -ms-touch-action: pan-left; touch-action: pan-left; }
+[touch-action~="pan-right"]{ -ms-touch-action: pan-right; touch-action: pan-right; }
+</style><style type="text/css">
+        #customLoadingScreenDiv{
+            background-color: #ffffff;
+            color: black;
+            font-size:20px;
+            text-align:center;
+        }</style><script type="text/javascript" async="" src="https://pm.azerioncircle.com/p/locus/" id="locus"></script></head>
+
+<body>
+<!--GameMonetize-->
+<script id="gamedistribution-jssdk" src=""></script><script type="text/javascript">
+    window["GD_OPTIONS"] = {
+        "gameId": "2e99052b17614e8eabe273678d5cdc46",
+        "onEvent": function(event) {
+            switch (event.name) {
+                case "SDK_GAME_START":
+                    // advertisement done, resume game logic and unmute audio
+                    scene.pause(false);
+                    break;
+                case "SDK_GAME_PAUSE":
+                    // pause game logic / mute audio
+                    scene.pause(true);
+                    break;
+                case "SDK_GDPR_TRACKING":
+                    // this event is triggered when your user doesn't want to be tracked
+                    break;
+                case "SDK_GDPR_TARGETING":
+                    // this event is triggered when your user doesn't want personalised targeting of ads and such
+                    break;
+                case "SDK_REWARDED_WATCH_COMPLETE":
+                    // this event is triggered when your user completely watched rewarded ad
+                    break;
+            }
+        },
+    };
+    (function(d, s, id) {
+        var js, fjs = d.getElementsByTagName(s)[0];
+        if (d.getElementById(id)) return;
+        js = d.createElement(s);
+        js.id = id;
+        js.src = '';
+        fjs.parentNode.insertBefore(js, fjs);
+    }(document, 'script', 'gamedistribution-jssdk'));
+</script>
+<!---->
+<script src="lib/babylon.js"></script>
+<script src="lib/babylonjs.loaders.min.js"></script>
+<script src="lib/babylonjs.materials.min.js"></script>
+<script src="lib/babylon.gui.min.js"></script>
+<script src="lib/pep.js"></script>
+<!--<script type="module" src="src/main.js"></script>-->
+<script type="module" src="dist/main.js"></script>
+
+<canvas id="game_canvas" touch-action="none" width="1019" height="573" style="touch-action: none; position: absolute; width: 1019px; height: 573.188px; top: 172px; left: 0px;" tabindex="1"></canvas>
+
+
+</body></html>

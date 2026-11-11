@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <base href="/game-assets/1games-rips/sausagebattle/">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <<style type="text/css">
+    @font-face {
+        font-family: Fredoka;
+        font-style: normal;
+        font-weight: 400;
+        font-stretch: 75% 100%;
+        src: url('./cf-fonts/v/fredoka/5.0.11/latin/wdth/normal.woff2') format('woff2');
+        unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+        font-display: swap;
+    }
+    
+    @font-face {
+        font-family: Fredoka;
+        font-style: normal;
+        font-weight: 700;
+        font-stretch: 75% 100%;
+        src: url('./cf-fonts/v/fredoka/5.0.11/latin/wdth/normal.woff2') format('woff2'); /* You can use a bolder variant if needed */
+        unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+        font-display: swap;
+    }
+</style>
+<link rel="stylesheet" href="./theme/template_1/game.css">
+    <meta name="robots" content="noindex, nofollow">
+    <title>
+        Sausage Battle
+    </title>
+    <meta name="description" content="Join Sausage Battle, a hilarious physics-based battle royale where food fights get chaotic. Let’s knock rivals into traps and dominate the arena now!" />
+    <style type="text/css">
+        .jss1:before {
+            top: 0;
+            width: 100%;
+            filter: blur(16px);
+            height: 100%;
+            content: "";
+            display: block;
+            opacity: .5;
+            z-index: 0;
+            position: absolute;
+            background-size: cover;
+            background-image: url("26042101/loading.png")
+        }
+    </style>
+    <script>
+        window.fileMergerConfig = {
+            files: [
+                { name: 'sausage-battle-v26042101.data.unityweb', parts: 4 },
+                { name: 'sausage-battle-v26042101.wasm.unityweb', parts: 4 },
+            ],
+            basePath: '26042101/Build/',
+            debug: true
+        };
+    </script>
+    <script src="/game-assets/m/jsdelivr/gh/bubbls/UGS-Assets@ac5cdfc0042aca584e72619375b4aca948a9243c/merge.js"></script>
+    <script>
+        var buildUrl = "Build";
+        var versionFolder = "26042101/";
+        var cdnParam = new URLSearchParams(window.location.search).get("cdn");
+                        // Check if running on subdomain, auto set cdnParam to 2
+                        if (!cdnParam && window.location.hostname.includes(".")) {
+                            var parts = window.location.hostname.split(".");
+                            if (parts.length > 2) {
+                                cdnParam = "2";
+                            }
+                        }
+                        var baseUrl = "./"
+                        buildUrl = baseUrl + versionFolder + buildUrl;
+        var loaderUrl = buildUrl + "/sausage-battle-v26042101.loader.js";
+        var config = {
+            dataUrl: buildUrl + "/sausage-battle-v26042101.data.unityweb",
+            frameworkUrl: buildUrl + "/sausage-battle-v26042101.framework.js",
+            codeUrl: buildUrl + "/sausage-battle-v26042101.wasm.unityweb",
+            streamingAssetsUrl: versionFolder + "StreamingAssets",
+            companyName: "1games.io",
+            productName: "Sausage Battle",
+            productVersion: "26042101"
+        };
+        config.gameId = "sausage-battle";
+        config.eventLog = false;
+        var _prerollAdFinished = true;
+        var _unityInstanceReady = false;
+        var _adIsPlaying = false; // Global flag: true khi ad dang hien thi
+        window["GMSOFT_SDKTYPE"] = "gm";
+       window["GMSOFT_SIGNED"] = "eyJzaWduZWQiOiJSdlJ3dENSNmNab09rZ0FLSnYxS2o4ZzVjOUFxRkU4RG1zM0dacHduXC8wRTV0bWJLS21WamhocWg5Q1crOWNGdTZ6ZUltXC9jZ3UyYnhBQXFibE9UMHBkQjcrQ0o4a0YwSTMzeUJ1WGVMbmF3M3ZnM2FjZkZESWF6MlhhUFZabFlCNlNkQVJBbWtaXC9hdFZPckNaTUNERk5lZEFMZ2F1ZTQyXC9ocFlKWEN3aVwvaFwvVTk0QWdoUmorZXMxcVA4Q1NuTk05MEFsV0xJRkZEc25JUjkwR2RDbmltQTRPN1JjcGNIVGhwM2k0d3p6MUoxd3IzcjV2VHQ2eTltSHpOcmRPYkdxSWJYdWZvTGxJQ2IwUU5mWTk2eExrcjJsTmY0K2xlK3hOSitKeE1MdDVCUnNjcng2V3M0WlRlZHcxWVhxWG9vQ3pKS0o3YjhoTmFodTZmWjI3SFVBdlE9PSIsImFwIjoieWVzIiwiaG4iOiJkYXNobWV0cnkuMWdhbWVzLmlvIiwiZG9tYWluIjoiMWdhbWVzLmlvIiwicyI6InllcyIsInN0eXBlIjoyfQ==";
+    </script>
+</head>
+
+<body>
+    <div id="unity-container" style="display: none;">
+        <canvas id="unity-canvas"></canvas>
+    </div>
+    <div id="splash" style="display: none;">
+        <img src="./theme/logo.png" class="splash-logo">
+        <div class="splash-title ">Sausage Battle</div>
+    </div>
+    <div id="loadingBlock" style="">
+        <div class="jss31 jss34 jss1">
+            <div style="position: absolute; font-family: Arial, Helvetica, sans-serif;	bottom: 10px; right: 10px; font-size: 18px; color: #ffffff; opacity: 0.5;">
+                26042101
+            </div>
+            <div class="spinner"></div>
+            <div class="jss31 jss34 jss48" style="flex: 1 1 0%;">
+                <div class="jss32">
+                    <div class="jss7 jss9 jss20 jss3">
+                        <div class="jss125">
+                            <div class="jss123">
+                                <img src="./theme/logo.png">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!--PRODUCT_VERSION:26042101END-->
+            <div class="jss31 jss34" style="flex: 3 1 0%;">
+                <div class="jss32">
+                    <div class="jss31 jss34 jss39 jss50 gameloader">
+                        <div class="jss32">
+                            <div class="gameloader-game-name">
+                                Sausage Battle
+                            </div>
+                        </div>
+                        <div class="jss32">
+                            <div class="jss32 gameloader-logo">
+                                <img id="game-logo" src="26042101/loading.png">
+                            </div>
+                        </div>
+                        <div class="jss32">
+                            <div>
+                                <div class="gameloader-progressbar">
+                                    <div class="gameloader-progressbar-progress" id="progress_fill" style="width: 0%;"></div>
+                                </div>
+                                <div class="gameloader-progress-info">Game Loading...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        var progressElement = document.getElementById('progress_fill');
+        var container = document.getElementById("unity-container");
+        var canvas = document.getElementById("unity-canvas");
+        var loadingBar = document.querySelector("#loadingBlock");
+        var progressBarFull = document.querySelector("#progress_fill");
+        var progress_text = document.querySelector(".gameloader-progress-info");
+        var splash = document.getElementById("splash");
+        let text_percent = "";
+
+        function tryEnterGame() {
+            if (_prerollAdFinished && _unityInstanceReady && !_adIsPlaying) {
+                console.log("[GMSOFT] Both preroll ad finished and Unity ready. Entering game.");
+                splash.style.display = "none";
+                loadingBar.style.display = "none";
+                container.style.display = "block";
+                window.focus();
+            }
+        }
+        // Wait for GMSOFT_adsInfo and afg ready then show preroll ad before Unity loads
+
+        // Load Unity instance
+        var script = document.createElement("script");
+        script.src = loaderUrl;
+
+        script.onload = () => {
+            var saved_progess = 0;
+            createUnityInstance(canvas, config, (progress) => {
+
+                progress = Math.round(progress * 100);
+                if (saved_progess == progress) {
+                    return;
+                }
+                saved_progess = progress;
+                progressElement.style.width = progress + "%";
+                text_percent = "Downloading file: " + progress + "%";
+                progress_text.innerText = text_percent;
+                if (progress >= 99) {
+                    progress_text.innerText = "Game Loading ...";
+                }
+            }).then((unityInstance) => {
+                window.unityInstance = unityInstance;
+                setTimeout(function() {
+                    _unityInstanceReady = true;
+                    tryEnterGame();
+                }, 2000);
+                loadingBar.style.display = "none";
+                splash.style.display = "flex";
+                window.focus();
+            }).catch((message) => {
+                alert(message);
+            });
+        };
+
+        document.body.appendChild(script);
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-analytics-compat.js"></script>
+    <script type="module">
+    
+    if (typeof firebaseConfig !== 'undefined') {
+      if (firebaseConfig) {
+        window.dataLayer = window.dataLayer || [];
+        window.gtag = function () { window.dataLayer.push(arguments); }
+
+        window.gtag("config", firebaseConfig.measurementId, {
+          cookie_domain: window.location.hostname,
+          cookie_flags: "SameSite=None;Secure",
+        });
+        // Initialize Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        //const auth = getAuth(app);
+      }
+    }
+  </script>
+    <script>
+        function isFirebaseReady() {
+            try {
+                return typeof firebase !== "undefined" &&
+                    firebase.apps &&
+                    firebase.apps.length > 0;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        var enable_firebase = isFirebaseReady();
+
+        function firebaseSetUserProperties(props) {
+            try {
+                if (enable_firebase) {
+                    firebase.analytics().setUserProperties(props);
+                }
+            } catch (e) {}
+        }
+
+        function firebaseLogEvent(event_name) {
+            try {
+                if (enable_firebase) {
+                    firebase.analytics().logEvent(event_name);
+                }
+            } catch (e) {}
+        }
+
+        function firebaseLogEventParameter(event_name, event_param) {
+            try {
+                if (enable_firebase) {
+                    firebase.analytics().logEvent(event_name, event_param);
+                }
+            } catch (e) {}
+        }
+    </script>
+</html>

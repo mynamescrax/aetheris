@@ -1,0 +1,105 @@
+<!-- Ultimate Game Stash file--> 
+<!-- For the regularly updating doc go to https://docs.google.com/document/d/1_FmH3BlSBQI7FGgAQL59-ZPe8eCxs35wel6JUyVaG8Q/ -->
+
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Angry Birds Slingshot Frenzy</title>
+<meta name="Title" content="Angry Birds Slingshot Frenzy">
+<meta name="keywords" content="angry birds, free angry birds, online game, play online, angry birds app, web browser, arcade game, online, play angry birds online, web, application, game, iphone, android, ipad, slingshot, catapult, explosions, golden egg, levels, pigs, birds, stars, high scores, angry birds rovio, play angry birds on computer, angry birds fangame, play angry birds free">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="author" content="OssieTheOstrich">
+<link rel="manifest" href="https://cdn.jsdelivr.net/gh/UGBONTOP/firebaseport-angrybirds-remaster/appmanifest.json">
+<link rel="apple-touch-icon" sizes="128x128" href="https://cdn.jsdelivr.net/gh/UGBONTOP/firebaseport-angrybirds-remaster/icons/icon-128.png">
+<link rel="apple-touch-icon" sizes="256x256" href="https://cdn.jsdelivr.net/gh/UGBONTOP/firebaseport-angrybirds-remaster/icons/icon-256.png">
+<link rel="icon" type="image/png" href="https://cdn.jsdelivr.net/gh/UGBONTOP/firebaseport-angrybirds-remaster/icons/icon-256.png">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/UGBONTOP/firebaseport-angrybirds-remaster/style.css">
+
+<script>
+var cdn = "https://cdn.jsdelivr.net/gh/UGBONTOP/firebaseport-angrybirds-remaster/";
+
+function fixUrl(url) {
+  if (!url) return url;
+  if (url.startsWith("data:") || url.startsWith("blob:") || url.startsWith("//")) return url;
+  if (url.startsWith("http")) return url;
+  url = url.replace(/^file:\/\/\/[A-Za-z]:[\\\/].*?[\\\/]([^\\\/]+[\\\/][^\\\/]+)$/, "$1");
+  url = url.replace(/^file:\/\/\/[A-Za-z]:[\\\/].*?[\\\/]([^\\\/]+)$/, "$1");
+  url = url.replace(/^file:\/\//, "");
+  url = url.replace(/^[A-Za-z]:[\\\/].*?[\\\/]([^\\\/]+[\\\/][^\\\/]+)$/, "$1");
+  url = url.replace(/^[A-Za-z]:[\\\/].*?[\\\/]([^\\\/]+)$/, "$1");
+  url = url.replace(/^\//, "");
+  return cdn + url;
+}
+
+var realImgSrc = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, "src");
+Object.defineProperty(HTMLImageElement.prototype, "src", {
+  get: function() { return realImgSrc.get.call(this); },
+  set: function(val) { realImgSrc.set.call(this, fixUrl(val)); },
+  configurable: true
+});
+
+var RealXHR = window.XMLHttpRequest;
+window.XMLHttpRequest = function() {
+  var xhr = new RealXHR();
+  var realOpen = xhr.open.bind(xhr);
+  xhr.open = function(method, url, async, user, pass) {
+    return realOpen(method, fixUrl(url), async !== false, user, pass);
+  };
+  return xhr;
+};
+window.XMLHttpRequest.prototype = RealXHR.prototype;
+
+var realFetch = window.fetch;
+window.fetch = function(resource, init) {
+  if (typeof resource === "string") resource = fixUrl(resource);
+  return realFetch(resource, init);
+};
+
+var realMediaSrc = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, "src");
+if (realMediaSrc) {
+  Object.defineProperty(HTMLMediaElement.prototype, "src", {
+    get: function() { return realMediaSrc.get.call(this); },
+    set: function(val) { realMediaSrc.set.call(this, fixUrl(val)); },
+    configurable: true
+  });
+}
+
+var realCreateElement = document.createElement.bind(document);
+document.createElement = function(tag, options) {
+  var el = realCreateElement(tag, options);
+  if (tag.toLowerCase() === "script") {
+    var realScriptSrc = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype, "src");
+    Object.defineProperty(el, "src", {
+      get: function() { return realScriptSrc.get.call(this); },
+      set: function(val) { realScriptSrc.set.call(this, fixUrl(val)); },
+      configurable: true
+    });
+  }
+  return el;
+};
+
+var realAppendChild = Node.prototype.appendChild;
+Node.prototype.appendChild = function(node) {
+  if (node && node.tagName === "SCRIPT" && node.src) node.src = fixUrl(node.src);
+  return realAppendChild.call(this, node);
+};
+
+var realInsertBefore = Node.prototype.insertBefore;
+Node.prototype.insertBefore = function(node, ref) {
+  if (node && node.tagName === "SCRIPT" && node.src) node.src = fixUrl(node.src);
+  return realInsertBefore.call(this, node, ref);
+};
+</script>
+</head>
+<body>
+<div id="fb-root"></div>
+<script src="https://cdn.jsdelivr.net/gh/UGBONTOP/firebaseport-angrybirds-remaster/box2d.asm.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/UGBONTOP/firebaseport-angrybirds-remaster/opus.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/UGBONTOP/firebaseport-angrybirds-remaster/offlineclient.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/UGBONTOP/firebaseport-angrybirds-remaster/c2runtime.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/UGBONTOP/firebaseport-angrybirds-remaster/start.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/UGBONTOP/firebaseport-angrybirds-remaster/register-sw.js"></script>
+</body>
+</html>

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <title>Cells | UGS</title>
+    <base href="https://cdn.jsdelivr.net/gh/deformed-steve/the-cheese-stash@main/games/cellstosing/">
+    <style>
+      body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #050505; color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
+      #unity-container { width: 100vw; height: 100vh; position: relative; }
+      #unity-canvas { width: 100% !important; height: 100% !important; background: #000; }
+      #loading-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; background: radial-gradient(circle, #1a1a1a 0%, #050505 100%); transition: opacity 0.5s ease; z-index: 10; }
+      .brand { font-size: 1.2rem; letter-spacing: 4px; color: #555; text-transform: uppercase; margin-bottom: 5px; }
+      .credits { font-size: 2.5rem; font-weight: bold; background: linear-gradient(45deg, #fff, #666); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 30px; }
+      .progress-container { width: 300px; height: 4px; background: #222; border-radius: 10px; overflow: hidden; }
+      #progress-bar { width: 0%; height: 100%; background: #fff; box-shadow: 0 0 15px #fff; transition: width 0.2s; }
+      #status-text { margin-top: 15px; font-size: 0.9rem; color: #888; font-family: monospace; }
+    </style>
+  </head>
+  <body>
+    <div id="unity-container">
+      <canvas id="unity-canvas"></canvas>
+      <div id="loading-overlay">
+        <div class="brand">Ported by dude for</div>
+        <div class="credits">(UGS)</div>
+        <div class="progress-container">
+          <div id="progress-bar"></div>
+        </div>
+        <div id="status-text">INITIALIZING...</div>
+      </div>
+    </div>
+
+    <script src="Build/cells.loader.js"></script>
+    <script>
+      const statusText = document.querySelector("#status-text");
+      const progressBar = document.querySelector("#progress-bar");
+      const overlay = document.querySelector("#loading-overlay");
+      const canvas = document.querySelector("#unity-canvas");
+
+      async function fetchAndMerge(prefix, count) {
+        const parts = [];
+        for (let i = 1; i <= count; i++) {
+          statusText.innerHTML = `FETCHING ${prefix.toUpperCase()} ${i}/${count}`;
+          const response = await fetch(`Build/${prefix}${i}`);
+          if (!response.ok) throw new Error(`MISSING: ${prefix}${i}`);
+          parts.push(await response.arrayBuffer());
+          progressBar.style.width = `${(i / count) * 50}%`; 
+        }
+        return URL.createObjectURL(new Blob(parts));
+      }
+
+      async function initGame() {
+        try {
+          const dataUrl = await fetchAndMerge("cells.data.br.part", 10);
+          const wasmUrl = await fetchAndMerge("cells.wasm.br.part", 4);
+
+          const config = {
+            dataUrl: dataUrl,
+            frameworkUrl: "Build/cells.framework.js",
+            codeUrl: wasmUrl,
+            streamingAssetsUrl: "StreamingAssets",
+            companyName: "DefaultCompany",
+            productName: "Cells",
+            productVersion: "1.0",
+            decompressionFallback: true,
+          };
+
+          createUnityInstance(canvas, config, (progress) => {
+            progressBar.style.width = `${50 + (progress * 50)}%`;
+            statusText.innerHTML = "LOADING ENGINE: " + Math.round(100 * progress) + "%";
+          }).then(() => {
+            overlay.style.opacity = "0";
+            setTimeout(() => overlay.style.display = "none", 500);
+          });
+
+        } catch (err) {
+          statusText.innerHTML = `<span style="color:#ff4444">ERROR: ${err.message.toUpperCase()}</span>`;
+          console.error(err);
+        }
+      }
+
+      initGame();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>One Piece Fighting</title><style>html,body,#game{margin:0;width:100%;height:100%;background:#000;overflow:hidden}ruffle-player{width:100%;height:100%}</style>
+<script src="https://cdn.jsdelivr.net/npm/@ruffle-rs/ruffle@0.2.0-nightly.2025.10.2/ruffle.min.js"></script></head>
+<body><div id="game" role="status"></div><script>
+window.addEventListener("load", async function () {
+  var container = document.getElementById("game");
+  try {
+    var player = window.RufflePlayer.newest().createPlayer();
+    container.appendChild(player);
+    await player.load({url: "https://cdn.jsdelivr.net/gh/KrMattsson/atom-shell@cb4640e91cdbabb4c16b6536db4bbb1c33dc4df5/lib/oncepiecefighting.swf", autoplay: "on", unmuteOverlay: "visible"});
+  } catch (error) { container.textContent = "The game could not load. " + error.message; }
+});
+</script></body></html>

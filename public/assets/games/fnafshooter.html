@@ -1,0 +1,113 @@
+<!-- shxyder -->
+<!-- ultimate game stash file -->
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>google.com</title>
+  <link rel="shortcut icon" href="https://cdn.jsdelivr.net/gh/googleuserclassroomcontent/wassat@main/TemplateData/favicon.ico">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/googleuserclassroomcontent/wassat@main/TemplateData/style.css">
+  <meta name="robots" content="noindex,nofollow">
+</head>
+<body class="dark">
+  <div id="unity-container" class="unity-desktop">
+    <canvas id="unity-canvas"></canvas>
+  </div>
+
+  <div id="unity-fullscreen-button" style="display: none;"></div>
+
+  <script>
+    const hideFullScreenButton = "1";
+    const buildUrl = "https://cdn.jsdelivr.net/gh/googleuserclassroomcontent/wassat@main/Build";
+    const loaderUrl = buildUrl + "/FNaF_Shooter_GD.loader.js";
+
+    const config = {
+      dataUrl: "",
+      frameworkUrl: buildUrl + "/FNaF_Shooter_GD.framework.js.unityweb",
+      codeUrl: buildUrl + "/FNaF_Shooter_GD.wasm.unityweb",
+      streamingAssetsUrl: "StreamingAssets",
+      companyName: "GoGoMan",
+      productName: "FNaF Shooter",
+      productVersion: "1.0.0"
+    };
+
+    const container = document.querySelector("#unity-container");
+    const canvas = document.querySelector("#unity-canvas");
+    const fullscreenButton = document.querySelector("#unity-fullscreen-button");
+
+    const canFullscreen = (() => {
+      return [
+        "exitFullscreen",
+        "webkitExitFullscreen",
+        "webkitCancelFullScreen",
+        "mozCancelFullScreen",
+        "msExitFullscreen"
+      ].some(key => key in document);
+    })();
+
+    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+      container.className = "unity-mobile";
+      config.devicePixelRatio = 1;
+    }
+
+    canvas.style.background = "url('" + buildUrl + "/FNaF_Shooter_GD.jpg') center / cover";
+
+    async function loadDataParts() {
+      try {
+        const urls = [
+          buildUrl + "/FNaF_Shooter_GD.data.unityweb.part0",
+          buildUrl + "/FNaF_Shooter_GD.data.unityweb.part1"
+        ];
+
+        const responses = await Promise.all(
+          urls.map(url => fetch(url).then(res => {
+            if (!res.ok) {
+              throw new Error("HTTP " + res.status + " for " + url);
+            }
+            return res.arrayBuffer();
+          }))
+        );
+
+        const totalLength = responses.reduce((sum, buffer) => sum + buffer.byteLength, 0);
+        const combined = new Uint8Array(totalLength);
+
+        let offset = 0;
+        for (const buffer of responses) {
+          combined.set(new Uint8Array(buffer), offset);
+          offset += buffer.byteLength;
+        }
+
+        const blob = new Blob([combined], { type: "application/octet-stream" });
+        config.dataUrl = URL.createObjectURL(blob);
+
+        loadUnity();
+      } catch (err) {
+        alert("Veri dosyası parçaları yüklenemedi: " + err.message);
+      }
+    }
+
+    function loadUnity() {
+      const script = document.createElement("script");
+      script.src = loaderUrl;
+      script.onload = () => {
+        createUnityInstance(canvas, config).then(unityInstance => {
+          if (canFullscreen && !parseInt(hideFullScreenButton)) {
+            fullscreenButton.style.display = "";
+            fullscreenButton.onclick = () => unityInstance.SetFullscreen(1);
+          }
+        }).catch(message => {
+          alert(message);
+        });
+      };
+      script.onerror = () => {
+        alert("Unity loader yüklenemedi.");
+      };
+      document.body.appendChild(script);
+    }
+
+    loadDataParts();
+  </script>
+</body>
+</html>

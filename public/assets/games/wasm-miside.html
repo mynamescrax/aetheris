@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Unity WebGL Player | MiSide</title>
+    <style>
+      body { margin: 0; padding: 0; overflow: hidden; background: #000; width: 100vw; height: 100vh; }
+      #unity-canvas { width: 100%; height: 100%; display: block; position: absolute; top: 0; left: 0; }
+    </style>
+  </head>
+  <body>
+    <canvas id="unity-canvas"></canvas>
+    <script src="https://cdn.jsdelivr.net/gh/shayderrr/newports@645484275e42889188ed6380e965441123d1e552/Build/miside.loader.js"></script>
+    <script>
+      (async function() {
+        const buildUrl = "https://cdn.jsdelivr.net/gh/shayderrr/newports@645484275e42889188ed6380e965441123d1e552/Build/";
+        const canvas = document.querySelector("#unity-canvas");
+        const dataParts = [
+          "miside.data.part1",
+          "miside.data.part2",
+          "miside.data.part3",
+          "miside.data.part4",
+          "miside.data.part5"
+        ];
+
+        try {
+          const responses = await Promise.all(dataParts.map(part => fetch(buildUrl + part)));
+          const blobs = await Promise.all(responses.map(res => {
+            if (!res.ok) throw new Error();
+            return res.blob();
+          }));
+
+          const dataUrl = URL.createObjectURL(new Blob(blobs));
+
+          createUnityInstance(canvas, {
+            dataUrl: dataUrl,
+            frameworkUrl: buildUrl + "miside.framework.js",
+            codeUrl: buildUrl + "miside.wasm",
+            streamingAssetsUrl: "https://cdn.jsdelivr.net/gh/shayderrr/newports@645484275e42889188ed6380e965441123d1e552/StreamingAssets",
+            companyName: "AIHASTO",
+            productName: "MiSide",
+            productVersion: "1.13",
+            matchWebGLToCanvasSize: true,
+            devicePixelRatio: window.devicePixelRatio || 1
+          });
+        } catch (e) {
+          console.error(e);
+        }
+      })();
+    </script>
+  </body>
+</html>

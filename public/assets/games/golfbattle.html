@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+
+
+<!-- Ultimate Game Stash file--> 
+<!-- For the regularly updating doc go to https://docs.google.com/document/d/1_FmH3BlSBQI7FGgAQL59-ZPe8eCxs35wel6JUyVaG8Q/ -->
+
+
+<html>
+<head>
+    <meta name='viewport' content='width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no' />
+    <meta charset='utf-8'>
+  <base href="https://cdn.jsdelivr.net/gh/bubbls/UGS-Assets@main/golf-battle/">
+    <link rel="stylesheet" type="text/css" href="styles.css">
+    <link rel="manifest" href="manifest.json">
+    <style></style>
+    <title>Golf Battle</title>
+    <script src="playcanvas-stable.max.js"></script>
+	<script src="/adinLoader.js"></script>
+</head>
+<body>
+<div id="rotate">
+
+</div>
+ <script>
+    
+    var randomLevels = true;  // set false for select your levels, we put this only as showcase
+    var soundOff      = false;
+    (
+		function() {
+			"use strict";
+			var scope          = {};
+
+			
+			Object.defineProperties(window, {
+				
+				 quickstartGame : {
+					value : function() {
+						skipMenu = true;							
+						if (_menu != null)			  	                        
+							_menu.quickStart();           	
+						console.log("game quick start");
+						}
+				},			
+				getScore : {
+					value : function() {
+							return window._globalScore;
+					}
+				},
+				muteGame : {
+					value : function() {
+						if (_menu != null)			  	
+						{
+                            var muteBoton = _menu.muteMC;
+                            muteSound = 1;
+                            muteBoton.script.animaMsg.clickBoton(null,false,1);
+                            mute(1);							
+							soundOff = true;
+						}	
+					}
+				},
+				unmuteGame : {
+					value : function() {
+						if (_menu != null)			  	
+						{	
+                            var muteBoton = _menu.muteMC;
+							muteSound = 0;
+                            muteBoton.script.animaMsg.clickBoton(null,false,0);
+                            mute(0);							
+							soundOff = false;
+						}
+					}
+				},
+				quickstopGame : {
+					value : function() {
+							if (_menu != null)			  	
+							   _menu.finalForzado();
+					}
+				},				
+				setTimeToEnd : {
+					value : function(time) {
+						
+						if (_menu != null)		
+							_menu.setTime_eazegames(time);						
+						else				
+							setTimeout(window.setTimeToEnd.bind(window,time), 60);						
+					}
+				},
+				
+				onGameUpdate : {
+					value : function(scoreAdded) {
+						if (window.gameFinished) return;
+						console.log("GAME score UPDATED WAS CALLED!!! " + scoreAdded, getScore());
+					}
+				},
+				onGameLoad : {
+					value : function onGameLoad(time) {
+						if (window.gameFinished) return;
+						console.log("GAME LOAD WAS CALLED!!! ", time);
+						
+					}
+				},
+
+				onGameStart : {
+					value : function onGameStart() {
+						if (window.gameFinished) return;						
+						if (soundOff) {	
+                            var muteBoton = _menu.muteMC;
+							muteSound = 1;
+                            muteBoton.script.animaMsg.clickBoton(null,false,1);
+                            mute(1);							
+							soundOff = true;		
+						} else {
+                            var muteBoton = _menu.muteMC;
+							muteSound = 0;
+                            muteBoton.script.animaMsg.clickBoton(null,false,0);
+                            mute(0);							
+							soundOff = false;
+						}
+						console.log("GAME START WAS CALLED!!! ");
+					}
+				},
+
+				onGameEnd : {
+					value : function onGameEnd() {
+						if (window.gameFinished) return;
+						console.log("GAME END WAS CALLED!!! ", getScore());
+						Object.defineProperty(window, "gameFinished", {
+							value : true
+						});
+					}
+				}
+			});			
+		}
+	)();
+    
+    //lang
+     var LANGS_OBJ    = {
+		"en" : 0,
+		"de" : 1,
+		"nl" : 2
+	};
+	var selectedLang = LANGS_OBJ.en;
+	try {
+		var search       = location.search.substring(1);
+		var searchParams = JSON.parse(
+			"{\"" + decodeURI(search).replace(/"/g, "\\\"").replace(/&/g, "\",\"").replace(/=/g, "\":\"") + "\"}");
+
+		selectedLang = LANGS_OBJ[ searchParams.locale ] || LANGS_OBJ.en;
+	} catch (e) {}
+    
+    var lenguajeManual = true;
+    var lenguajeEl  = selectedLang;
+    
+     var APP = null;
+    var hiloStart = null;    
+    var timeToStartGame = 300;
+	 hiloStart = setInterval(esperaJuegoListo,30);
+	
+	function esperaJuegoListo()
+	{
+		if(APP != null)
+		{			
+			onGameLoad();
+			clearInterval(hiloStart);          
+			hiloStart = setInterval(empezarJuego,timeToStartGame);
+		}
+	}
+	function empezarJuego()
+	{
+		clearInterval(hiloStart);
+          // set levels this way, only if  randomLevels = false
+           setLevels = "1-10-20-40-60-15"; //reccomended not upper 15 or 20;
+		APP.start();		
+	}
+	
+	var isMobile = {
+            Android: function() {
+                return navigator.userAgent.match(/Android/i);
+            },
+            BlackBerry: function() {
+                return navigator.userAgent.match(/BlackBerry/i);
+            },
+            iOS: function() {
+                return navigator.userAgent.match(/iPhone|iPad|iPod/i);
+            },
+            Opera: function() {
+                return navigator.userAgent.match(/Opera Mini/i);
+            },
+            Windows: function() {
+                return navigator.userAgent.match(/IEMobile/i) || navigator.userAgent.match(/WPDesktop/i);
+            },
+            any: function() {
+                return (isMobile.Android() || isMobile.BlackBerry() || isMobile.iOS() || isMobile.Opera() || isMobile.Windows());
+            }
+        };
+        ASSET_PREFIX = "";
+        SCRIPT_PREFIX = "";
+        SCENE_PATH = "818084.json";
+        CONTEXT_OPTIONS = {
+            'antialias': true,
+            'alpha': true,
+            'preserveDrawingBuffer': false,
+            'preferWebGl2': false
+        };
+        SCRIPTS = [ 24083896, 24083894, 24083893, 24083863, 24083851, 24083854, 24083902, 24083895, 24083857, 24083888, 24083890, 24083840, 24083836, 24083849, 24083838, 24083834, 24083839, 24083873, 24083891, 24083837, 24083845, 24083850, 24083853, 24083883, 24083860, 24083898, 24083867, 24083862, 25776538, 26122328, 26142160, 26167452, 26178244, 26186658, 26482598, 26520106, 26546696, 26547627 ];
+        if(isMobile.any())
+            CONFIG_FILENAME = "config_mobile.json";
+        else
+            CONFIG_FILENAME = "config.json";
+        INPUT_SETTINGS = {
+            useKeyboard: true,
+            useMouse: true,
+            useGamepads: false,
+            useTouch: true
+        };
+        pc.script.legacy = false;
+        PRELOAD_MODULES = [
+        ];
+        
+        
+        
+          function isset(variable) {
+           return typeof variable !== typeof undefined;
+       }
+      
+
+  
+
+       document.addEventListener("pause", onPause, false);
+       document.addEventListener("resume", onResume, false);
+
+         function onPause() {
+           // Handle the pause event
+           console.log("en pause!!");
+           if(isset(_menu) && _menu != null)
+           {              
+                   if(muteSound == 0)
+                   {
+                       var muteBoton = _menu.muteMC;
+                        muteSound = 1;
+                        muteBoton.script.animaMsg.clickBoton(null,false,1);
+                        mute(1);							
+						soundOff = true;
+                   }             
+           }
+       }
+     
+      function onResume() {
+           // Handle the resume event
+           //console.log("en resumen!!");
+           if(isset(_menu) && _menu != null)
+           {              
+                   if(muteSound == 1)
+                   {
+                       var muteBoton = _menu.muteMC;
+                        muteSound = 0;
+                        muteBoton.script.animaMsg.clickBoton(null,false,0);
+                        mute(0);							
+						soundOff = false;
+                   }             
+           }
+       }
+
+      window.onblur = function()
+       {
+
+            //           console.log("en pause!!");
+           if(isset(_menu) && _menu != null)
+           {              
+                   if(muteSound == 0)
+                   {
+                       var muteBoton = _menu.muteMC;
+                        muteSound = 1;
+                        muteBoton.script.animaMsg.clickBoton(null,false,1);
+                        mute(1);							
+						soundOff = true;
+                   }             
+           }
+
+       };
+       window.onclick = function() {
+
+           this.focus();
+
+       };
+      
+       window.onfocus = function()
+       {
+            //           console.log("en resumen!!");
+            /*
+           if(isset(_menu) && _menu != null)
+           {              
+                   if(muteSound == 1)
+                   {
+                       var muteBoton = _menu.muteMC;
+                        muteSound = 0;
+                        muteBoton.script.animaMsg.clickBoton(null,false,0);
+                        mute(0);							
+						soundOff = false;
+                   }             
+           }
+           */
+
+       };
+   
+   	function loadjscssfile(filename, filetype) {
+		if (filetype == "js") { //if filename is a external JavaScript file
+			var fileref = document.createElement("script");
+			fileref.setAttribute("type", "text/javascript");
+			fileref.setAttribute("src", filename);
+		} else if (filetype == "css") { //if filename is an external CSS file
+			var fileref = document.createElement("link");
+			fileref.setAttribute("rel", "stylesheet");
+			fileref.setAttribute("type", "text/css");
+			fileref.setAttribute("href", filename);
+		}
+		if (typeof fileref != "undefined")
+			document.getElementsByTagName("head")[ 0 ].appendChild(fileref);
+	}      
+        
+        
+ </script>
+<script src="__start__.js"></script>    
+
+  <script type="text/javascript">
+      window.SDK_OPTIONS = {
+        gameId: "w0ij1igcyt8yd96ppelksxcwulp0inye",
+        onEvent: function (a) {
+                  switch (a.name) {
+            case "SDK_GAME_PAUSE":
+               break;
+            case "SDK_GAME_START":
+               break;
+            case "SDK_READY":
+               break;
+          }
+        },
+      };
+      (function (a, b, c) {
+        var d = a.getElementsByTagName(b)[0];
+        a.getElementById(c) ||
+          ((a = a.createElement(b)),
+          (a.id = c),
+          (a.src = "https://lablockedgames.com/gamemo.js"),
+          d.parentNode.insertBefore(a, d));
+      })(document, "script", "gamemonetize-sdk");  
+
+setTimeout(function() {
+    sdk.showBanner();
+}, 5000);
+     
+     window.setInterval(function(){
+sdk.showBanner();
+}, 60000);
+    </script>
+		<script>
+       if (typeof getAdinDomain !== 'undefined') {
+           const bodyTag = document.getElementsByTagName('body')[0];
+
+           let addAdinPreroll = document.createElement('script');
+            addAdinPreroll.src = getAdinDomain;
+            bodyTag.appendChild(addAdinPreroll);
+        }
+  </script>
+
+</body>
+</html>

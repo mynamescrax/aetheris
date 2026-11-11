@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <script src="./js/site.js?v=20261110.1"></script>
+    <meta charset="utf-8" />
+    <link
+      rel="shortcut icon"
+      href="./assets/images/icon.png"
+      type="image/png"
+    />
+    <title>Aetheris</title>
+
+    <link rel="stylesheet" href="./css/main.css?v=20261011.2" />
+    <link rel="stylesheet" href="./css/cards.css?v=20260907.1" />
+    <link rel="stylesheet" href="./css/themes.css?v=20261101.1" />
+    <link rel="stylesheet" href="./css/nav.css?v=20261102.1" />
+    <link rel="stylesheet" href="./css/settings.css?v=20261022.1" />
+    <script src="./js/theme.js?v=20261101.1"></script>
+
+    <script src="register-sw.js?v=20260907.1" defer></script>
+    <script defer src="./js/preload.js?v=20261008.1"></script>
+    <script defer src="./js/settings.js?v=20261103.1"></script>
+    <script defer src="./js/data-transfer.js?v=20261020.1"></script>
+    <script defer src="./js/cache-reset.js?v=20260924.1"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <script src="./js/navigation.js?v=20260907.1"></script>
+    <script>
+      (function () {
+        window.selectthemecard = function (theme) {
+          if (!Aetheris.applyTheme(theme)) return;
+          document
+            .querySelectorAll(".theme-card[data-theme]")
+            .forEach(function (c) {
+              c.classList.toggle("active", c.dataset.theme === theme);
+            });
+          var sel = document.getElementById("theme-select");
+          if (sel) sel.value = theme;
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage(
+              { type: "theme-changed", theme: theme },
+              location.origin,
+            );
+          }
+        };
+
+        document.addEventListener("DOMContentLoaded", function () {
+          var saved =
+            Aetheris.storage.getItem("aetheris-theme") ||
+            document.documentElement.getAttribute("theme") ||
+            "dark";
+          document
+            .querySelectorAll(".theme-card[data-theme]")
+            .forEach(function (c) {
+              c.classList.toggle("active", c.dataset.theme === saved);
+            });
+        });
+      })();
+    </script>
+    <link rel="stylesheet" href="./css/usability.css?v=20261103.3" />
+  </head>
+
+  <body>
+    <div class="center-container">
+      <h1>Settings</h1>
+
+      <div class="settings-tabs">
+        <button class="settings-tab active" onclick="showsection('appearance')">
+          Appearance
+        </button>
+        <button class="settings-tab" onclick="showsection('cloaking')">
+          Cloaking
+        </button>
+        <button class="settings-tab" onclick="showsection('connection')">
+          Connection
+        </button>
+        <button class="settings-tab" onclick="showsection('games')">
+          Games
+        </button>
+        <button class="settings-tab" onclick="showsection('data')">Data</button>
+      </div>
+
+      <div class="settings-section active" id="section-appearance">
+        <h2>Theme</h2>
+        <h4>Pick a theme</h4>
+
+        <div class="theme-cards" id="theme-cards">
+          <button
+            class="theme-card"
+            data-theme="dark"
+            onclick="selectthemecard('dark')"
+          >
+            <span
+              class="theme-swatch"
+              style="background: linear-gradient(135deg, #2e2e2e, #1a1a1a)"
+            ></span>
+            <span class="theme-label">Charcoal</span>
+          </button>
+          <button
+            class="theme-card"
+            data-theme="dark-blue"
+            onclick="selectthemecard('dark-blue')"
+          >
+            <span
+              class="theme-swatch"
+              style="background: linear-gradient(135deg, #1e3a5f, #0f1f36)"
+            ></span>
+            <span class="theme-label">Dark Blue</span>
+          </button>
+          <button
+            class="theme-card"
+            data-theme="charcoal-gold"
+            onclick="selectthemecard('charcoal-gold')"
+          >
+            <span
+              class="theme-swatch"
+              style="
+                background: linear-gradient(135deg, #2e2e2e, #1a1a1a);
+                outline: 1px solid rgba(196, 149, 92, 0.4);
+              "
+            ></span>
+            <span class="theme-label">Charcoal Gold</span>
+          </button>
+        </div>
+
+        <select id="theme-select" style="display: none">
+          <option value="dark">Charcoal</option>
+          <option value="dark-blue">Dark Blue</option>
+          <option value="charcoal-gold">Charcoal Gold</option>
+        </select>
+
+        <h2>On-screen keyboard</h2>
+        <h4>Shows a keyboard overlay while you play. Might not work in every game.</h4>
+
+        <div class="toggle-row">
+          <label class="toggle-label" for="osk-toggle">
+            <span class="toggle-track">
+              <input type="checkbox" id="osk-toggle" />
+              <span class="toggle-thumb"></span>
+            </span>
+            <span class="toggle-text">Enable on-screen keyboard</span>
+          </label>
+        </div>
+
+        <h2>Background image</h2>
+        <h4>Upload an image to use as your background.</h4>
+        <div
+          id="bg-preview-wrap"
+          style="
+            display: none;
+            margin: 8px auto 14px;
+            width: 140px;
+            height: 80px;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1.5px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+          "
+        >
+          <img
+            id="bg-preview"
+            style="width: 100%; height: 100%; object-fit: cover"
+            src=""
+            alt="Background preview"
+          />
+        </div>
+
+        <div class="form-row">
+          <button
+            onclick="document.getElementById('bg-upload').click()"
+            class="secondary"
+          >
+            Upload image
+          </button>
+          <button
+            id="bg-remove-btn"
+            onclick="removebg()"
+            class="secondary"
+            style="display: none"
+          >
+            Remove
+          </button>
+          <input
+            type="file"
+            id="bg-upload"
+            accept="image/*"
+            style="display: none"
+            onchange="uploadbg(event)"
+          />
+        </div>
+        <div
+          id="bg-status"
+          style="margin-top: 8px; font-size: 0.88em; opacity: 0.7"
+        ></div>
+      </div>
+
+      <div class="settings-section" id="section-cloaking">
+        <h2>Tab cloaking</h2>
+        <div class="form-row">
+          <input
+            type="text"
+            id="tabname"
+            placeholder="Tab name"
+            aria-label="Tab name"
+          />
+          <button onclick="settab()" class="secondary">Set tab name</button>
+        </div>
+
+        <div class="form-row">
+          <input
+            type="text"
+            id="tabicon"
+            placeholder="Tab icon URL"
+            aria-label="Tab icon URL"
+          />
+          <button onclick="settab()" class="secondary">Set tab icon</button>
+        </div>
+
+        <div class="tab-presets" aria-label="Tab cloak presets">
+          <button
+            class="secondary"
+            onclick="settabpreset('google')"
+            title="Google"
+          >
+            <img src="assets/images/google.png" alt="Google" />
+          </button>
+          <button
+            class="secondary"
+            onclick="settabpreset('drive')"
+            title="Google Drive"
+          >
+            <img
+              src="https://ssl.gstatic.com/docs/doclist/images/drive_2022q3_32dp.png"
+              alt="Google Drive"
+            />
+          </button>
+          <button
+            class="secondary"
+            onclick="settabpreset('docs')"
+            title="Google Docs"
+          >
+            <img
+              src="https://ssl.gstatic.com/docs/documents/images/kix-favicon7.ico"
+              alt="Google Docs"
+            />
+          </button>
+          <button
+            class="secondary"
+            onclick="settabpreset('classroom')"
+            title="Google Classroom"
+          >
+            <img
+              src="https://ssl.gstatic.com/classroom/ic_product_classroom_32.png"
+              alt="Google Classroom"
+            />
+          </button>
+        </div>
+
+        <h2>Panic key</h2>
+        <h4>
+          Pick a key games don't use for controls, like ` or ;. Keys like WASD or space will kick you out mid-game. Single keys won't trigger while you're typing in a text box.
+        </h4>
+        <div class="form-row">
+          <input
+            type="text"
+            id="panickey"
+            placeholder="Panic key"
+            aria-label="Panic key"
+          />
+          <button onclick="setpanickey()" class="secondary">
+            Set panic key
+          </button>
+        </div>
+
+        <div class="form-row">
+          <input
+            type="text"
+            id="panicurl"
+            placeholder="Panic URL"
+            aria-label="Panic URL"
+          />
+          <button onclick="setpanicurl()" class="secondary">
+            Set panic URL
+          </button>
+        </div>
+
+        <div class="form-row">
+          <button onclick="detectpanic()" id="panickeybtn" class="secondary">
+            Auto detect panic key
+          </button>
+        </div>
+      </div>
+
+      <div class="settings-section" id="section-connection">
+        <h2>Transport</h2>
+        <h4>Which transport sites and games use.</h4>
+
+        <div class="theme-cards" id="transport-cards">
+          <button
+            class="theme-card transport-card"
+            id="transport-libcurl"
+            data-transport="libcurl"
+            onclick="selecttransport('libcurl')"
+          >
+            <span class="transport-header">
+              <span class="theme-label">libcurl</span>
+              <span
+                class="transport-tip"
+                data-tip="Generally the fastest, and the default on Windows, Linux, ChromeOS and Firefox. If it can't start, epoxy is used automatically."
+                onclick="event.stopPropagation()"
+                >?</span
+              >
+            </span>
+            <span
+              class="theme-swatch"
+              style="background: linear-gradient(135deg, #0ea5e9, #0369a1)"
+            ></span>
+            <span class="transport-sub">Default / Secure</span>
+            <span class="transport-compat">Most devices</span>
+          </button>
+          <button
+            class="theme-card transport-card"
+            id="transport-epoxy"
+            data-transport="epoxy"
+            onclick="selecttransport('epoxy')"
+          >
+            <span class="transport-header">
+              <span class="theme-label">epoxy</span>
+              <span
+                class="transport-tip"
+                data-tip="Most compatible, and required on Apple devices. Used automatically as a fallback when libcurl can't start."
+                onclick="event.stopPropagation()"
+                >?</span
+              >
+            </span>
+            <span
+              class="theme-swatch"
+              style="background: linear-gradient(135deg, #10b981, #065f46)"
+            ></span>
+            <span class="transport-sub">Compatibility / Secure</span>
+            <span class="transport-compat">Apple / fallback</span>
+          </button>
+        </div>
+        <div
+          id="transport-status"
+          style="margin-top: 8px; font-size: 0.85em; opacity: 0.6"
+        ></div>
+
+        <h2>Performance</h2>
+        <h4>Turns off effects so slower devices run better.</h4>
+
+        <div class="toggle-row">
+          <label class="toggle-label" for="performance-toggle">
+            <span class="toggle-track">
+              <input type="checkbox" id="performance-toggle" />
+              <span class="toggle-thumb"></span>
+            </span>
+            <span class="toggle-text">Performance mode</span>
+          </label>
+        </div>
+
+        <h2>Desktop mode</h2>
+        <h4>Makes games and sites think you're on a PC.</h4>
+
+        <div class="toggle-row">
+          <label class="toggle-label" for="spoof-ua-toggle">
+            <span class="toggle-track">
+              <input type="checkbox" id="spoof-ua-toggle" />
+              <span class="toggle-thumb"></span>
+            </span>
+            <span class="toggle-text">Spoof desktop user agent</span>
+          </label>
+        </div>
+
+        <h2>Ad blocker</h2>
+        <h4>Blocks ads and trackers in the proxy so sites load faster. Turn it off if a site or game breaks.</h4>
+
+        <div class="toggle-row">
+          <label class="toggle-label" for="adblock-toggle">
+            <span class="toggle-track">
+              <input type="checkbox" id="adblock-toggle" />
+              <span class="toggle-thumb"></span>
+            </span>
+            <span class="toggle-text">Block ads in the proxy</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-section" id="section-devtools">
+        <h2>DevTools</h2>
+        <h4>
+          Adds the Eruda debugger inside games, for reading console errors when
+          something won't load. Reload a game you already have open to apply it.
+        </h4>
+
+        <div class="toggle-row">
+          <label class="toggle-label" for="eruda-toggle">
+            <span class="toggle-track">
+              <input type="checkbox" id="eruda-toggle" />
+              <span class="toggle-thumb"></span>
+            </span>
+            <span class="toggle-text">Show debugger in games</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-section" id="section-games">
+        <h2>Game clock</h2>
+        <h4>
+          Moves the clock forward inside the built-in games so daily rewards,
+          streaks and other timers reset early. Only games that read the clock
+          on this device are affected; online games still use their server's
+          time. Open game tabs pick this up within a second, but reload a game
+          if its timer doesn't move.
+        </h4>
+
+        <div class="form-row clock-row">
+          <input
+            type="number"
+            id="clock-offset"
+            min="0"
+            step="any"
+            inputmode="decimal"
+            placeholder="Amount"
+            aria-label="Clock offset amount"
+          />
+          <select id="clock-unit" aria-label="Clock offset unit">
+            <option value="hours">hours</option>
+            <option value="days">days</option>
+          </select>
+          <button onclick="setgameclock()" class="secondary">Set clock</button>
+        </div>
+
+        <div class="form-row">
+          <button onclick="bumpgameclock(1)" class="secondary">+1 day</button>
+          <button onclick="bumpgameclock(7)" class="secondary">+1 week</button>
+          <button onclick="resetgameclock()" class="secondary">Reset clock</button>
+        </div>
+
+        <div
+          id="clock-status"
+          role="status"
+          style="margin-top: 10px; font-size: 0.92em; opacity: 0.75"
+        ></div>
+      </div>
+
+      <div class="settings-section" id="section-tutorial">
+        <h2>Tutorial</h2>
+        <h4>Replay the quick tour from your first visit.</h4>
+
+        <div class="form-row">
+          <button id="replay-tutorial" class="secondary">Replay tutorial</button>
+        </div>
+      </div>
+
+      <div class="settings-section" id="section-data">
+        <h2>Data</h2>
+        <h4>
+          Back up settings and game saves. Chat sign-ins and disposable caches
+          are excluded. Keep backup files private.
+        </h4>
+
+        <div class="form-row">
+          <button onclick="exportdata()" class="secondary" data-transfer>
+            Export data
+          </button>
+          <button
+            onclick="document.getElementById('import-file').click()"
+            class="secondary"
+            data-transfer
+          >
+            Import data
+          </button>
+          <input
+            type="file"
+            id="import-file"
+            accept=".json"
+            style="display: none"
+            onchange="importdata(event)"
+          />
+        </div>
+        <div
+          id="data-status"
+          role="status"
+          style="margin-top: 10px; font-size: 0.92em; opacity: 0.75"
+        ></div>
+
+        <h2>Cache</h2>
+        <h4>
+          Clear proxy/catalog caches and the site service worker. Game-save
+          databases and favorites are kept.
+        </h4>
+        <div class="form-row">
+          <button onclick="resetcache(this)" class="secondary">
+            Reset cache
+          </button>
+        </div>
+
+        <h2>Downloaded games</h2>
+        <h4>
+          Delete downloaded game files to free space: per-game offline packs,
+          game download caches, and large downloaded files stored alongside
+          saves. Settings, favorites, game saves, and chat sign-ins are kept.
+        </h4>
+        <div class="form-row">
+          <button onclick="resetdownloadedgames(this)" class="secondary">
+            Delete downloaded games
+          </button>
+        </div>
+
+        <h2>Site data</h2>
+        <h4>
+          Delete everything stored by this site: settings, favorites, game
+          saves, chat sign-ins, caches, and the service worker. Export a
+          backup first if you want to keep anything.
+        </h4>
+        <div class="form-row">
+          <button onclick="resetsitedata(this)" class="secondary">
+            Reset site data
+          </button>
+        </div>
+      </div>
+
+      <div
+        class="bottom-links"
+        style="justify-content: center; text-align: center; width: 100%"
+      >
+        <a href="./about.html" class="button secondary" data-app-nav="about"
+          >About</a
+        >
+        <a href="./index.html" class="button secondary" data-app-nav="home"
+          >Home</a
+        >
+      </div>
+    </div>
+
+    <script>
+      async function resetcache(btn) {
+        if (
+          !confirm(
+            "Reset proxy/catalog caches? Games using the proxy will need a reload. Game saves and favorites are kept.",
+          )
+        )
+          return;
+        btn.disabled = true;
+        btn.textContent = "Clearing…";
+        var status = document.getElementById("data-status");
+        try {
+          await AetherisCache.reset();
+          status.textContent =
+            "Proxy caches cleared. Reload the page to restart the proxy. Game saves and favorites were kept.";
+        } catch (error) {
+          status.textContent = error.message;
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "Reset cache";
+        }
+      }
+
+      async function resetdownloadedgames(btn) {
+        if (
+          !confirm(
+            "Delete downloaded game files? Settings, favorites, game saves, and chat sign-ins are kept. Games will re-download next time you play them.",
+          )
+        )
+          return;
+        btn.disabled = true;
+        btn.textContent = "Deleting…";
+        var status = document.getElementById("data-status");
+        try {
+          var result = await AetherisCache.resetDownloadedGames();
+          var parts = [];
+          parts.push(
+            result.caches +
+              (result.caches === 1 ? " game cache" : " game caches"),
+          );
+          parts.push(
+            result.databases +
+              (result.databases === 1 ? " download store" : " download stores"),
+          );
+          parts.push(
+            result.files +
+              (result.files === 1 ? " downloaded file" : " downloaded files"),
+          );
+          status.textContent =
+            "Deleted " +
+            parts.slice(0, -1).join(", ") +
+            " and " +
+            parts[parts.length - 1] +
+            ". Settings, favorites, and game saves were kept.";
+        } catch (error) {
+          status.textContent = error.message;
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "Delete downloaded games";
+        }
+      }
+
+      async function resetsitedata(btn) {
+        if (
+          !confirm(
+            "Delete ALL site data? This removes settings, favorites, game saves, chat sign-ins, and caches. Export a backup first if anything matters.",
+          )
+        )
+          return;
+        if (!confirm("Last chance: really wipe everything and reload?"))
+          return;
+        btn.disabled = true;
+        btn.textContent = "Clearing…";
+        var status = document.getElementById("data-status");
+        try {
+          await AetherisCache.resetSiteData();
+          status.textContent = "Site data cleared. Reloading…";
+          location.reload();
+        } catch (error) {
+          status.textContent = error.message;
+          btn.disabled = false;
+          btn.textContent = "Reset site data";
+        }
+      }
+
+      function showsection(name) {
+        document.querySelectorAll(".settings-section").forEach(function (el) {
+          el.classList.toggle("active", el.id === "section-" + name);
+        });
+        document.querySelectorAll(".settings-tab").forEach(function (btn, i) {
+          var tabs = ["appearance", "cloaking", "connection", "games", "data"];
+          btn.classList.toggle("active", tabs[i] === name);
+        });
+        Aetheris.storage.setItem("settingsTab", name);
+      }
+
+      document.addEventListener("DOMContentLoaded", function () {
+        var saved = Aetheris.storage.getItem("settingsTab");
+        if (saved && /^[a-z]+$/.test(saved) && document.getElementById("section-" + saved)) {
+          showsection(saved);
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,1057 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <script src="./js/site.js?v=20261110.1"></script>
+
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link
+      rel="shortcut icon"
+      href="./assets/images/icon.png"
+      type="image/png"
+    />
+    <title>Aetheris</title>
+
+    <link rel="stylesheet" href="./css/main.css?v=20261011.2" />
+    <link rel="stylesheet" href="./css/cards.css?v=20260907.1" />
+    <link rel="stylesheet" href="./css/themes.css?v=20261101.1" />
+    <link rel="stylesheet" href="./css/nav.css?v=20261102.1" />
+
+    <meta name="theme-color" content="#0f0f0f" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+
+    <script src="register-sw.js?v=20260907.1" defer></script>
+    <script defer src="./js/preload.js?v=20261008.1"></script>
+    <script src="./js/dm-shared.js?v=20261106.3"></script>
+
+    <script src="./js/theme.js?v=20261101.1"></script>
+    <script src="./js/navigation.js?v=20260907.1"></script>
+    <link rel="stylesheet" href="./css/usability.css?v=20261103.3" />
+  </head>
+
+  <body>
+    <div class="dark-home">
+      <h1 class="dark-title">Aetheris</h1>
+      <p class="dark-subtitle" id="darksubtitle">nichest site..</p>
+
+      <div class="dark-search-wrap">
+        <input
+          type="text"
+          id="darksearch"
+          class="dark-search"
+          placeholder="Search or enter a URL"
+          autocomplete="off"
+          aria-label="Search anything"
+        />
+      </div>
+
+      <nav class="home-launch" aria-label="Quick links">
+        <a
+          class="home-tile"
+          href="/index.html#games"
+          target="_top"
+          data-app="games"
+        >
+          <img src="./assets/images/games.png" alt="" draggable="false" />
+          <span>Games</span>
+        </a>
+        <a
+          class="home-tile"
+          href="/index.html#movies"
+          target="_top"
+          data-app="movies"
+        >
+          <img src="./assets/images/movies.png" alt="" draggable="false" />
+          <span>Movies</span>
+        </a>
+        <a
+          class="home-tile"
+          href="/index.html#apps"
+          target="_top"
+          data-app="apps"
+        >
+          <img src="./assets/images/apps.png" alt="" draggable="false" />
+          <span>Apps</span>
+        </a>
+        <a
+          class="home-tile"
+          href="/index.html#chat"
+          target="_top"
+          data-app="chat"
+        >
+          <img src="./assets/images/chat.png" alt="" draggable="false" />
+          <span>Chat</span>
+        </a>
+        <a
+          class="home-tile"
+          href="/index.html#ai"
+          target="_top"
+          data-app="ai"
+        >
+          <img src="./assets/images/ai.png" alt="" draggable="false" />
+          <span>AI</span>
+        </a>
+        <a
+          class="home-tile"
+          href="/index.html#cheats"
+          target="_top"
+          data-app="cheats"
+        >
+          <img src="./assets/images/cheats.png" alt="" draggable="false" />
+          <span>Cheats</span>
+        </a>
+      </nav>
+
+      <div class="footer-links home-links">
+        <a href="./settings.html" class="btn secondary-btn">Settings</a>
+        <a href="./about.html" class="btn secondary-btn">About</a>
+        <a
+          href="#"
+          onclick="
+            event.preventDefault();
+            openreport();
+          "
+          class="btn secondary-btn"
+        >
+          Report
+        </a>
+      </div>
+    </div>
+
+    <div class="online-status" aria-live="polite">
+      <span class="online-dot"></span> Online now
+      <span id="online-count">—</span>
+    </div>
+
+    <div
+      id="updatemodal"
+      class="update-modal-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="updatemodaltitle"
+    >
+      <div class="update-modal">
+        <h2 id="updatemodaltitle">What's new</h2>
+        <p>We fixed several games from your reports.</p>
+        <ul class="update-list">
+          <li>Basket Random now loads the Play button.</li>
+          <li>Bridge Race now opens the correct game.</li>
+          <li>Crossy Road now updates your coin total.</li>
+          <li>Assessment Examination now loads its game data.</li>
+        </ul>
+        <div class="update-modal-footer">
+          <button id="updatemodalclose" type="button">Got it</button>
+        </div>
+      </div>
+    </div>
+
+    <a
+      href="https://discord.com/invite/NE4tA6Gq6Y"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="discord-icon"
+    >
+      <img src="assets/images/discord.png" alt="Discord" />
+    </a>
+
+    <style>
+      .rtype {
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        color: rgba(229, 229, 229, 0.75);
+        font-family: var(--font-sans);
+        font-size: 11px;
+        padding: 6px 11px;
+        cursor: pointer;
+        transition:
+          background 0.14s,
+          border-color 0.14s,
+          color 0.14s;
+      }
+      .rtype:hover {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 255, 255, 0.2);
+        color: #e5e5e5;
+      }
+      .rtype.selected {
+        background: rgba(255, 255, 255, 0.12);
+        border-color: rgba(255, 255, 255, 0.3);
+        color: #e5e5e5;
+      }
+
+      /* Quick links under the search bar. */
+      .home-launch {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: var(--space-3);
+        width: 100%;
+        max-width: 600px;
+        margin: 4px auto 0;
+      }
+      .home-tile {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        min-height: 92px;
+        padding: 14px 8px 12px;
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--border-subtle);
+        background: var(--surface-1);
+        color: var(--text-color);
+        font-family: var(--font-sans);
+        font-size: var(--text-sm);
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        text-decoration: none;
+        -webkit-tap-highlight-color: transparent;
+        transition:
+          transform 0.18s var(--ease),
+          background-color 0.18s var(--ease),
+          border-color 0.18s var(--ease),
+          box-shadow 0.18s var(--ease);
+      }
+      .home-tile img {
+        width: 28px;
+        height: 28px;
+        object-fit: contain;
+        opacity: 0.85;
+        pointer-events: none;
+        transition:
+          transform 0.18s var(--ease),
+          opacity 0.18s var(--ease);
+      }
+      .home-tile[data-app="ai"] img {
+        filter: brightness(0) invert(1);
+      }
+      .home-tile span {
+        opacity: 0.82;
+        transition: opacity 0.18s var(--ease);
+      }
+      .home-tile:visited,
+      .home-tile:hover {
+        color: var(--text-color);
+        text-decoration: none;
+      }
+      .home-tile:hover {
+        background: var(--surface-2);
+        border-color: color-mix(
+          in srgb,
+          var(--accent) 45%,
+          var(--border-strong)
+        );
+        box-shadow: var(--shadow-md);
+        transform: translateY(-2px);
+      }
+      .home-tile:hover img {
+        opacity: 1;
+        transform: scale(1.06);
+      }
+      .home-tile:hover span {
+        opacity: 1;
+      }
+      .home-tile:active {
+        transform: translateY(0) scale(0.97);
+        transition-duration: 0.08s;
+      }
+      .home-links {
+        margin-top: 18px;
+        gap: 6px;
+      }
+      .home-links .btn {
+        padding: 6px 12px;
+        font-size: var(--text-sm);
+        background: transparent;
+        border-color: transparent;
+        color: var(--text-muted);
+      }
+      .home-links .btn:hover {
+        background: var(--surface-1);
+        border-color: var(--border-subtle);
+        color: var(--text-color);
+      }
+      @media (max-width: 640px) {
+        .home-launch {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 10px;
+        }
+        .home-tile {
+          min-height: 84px;
+        }
+      }
+
+      .online-status {
+        position: fixed;
+        bottom: max(12px, env(safe-area-inset-bottom, 12px));
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.7);
+        letter-spacing: 0.02em;
+        z-index: 100;
+        pointer-events: none;
+        user-select: none;
+        white-space: nowrap;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(0, 0, 0, 0.4);
+        padding: 6px 14px;
+        border-radius: 999px;
+        backdrop-filter: blur(8px);
+        font-family: var(--font-sans);
+      }
+      #online-count {
+        color: #4ade80;
+        font-weight: 700;
+        font-size: 1rem;
+      }
+      .online-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #4ade80;
+        box-shadow: 0 0 6px #4ade80;
+        animation: pulse-dot 2s ease-in-out infinite;
+        flex-shrink: 0;
+      }
+      @keyframes pulse-dot {
+        0%,
+        100% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 0.5;
+          transform: scale(0.9);
+        }
+      }
+
+      .update-modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.55);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+      }
+      .update-modal {
+        background:
+          linear-gradient(
+            160deg,
+            rgba(255, 255, 255, 0.06),
+            rgba(255, 255, 255, 0.015)
+          ),
+          var(--bg-color, #0f0f0f);
+        color: var(--text-color, #f9fafb);
+        max-width: 440px;
+        width: 90%;
+        padding: 1.5rem 1.75rem;
+        border-radius: 18px;
+        box-shadow: var(--shadow-lg);
+        border: 1px solid var(--border-strong);
+        animation: modal-in 0.2s ease-out;
+      }
+      .update-modal h2 {
+        font-size: 1.25rem;
+        margin-bottom: 0.5rem;
+      }
+      .update-modal p {
+        margin-bottom: 0.75rem;
+        font-size: 0.95rem;
+        opacity: 0.9;
+      }
+      .update-list {
+        text-align: left;
+        margin-bottom: 1rem;
+        padding-left: 1.1rem;
+        font-size: 0.9rem;
+      }
+      .update-list li {
+        margin-bottom: 0.3rem;
+      }
+      .update-modal-footer {
+        display: flex;
+        justify-content: flex-end;
+      }
+      .update-modal button {
+        cursor: pointer;
+        border: 1px solid var(--border-subtle);
+        border-radius: 999px;
+        padding: 0.5rem 1.1rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+        background: var(--surface-3);
+        color: white;
+        transition:
+          background-color 0.15s var(--ease),
+          border-color 0.15s var(--ease);
+      }
+      .update-modal button:hover {
+        background: rgba(255, 255, 255, 0.16);
+        border-color: var(--border-strong);
+      }
+
+      @keyframes modal-in {
+        from {
+          transform: scale(0.95);
+          opacity: 0;
+        }
+        to {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+      @keyframes modal-out {
+        from {
+          opacity: 1;
+        }
+        to {
+          opacity: 0;
+        }
+      }
+      .update-modal-backdrop.fade-out {
+        animation: modal-out 0.25s ease forwards;
+      }
+
+      :root[theme="dark"] .online-status,
+      body[theme="dark"] .online-status {
+        background: rgba(0, 0, 0, 0.6);
+      }
+      :root[theme="dark-blue"] .online-status,
+      body[theme="dark-blue"] .online-status {
+        background: rgba(0, 0, 0, 0.5);
+      }
+
+      /* Report modal */
+      .report-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        background: rgba(4, 5, 14, 0.72);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        align-items: center;
+        justify-content: center;
+      }
+      .report-modal {
+        background: linear-gradient(
+          160deg,
+          rgba(22, 22, 24, 0.98),
+          rgba(10, 10, 12, 0.99)
+        );
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        padding: 28px 26px 22px;
+        width: min(460px, 92vw);
+        box-shadow: 0 32px 80px rgba(0, 0, 0, 0.6);
+        font-family: var(--font-sans);
+        color: #e5e5e5;
+        position: relative;
+      }
+      .report-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 20px;
+      }
+      .report-title-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .report-flag {
+        font-size: 20px;
+      }
+      .report-title {
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+      .report-subtitle {
+        font-size: 11px;
+        opacity: 0.45;
+        margin-top: 2px;
+      }
+      .report-close {
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        color: #e5e5e5;
+        font-size: 16px;
+        width: 32px;
+        height: 32px;
+        cursor: pointer;
+        display: grid;
+        place-items: center;
+        transition: background 0.15s;
+      }
+      .report-close:hover {
+        background: rgba(255, 255, 255, 0.12);
+      }
+      .report-field {
+        margin-bottom: 16px;
+      }
+      .report-field-last {
+        margin-bottom: 20px;
+      }
+      .report-label {
+        font-size: 11px;
+        opacity: 0.55;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        display: block;
+        margin-bottom: 8px;
+      }
+      .report-optional {
+        opacity: 0.4;
+      }
+      .report-types {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+      }
+      .report-textarea {
+        width: 100%;
+        min-height: 80px;
+        resize: vertical;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        color: #e5e5e5;
+        font-family: var(--font-sans);
+        font-size: 12px;
+        padding: 10px 12px;
+        box-sizing: border-box;
+        outline: none;
+        transition: border-color 0.15s;
+      }
+      .report-textarea:focus {
+        border-color: rgba(255, 255, 255, 0.25);
+      }
+      .report-textarea-short {
+        min-height: 56px;
+      }
+      .report-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .report-btn-submit {
+        flex: 1;
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 11px;
+        color: #fff;
+        font-family: var(--font-sans);
+        font-size: 13px;
+        font-weight: 700;
+        padding: 11px;
+        cursor: pointer;
+        transition:
+          filter 0.15s,
+          transform 0.12s;
+        letter-spacing: 0.02em;
+      }
+      .report-btn-submit:hover {
+        filter: brightness(1.12);
+      }
+      .report-btn-submit:active {
+        transform: scale(0.97);
+      }
+      .report-btn-cancel {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        border-radius: 11px;
+        color: rgba(229, 229, 229, 0.6);
+        font-family: var(--font-sans);
+        font-size: 13px;
+        padding: 11px 18px;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      .report-btn-cancel:hover {
+        background: rgba(255, 255, 255, 0.09);
+      }
+      .report-status {
+        display: none;
+        margin-top: 14px;
+        font-size: 12px;
+        text-align: center;
+        border-radius: 8px;
+        padding: 9px 12px;
+      }
+    </style>
+
+    <script>
+      var UPDATE_VERSION = "31";
+
+      async function loadquote() {
+        try {
+          var cached = sessionStorage.getItem("__quotes");
+          var quotes = cached ? JSON.parse(cached) : null;
+          if (!quotes) {
+            quotes = await fetch("./quotes.json").then(function (r) {
+              return r.json();
+            });
+            sessionStorage.setItem("__quotes", JSON.stringify(quotes));
+          }
+          if (!quotes.length) return;
+          var el = document.getElementById("darksubtitle");
+          if (el)
+            el.textContent = quotes[Math.floor(Math.random() * quotes.length)];
+        } catch (_) {}
+      }
+
+      function setupsearch() {
+        var inputs = [
+          document.querySelector(".pxyinput"),
+          document.getElementById("darksearch"),
+          document.getElementById("mainsearch"),
+        ].filter(Boolean);
+        inputs.forEach(function (input) {
+          input.addEventListener("keydown", function (e) {
+            if (e.key !== "Enter") return;
+            var q = input.value.trim();
+            if (q)
+              window.location.href = "search.html?q=" + encodeURIComponent(q);
+          });
+        });
+      }
+
+      // The tutorial lives in the parent shell (index.html) and sits on top of
+      // this iframe, so the notice waits until it's closed (tutorial.js posts
+      // tutorial-open / tutorial-closed to child frames).
+      function tutorialbusy() {
+        try {
+          var t = window.parent !== window && window.parent.AetherisTutorial;
+          return !!(t && t.active && t.active());
+        } catch (_) {
+          return false;
+        }
+      }
+
+      // Everything is new on a first visit, so first-time visitors skip the
+      // notice: it's marked as read and they only get the next one. Anyone who
+      // has been here before has tutorialDone (the old tutorial set it on first
+      // launch; the new one sets it once it's opened or its button is hidden,
+      // and keeps the button hidden until this page has loaded) or an
+      // updateDismissed from an earlier notice.
+      function firstvisit() {
+        return (
+          Aetheris.storage.getItem("tutorialDone") === null &&
+          Aetheris.storage.getItem("updateDismissed") === null
+        );
+      }
+
+      function showupdatemodal() {
+        var backdrop = document.getElementById("updatemodal");
+        var closebtn = document.getElementById("updatemodalclose");
+        if (!backdrop) return;
+        if (
+          Aetheris.storage.getItem("updateDismissed") === UPDATE_VERSION
+        )
+          return;
+        if (firstvisit()) {
+          Aetheris.storage.setItem("updateDismissed", UPDATE_VERSION);
+          return;
+        }
+
+        var dismissed = false;
+        function open() {
+          if (dismissed) return;
+          backdrop.style.display = "flex";
+          if (closebtn) closebtn.focus();
+        }
+
+        function dismiss() {
+          dismissed = true;
+          // Aetheris.storage never throws, so a full/disabled storage can't
+          // leave the overlay stuck open.
+          Aetheris.storage.setItem("updateDismissed", UPDATE_VERSION);
+          backdrop.classList.add("fade-out");
+          function hide() {
+            backdrop.style.display = "none";
+            backdrop.classList.remove("fade-out");
+          }
+          backdrop.addEventListener("animationend", hide, { once: true });
+          // Performance mode disables animations, so animationend never fires.
+          setTimeout(hide, 250);
+          document.removeEventListener("keydown", onesc);
+        }
+
+        closebtn.addEventListener("click", dismiss);
+        backdrop.addEventListener("click", function (e) {
+          if (e.target === backdrop) dismiss();
+        });
+        function onesc(e) {
+          if (e.key === "Escape" && backdrop.style.display !== "none") {
+            dismiss();
+          }
+        }
+        document.addEventListener("keydown", onesc);
+
+        window.addEventListener("message", function (e) {
+          if (e.origin !== location.origin || !e.data || dismissed) return;
+          if (e.data.type === "tutorial-open") backdrop.style.display = "none";
+          else if (e.data.type === "tutorial-closed") open();
+        });
+
+        if (!tutorialbusy()) open();
+      }
+
+      document.addEventListener("DOMContentLoaded", function () {
+        loadquote();
+        setupsearch();
+        showupdatemodal();
+      });
+
+      // Quick links open their page inside the shell, like the menu does.
+      // A modifier or middle click keeps the plain /index.html#page link,
+      // so "open in new tab" still works.
+      document.addEventListener("click", function (e) {
+        var link = e.target.closest && e.target.closest("a[data-app]");
+        if (!link || e.defaultPrevented || e.button !== 0) return;
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        if (typeof window.gotoapp !== "function") return;
+        e.preventDefault();
+        window.gotoapp(link.getAttribute("data-app"));
+      });
+
+      function eschtml(s) {
+        return String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      function launchab() {
+        try {
+          if (
+            window.parent &&
+            window.parent !== window &&
+            typeof window.parent.launchab === "function"
+          ) {
+            window.parent.launchab();
+            return;
+          }
+        } catch (_) {}
+
+        var siteurl;
+        try {
+          siteurl =
+            (window.top && window.top.location && window.top.location.href) ||
+            window.location.origin + "/";
+        } catch (_) {
+          siteurl = window.location.origin + "/";
+        }
+
+        var opener;
+        try {
+          opener = window.top || window;
+        } catch (_) {
+          opener = window;
+        }
+
+        var win = opener.open("about:blank", "_blank");
+        if (!win) {
+          alert("Popup blocked. Allow popups for this site and try again.");
+          return;
+        }
+
+        try {
+          win.document.open();
+          win.document.write(
+            "<!DOCTYPE html><html><head>" +
+              "<style>body{margin:0;overflow:hidden;background:#000}iframe{border:none;width:100vw;height:100vh;position:fixed;inset:0}</style>" +
+              "</head><body>" +
+              '<iframe src="' +
+              eschtml(siteurl) +
+              '" allowfullscreen referrerpolicy="no-referrer"></iframe>' +
+              "</body></html>",
+          );
+          win.document.close();
+        } catch (err) {
+          try {
+            win.location.href = siteurl;
+          } catch (_) {}
+        }
+      }
+    </script>
+
+    <div
+      id="report-overlay"
+      class="report-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="report-title"
+    >
+      <div id="report-modal" class="report-modal">
+        <div class="report-header">
+          <div class="report-title-group">
+            <span class="report-flag" aria-hidden="true">🚩</span>
+            <div>
+              <div class="report-title" id="report-title">
+                report something
+              </div>
+              <div class="report-subtitle">general feedback</div>
+            </div>
+          </div>
+          <button
+            onclick="closereport()"
+            class="report-close"
+            aria-label="Close report form"
+          >
+            &times;
+          </button>
+        </div>
+
+        <div class="report-field">
+          <span class="report-label" id="report-type-label">
+            whats wrong?
+          </span>
+          <div
+            class="report-types"
+            role="group"
+            aria-labelledby="report-type-label"
+          >
+            <button
+              class="rtype"
+              onclick="pickreporttype(this, 'Site not loading')"
+            >
+              Site not loading
+            </button>
+            <button
+              class="rtype"
+              onclick="pickreporttype(this, 'Broken link or page')"
+            >
+              Broken link
+            </button>
+            <button
+              class="rtype"
+              onclick="pickreporttype(this, 'Visual / layout bug')"
+            >
+              Visual bug
+            </button>
+            <button
+              class="rtype"
+              onclick="pickreporttype(this, 'Search not working')"
+            >
+              Search broken
+            </button>
+            <button
+              class="rtype"
+              onclick="pickreporttype(this, 'Settings not saving')"
+            >
+              Settings issue
+            </button>
+            <button
+              class="rtype"
+              onclick="pickreporttype(this, 'Feature request')"
+            >
+              Feature request
+            </button>
+            <button
+              class="rtype"
+              onclick="pickreporttype(this, 'Suggestion / feedback')"
+            >
+              Suggestion
+            </button>
+            <button class="rtype" onclick="pickreporttype(this, 'Other')">
+              Other
+            </button>
+          </div>
+        </div>
+
+        <div class="report-field">
+          <label class="report-label" for="report-steps">what happened</label>
+          <textarea
+            id="report-steps"
+            class="report-textarea"
+            placeholder="e.g. When I click Settings, the page goes blank..."
+          ></textarea>
+        </div>
+
+        <div class="report-field report-field-last">
+          <label class="report-label" for="report-notes">
+            anything else? <span class="report-optional">(optional)</span>
+          </label>
+          <textarea
+            id="report-notes"
+            class="report-textarea report-textarea-short"
+            placeholder="Browser, device, anything else we should know..."
+          ></textarea>
+        </div>
+
+        <div class="report-actions">
+          <button
+            id="report-submit"
+            onclick="sendreport()"
+            class="report-btn-submit"
+          >
+            send it
+          </button>
+          <button onclick="closereport()" class="report-btn-cancel">nah</button>
+        </div>
+
+        <div
+          id="report-status"
+          class="report-status"
+          role="status"
+          aria-live="polite"
+        ></div>
+      </div>
+    </div>
+
+    <script>
+      var reporttype = "";
+      var lastReportFocus = null;
+
+      function pickreporttype(btn, label) {
+        document.querySelectorAll(".rtype").forEach(function (b) {
+          b.classList.remove("selected");
+          b.setAttribute("aria-pressed", "false");
+        });
+        btn.classList.add("selected");
+        btn.setAttribute("aria-pressed", "true");
+        reporttype = label;
+      }
+
+      function openreport() {
+        reporttype = "";
+        lastReportFocus = document.activeElement;
+        document.querySelectorAll(".rtype").forEach(function (b) {
+          b.classList.remove("selected");
+          b.setAttribute("aria-pressed", "false");
+        });
+        document.getElementById("report-steps").value = "";
+        document.getElementById("report-notes").value = "";
+        document.getElementById("report-status").style.display = "none";
+        document.getElementById("report-submit").disabled = false;
+        document.getElementById("report-submit").textContent = "send it";
+
+        var overlay = document.getElementById("report-overlay");
+        var modal = document.getElementById("report-modal");
+        overlay.style.display = "flex";
+        modal.style.opacity = "0";
+        modal.style.transform = "scale(0.92) translateY(12px)";
+        modal.style.transition =
+          "opacity 0.22s ease, transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1)";
+
+        requestAnimationFrame(function () {
+          modal.style.opacity = "1";
+          modal.style.transform = "scale(1) translateY(0)";
+        });
+        var steps = document.getElementById("report-steps");
+        if (steps) steps.focus();
+      }
+
+      function closereport() {
+        var overlay = document.getElementById("report-overlay");
+        var modal = document.getElementById("report-modal");
+        modal.style.opacity = "0";
+        modal.style.transform = "scale(0.92) translateY(8px)";
+        setTimeout(function () {
+          overlay.style.display = "none";
+        }, 200);
+        if (lastReportFocus && lastReportFocus.isConnected) {
+          lastReportFocus.focus();
+          lastReportFocus = null;
+        }
+      }
+
+      document
+        .getElementById("report-overlay")
+        .addEventListener("click", function (e) {
+          if (e.target === this) closereport();
+        });
+
+      document.addEventListener("keydown", function (e) {
+        var overlay = document.getElementById("report-overlay");
+        if (e.key === "Escape" && overlay && overlay.style.display === "flex")
+          closereport();
+      });
+
+      async function sendreport() {
+        var steps = document.getElementById("report-steps").value.trim();
+        var notes = document.getElementById("report-notes").value.trim();
+        var submitbtn = document.getElementById("report-submit");
+
+        if (!reporttype) {
+          showstatus("pick a type first", "warn");
+          return;
+        }
+        if (!steps) {
+          showstatus("describe it first", "warn");
+          return;
+        }
+
+        submitbtn.disabled = true;
+        submitbtn.textContent = "sending...";
+
+        try {
+          var devid = await getdeviceid();
+          var res = await fetch("/api/report", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              game: "Site feedback (home page)",
+              issue: reporttype,
+              steps: steps,
+              notes: notes || undefined,
+              url: window.location.href,
+              deviceId: devid,
+            }),
+          });
+
+          var data = await res.json().catch(function () {
+            return {};
+          });
+          if (!res.ok) throw new Error(data.error || "HTTP " + res.status);
+
+          showstatus("sent! thanks for the heads up", "ok");
+          submitbtn.textContent = "sent!";
+          setTimeout(closereport, 1800);
+        } catch (err) {
+          showstatus(err.message || "failed to send. try again.", "err");
+          submitbtn.disabled = false;
+          submitbtn.textContent = "send it";
+        }
+      }
+
+      var STATUS_COLOURS = {
+        ok: {
+          bg: "rgba(34,197,94,0.15)",
+          color: "#86efac",
+          border: "rgba(34,197,94,0.3)",
+        },
+        warn: {
+          bg: "rgba(234,179,8,0.15)",
+          color: "#fde047",
+          border: "rgba(234,179,8,0.3)",
+        },
+        err: {
+          bg: "rgba(239,68,68,0.15)",
+          color: "#fca5a5",
+          border: "rgba(239,68,68,0.3)",
+        },
+      };
+
+      function showstatus(message, type) {
+        var el = document.getElementById("report-status");
+        var c = STATUS_COLOURS[type] || STATUS_COLOURS.err;
+        el.textContent = message;
+        el.style.display = "block";
+        el.style.background = c.bg;
+        el.style.color = c.color;
+        el.style.border = "1px solid " + c.border;
+      }
+    </script>
+  </body>
+</html>

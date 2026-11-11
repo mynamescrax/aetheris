@@ -1,0 +1,183 @@
+@keyframes cardIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.card-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 18px;
+  padding: 24px;
+  width: 100%;
+  margin: 0 auto;
+  align-items: start;
+}
+
+.card-item {
+	width: 100%;
+	max-width: 190px;
+	text-align: center;
+	cursor: pointer;
+	border-radius: 18px;
+	position: relative;
+	z-index: 1;
+	transform-origin: center center;
+	transform: translateY(0) scale(1);
+	backface-visibility: hidden;
+	isolation: isolate;
+	overflow: visible;
+	transition:
+		transform 0.22s ease-out,
+		box-shadow 0.22s ease-out,
+		z-index 0s 0.22s;
+	animation: cardIn 0.3s ease both;
+	/* ~15k cards in the grid: skip layout+paint entirely for offscreen ones.
+	   `auto` in the intrinsic size lets the browser remember the real height
+	   once a card has been rendered, so scrolling stays smooth. */
+	content-visibility: auto;
+	contain-intrinsic-size: auto 240px;
+}
+
+.card-item img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 18px;
+  display: block;
+  background: rgba(255, 255, 255, 0.06);
+  backface-visibility: hidden;
+}
+
+.card-item::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 46%;
+  border-radius: 0 0 18px 18px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.74));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 1;
+}
+
+.card-item h4 {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  opacity: 0.88;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  transition: opacity 0.2s ease, color 0.2s ease;
+  transform: translateZ(0);
+}
+
+.card-item:hover {
+  will-change: transform;
+  transform: translateY(-6px) scale(1.08);
+  z-index: 50;
+  transition:
+    transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.24s ease,
+    z-index 0s 0s;
+  box-shadow:
+    0 14px 28px rgba(0, 0, 0, 0.42),
+    0 0 0 1.5px color-mix(in srgb, var(--accent) 40%, transparent),
+    0 8px 22px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.card-item:hover::after {
+  opacity: 1;
+}
+
+.card-item.hvr-bob:hover,
+.card-item.hvr-bob:focus,
+.card-item.hvr-bob:active {
+  animation: none;
+}
+
+.card-item:hover h4 {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 10px;
+  z-index: 2;
+  margin: 0;
+  color: #fff;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.1;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.72);
+  opacity: 1;
+}
+
+.card-item:active {
+  transform: translateY(-3px) scale(1.04);
+  z-index: 50;
+  transition: transform 0.1s ease-out, box-shadow 0.1s ease-out, z-index 0s 0s;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .card-item:hover {
+    transform: none;
+    box-shadow: none;
+    z-index: 1;
+  }
+
+  .card-item:hover::after {
+    opacity: 0;
+  }
+
+  .card-item:hover h4 {
+    position: static;
+    color: inherit;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 500;
+    text-shadow: none;
+  }
+
+  .card-item:active {
+    transform: scale(0.95);
+    transition: transform 0.1s ease-out;
+  }
+}
+
+@media (max-width: 1024px) {
+  .card-container {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 16px;
+    padding: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .card-container {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 14px;
+    padding: 16px;
+  }
+
+  .card-item {
+    max-width: none;
+  }
+}
+
+@media (max-width: 420px) {
+  .card-container {
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .card-item h4 {
+    font-size: 11px;
+    margin-top: 6px;
+  }
+}

@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FEZ</title>
+    <base href="https://cdn.jsdelivr.net/gh/degloved-net/FEZ@605f2433/FEZ/" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23000'/%3E%3Cpath fill='%23f0c040' d='M7 7h18v5H13v4h10v5H13v4H7z'/%3E%3C/svg%3E" />
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+      #loading {
+        position: absolute; inset: 0;
+        display: flex; align-items: center; justify-content: center;
+        color: #fff; font: 1.2rem/1.4 monospace; z-index: 1;
+        flex-direction: column; gap: 1rem;
+      }
+      #loading.hidden { display: none; }
+      #status { text-align: center; }
+      #status-text { margin-bottom: 8px; }
+      #progress-bar {
+        width: 300px; height: 6px; background: #333;
+        border-radius: 3px; margin: 0 auto; overflow: hidden;
+      }
+      #progress-fill {
+        width: 0%; height: 100%; background: #f0c040; transition: width 0.2s;
+      }
+      #detail { margin-top: 8px; color: #888; font-size: 0.75rem; }
+      canvas {
+        display: block; width: 100vw; height: 100vh;
+        image-rendering: pixelated;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="loading">
+      <div id="status">
+        <div id="status-text">Loading...</div>
+        <div id="progress-bar"><div id="progress-fill"></div></div>
+        <div id="detail"></div>
+      </div>
+    </div>
+
+    <canvas id="canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
+
+    <script>
+      const originalFetch = window.fetch;
+      window.fetch = function (resource, options = {}) {
+        options.credentials = "omit";
+        return originalFetch(resource, options);
+      };
+
+      // prevent browser from fucking stealing keys mid game
+      const GAME_KEYS = new Set([
+        'Tab', 'Escape', 'Space',
+        'F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12',
+        'ArrowUp','ArrowDown','ArrowLeft','ArrowRight',
+        ' '
+      ]);
+      window.addEventListener('keydown', e => { if (GAME_KEYS.has(e.key) || GAME_KEYS.has(e.code)) e.preventDefault(); });
+      window.addEventListener('keyup', e => { if (GAME_KEYS.has(e.key) || GAME_KEYS.has(e.code)) e.preventDefault(); });
+
+      (function() {
+        var originalGetDirectory = navigator.storage && navigator.storage.getDirectory
+          ? navigator.storage.getDirectory.bind(navigator.storage) : null;
+
+        function openIDB() {
+          return new Promise(function(resolve, reject) {
+            var req = indexedDB.open("fez-opfs-polyfill", 1);
+            req.onupgradeneeded = function() { req.result.createObjectStore("files"); };
+            req.onsuccess = function() { resolve(req.result); };
+            req.onerror = function() { reject(req.error); };
+          });
+        }
+
+        var idbPromise = null;
+        function getIDB() {
+          if (!idbPromise) idbPromise = openIDB();
+          return idbPromise;
+        }
+
+        function idbGet(db, key) {
+          return new Promise(function(resolve, reject) {
+            var tx = db.transaction("files", "readonly");
+            var req = tx.objectStore("files").get(key);
+            req.onsuccess = function() { resolve(req.result); };
+            req.onerror = function() { reject(req.error); };
+          });
+        }
+
+        function idbPut(db, key, val) {
+          return new Promise(function(resolve, reject) {
+            var tx = db.transaction("files", "readwrite");
+            var req = tx.objectStore("files").put(val, key);
+            req.onsuccess = function() { resolve(); };
+            req.onerror = function() { reject(req.error); };
+          });
+        }
+
+        function makeWritable(db, name) {
+          var chunks = [];
+          return {
+            write: function(data) { chunks.push(data instanceof Uint8Array ? data.slice() : new Uint8Array(data)); return Promise.resolve(); },
+            close: function() {
+              var total = 0;
+              chunks.forEach(function(c) { total += c.length; });
+              var merged = new Uint8Array(total);
+              var off = 0;
+              chunks.forEach(function(c) { merged.set(c, off); off += c.length; });
+              return idbPut(db, name, merged);
+            }
+          };
+        }
+
+        function makeFakeRoot(db) {
+          return {
+            getFileHandle: function(name, opts) {
+              if (opts && opts.create) {
+                return Promise.resolve({
+                  getFile: function() {
+                    return idbGet(db, name).then(function(data) {
+                      return new Blob([data || new Uint8Array(0)]);
+                    });
+                  },
+                  createWritable: function() { return Promise.resolve(makeWritable(db, name)); }
+                });
+              }
+              return idbGet(db, name).then(function(data) {
+                if (data === undefined) throw new DOMException("Not found", "NotFoundError");
+                return {
+                  getFile: function() { return Promise.resolve(new Blob([data])); },
+                  createWritable: function() { return Promise.resolve(makeWritable(db, name)); }
+                };
+              });
+            }
+          };
+        }
+
+        if (navigator.storage) {
+          navigator.storage.getDirectory = function() {
+            if (originalGetDirectory) {
+              return originalGetDirectory().catch(function() {
+                return getIDB().then(makeFakeRoot);
+              });
+            }
+            return getIDB().then(makeFakeRoot);
+          };
+        }
+      })();
+    </script>
+
+    <script type="module">
+(async () => {
+  const BASE = document.querySelector("base").href;
+  const loading = document.getElementById("loading");
+  const canvas = document.getElementById("canvas");
+  const statusEl = document.getElementById("status");
+  const statusText = document.getElementById("status-text");
+  const progressFill = document.getElementById("progress-fill");
+  const detailEl = document.getElementById("detail");
+
+  canvas.focus();
+
+  function setStatus(msg, pct, detail) {
+    statusText.textContent = msg;
+    if (pct !== undefined) progressFill.style.width = pct + "%";
+    detailEl.textContent = detail || "";
+  }
+
+  function formatSize(bytes) {
+    if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + " MB";
+    if (bytes >= 1024) return (bytes / 1024).toFixed(0) + " KB";
+    return bytes + " B";
+  }
+  async function fetchRetry(url, retries = 5) {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      const res = await fetch(url);
+      if (res.ok) return res;
+      if (attempt < retries) {
+        const delay = 1000 * Math.pow(2, attempt);
+        console.warn(`[FEZ] ${url} returned ${res.status}, retry ${attempt + 1}/${retries} in ${delay}ms`);
+        await new Promise(r => setTimeout(r, delay));
+      } else {
+        throw new Error(`Failed to fetch ${url}: ${res.status} after ${retries} retries`);
+      }
+    }
+  }
+  async function downloadChunked(baseUrl, label, onProgress) {
+    const countRes = await fetchRetry(baseUrl + ".count");
+    const count = parseInt(await countRes.text());
+    const chunks = [];
+    let total = 0;
+    for (let i = 0; i < count; i++) {
+      const chunkUrl = baseUrl + String(i).padStart(2, "0");
+      const res = await fetchRetry(chunkUrl);
+      const reader = res.body.getReader();
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        total += value.length;
+        if (onProgress) onProgress(total);
+      }
+    }
+    const merged = new Uint8Array(total);
+    let off = 0;
+    for (const c of chunks) { merged.set(c, off); off += c.length; }
+    return merged;
+  }
+  const CONTENT_FILES = [
+    { url: "content/Essentials.pak",         dest: "/Content/Essentials.pak",         label: "Essentials.pak" },
+    { url: "content/Updates.pak",            dest: "/Content/Updates.pak",            label: "Updates.pak" },
+    { url: "content/Sounds/SoundLevels.sdl", dest: "/Content/Sounds/SoundLevels.sdl", label: "SoundLevels.sdl" },
+    { url: "content/Other.pak",              dest: "/Content/Other.pak",              label: "Other.pak" },
+    { url: "content/gamecontrollerdb.txt",   dest: "/gamecontrollerdb.txt",           label: "gamecontrollerdb.txt" },
+    { url: "content/Music.pak",              dest: "/Content/Music.pak",              label: "Music.pak" },
+  ];
+  try {
+    setStatus("Loading .NET runtime...", 2);
+    const { dotnet } = await import(BASE + "_framework/dotnet.js");
+
+    setStatus("Initializing runtime...", 8);
+    const runtime = await dotnet
+      .withModuleConfig({ canvas })
+      .create();
+
+    const config = runtime.getConfig();
+    const exports = await runtime.getAssemblyExports(config.mainAssemblyName);
+    const api = exports.FezGame.Program;
+    await runtime.runMain();
+    setStatus("Setting up filesystem...", 12);
+    await api.PreInit(BASE);
+    for (let i = 0; i < CONTENT_FILES.length; i++) {
+      const f = CONTENT_FILES[i];
+      setStatus(
+        `Downloading game content (${i + 1}/${CONTENT_FILES.length})...`,
+        15 + Math.round((i / CONTENT_FILES.length) * 70),
+        `${f.label} — downloading chunks...`
+      );
+
+      const data = await downloadChunked(BASE + f.url, f.label, (bytes) => {
+        detailEl.textContent = `${f.label} — ${formatSize(bytes)}`;
+      });
+      const blob = new Blob([data]);
+      const blobUrl = URL.createObjectURL(blob);
+      setStatus(
+        `Writing ${f.label} to filesystem...`,
+        15 + Math.round(((i + 0.5) / CONTENT_FILES.length) * 70),
+        `${f.label} — ${formatSize(data.length)}`
+      );
+      await api.DownloadContentFile(blobUrl, f.dest);
+      URL.revokeObjectURL(blobUrl);
+    }
+
+    setStatus("Content loaded!", 88);
+    setStatus("Initializing game...", 90);
+    const dpr = window.devicePixelRatio || 1;
+    const w = Math.round(canvas.clientWidth * dpr) || 1280;
+    const h = Math.round(canvas.clientHeight * dpr) || 720;
+    await api.Init(w, h);
+    setStatus("Starting FEZ...", 98);
+    loading.classList.add("hidden");
+    canvas.focus();
+
+    try { navigator.keyboard?.lock(); } catch {}
+
+    console.log("[FEZ] Starting game loop via requestAnimationFrame");
+    const mainLoop = async () => {
+      try {
+        const keepRunning = await api.MainLoop();
+        if (keepRunning) {
+          requestAnimationFrame(mainLoop);
+        } else {
+          console.log("[FEZ] Game requested exit");
+          await api.Cleanup();
+        }
+      } catch (e) {
+        console.error("[FEZ] MainLoop error:", e);
+        setStatus("Error: " + e.message, 0, "Check browser console (F12) for details.");
+        loading.classList.remove("hidden");
+      }
+    };
+    requestAnimationFrame(mainLoop);
+
+  } catch (e) {
+    console.error("Fatal error:", e);
+    setStatus("Error: " + e.message, 0, "Check browser console (F12) for details.");
+  }
+})();
+    </script>
+  </body>
+</html>

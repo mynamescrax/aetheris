@@ -1,0 +1,26 @@
+<!DOCTYPE html><html><head><title>Google OAuth Callback</title><script type="text/javascript">// Extract the token from the URL
+        function getTokenFromUrl() {
+            var hash = window.location.hash.substring(1);
+            var params = hash.split('&').reduce(function (result, item) {
+                var parts = item.split('=');
+                result[decodeURIComponent(parts[0])] = decodeURIComponent(parts[1]);
+                return result;
+            }, {});
+
+            return params['id_token'];  // The Google ID token
+        }
+
+        // Send the token back to the parent window (Unity WebGL app)
+        function sendTokenToParent() {
+            var token = getTokenFromUrl();
+            if (token) {
+                // Send the ID token to the parent window
+                window.opener.postMessage({ id_token: token }, '*');
+                document.getElementById("message").innerText = "You may close this window.";
+            } else {
+                document.getElementById("message").innerText = "Error retrieving ID id_token.";
+            }
+        }
+
+        window.onload = sendTokenToParent;</script></head><body><p id="message">Processing...</p><script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"dbc8fb7c6e584ddf9404a38073df2730","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body></html>

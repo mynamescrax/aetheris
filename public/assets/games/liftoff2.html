@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+	 <base href="/game-assets/1games-rips/liftoff2/">
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+	<link rel="stylesheet" href="26040302/theme/game.css">
+	<meta name="robots" content="noindex, nofollow">
+	<style type="text/css">@font-face {font-family:Fredoka;font-style:normal;font-weight:400;src:url(/cf-fonts/v/fredoka/5.0.11/hebrew/wght/normal.woff2);unicode-range:U+0590-05FF,U+200C-2010,U+20AA,U+25CC,U+FB1D-FB4F;font-display:swap;}@font-face {font-family:Fredoka;font-style:normal;font-weight:400;src:url(/cf-fonts/v/fredoka/5.0.11/latin/wght/normal.woff2);unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;font-display:swap;}@font-face {font-family:Fredoka;font-style:normal;font-weight:400;src:url(/cf-fonts/v/fredoka/5.0.11/latin-ext/wght/normal.woff2);unicode-range:U+0100-02AF,U+0304,U+0308,U+0329,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20CF,U+2113,U+2C60-2C7F,U+A720-A7FF;font-display:swap;}@font-face {font-family:Fredoka;font-style:normal;font-weight:500;src:url(/cf-fonts/v/fredoka/5.0.11/hebrew/wght/normal.woff2);unicode-range:U+0590-05FF,U+200C-2010,U+20AA,U+25CC,U+FB1D-FB4F;font-display:swap;}@font-face {font-family:Fredoka;font-style:normal;font-weight:500;src:url(/cf-fonts/v/fredoka/5.0.11/latin/wght/normal.woff2);unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;font-display:swap;}@font-face {font-family:Fredoka;font-style:normal;font-weight:500;src:url(/cf-fonts/v/fredoka/5.0.11/latin-ext/wght/normal.woff2);unicode-range:U+0100-02AF,U+0304,U+0308,U+0329,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20CF,U+2113,U+2C60-2C7F,U+A720-A7FF;font-display:swap;}</style>
+	<title>Lift Off 2</title>
+	<meta name="description" content="Lift Off 2 introduces a space-travelling arcade game where you upgrade rockets to conquer solar systems. Expand your empire and dominate the galaxy now!"/>
+	<style type="text/css">
+		.jss1:before {
+			top: 0;
+			width: 100%;
+			filter: blur(16px);
+			height: 100%;
+			content: "";
+			display: block;
+			opacity: .5;
+			z-index: 0;
+			position: absolute;
+			background-size: cover;
+			background-image: url("loading.png")
+		}
+	</style> 
+	 	 	     <script>
+        window.fileMergerConfig = {
+            files: [
+                { name: 'lift-off-2-v26040302.wasm.unityweb', parts: 4 },
+                { name: 'lift-off-2-v26040302.data.unityweb', parts: 4 },
+            ],
+            basePath: '26040302/Build/',
+            debug: true
+        };
+    </script>
+    <script src="/game-assets/m/jsdelivr/gh/bubbls/UGS-Assets@ac5cdfc0042aca584e72619375b4aca948a9243c/merge.js"></script>
+	<script>
+		var buildUrl = "Build";
+		var versionFolder = "26040302/";
+		var cdnParam = new URLSearchParams(window.location.search).get("cdn");
+                        // Check if running on subdomain, auto set cdnParam to 2
+                        if (!cdnParam && window.location.hostname.includes(".")) {
+                            var parts = window.location.hostname.split(".");
+                            if (parts.length > 2) {
+                                cdnParam = "2";
+                            }
+                        }
+                        var baseUrl ="./"
+                        buildUrl = baseUrl + versionFolder + buildUrl;
+		var loaderUrl = buildUrl + "/lift-off-2-v26040302.loader.js";
+		var config = {
+			dataUrl: buildUrl + "/lift-off-2-v26040302.data.unityweb",
+			frameworkUrl: buildUrl + "/lift-off-2-v26040302.framework.js",
+			codeUrl: buildUrl + "/lift-off-2-v26040302.wasm.unityweb",
+			streamingAssetsUrl: "StreamingAssets",
+			companyName: "1games.io",
+			productName: "Lift Off 2",
+			productVersion: "26040302"
+		};
+		config.gameId = "lift-off-2";
+		config.eventLog=false;		
+		window["GMSOFT_SDKTYPE"] = "gm";
+		localStorage.setItem("gmsdksigndomain", "eyJzaWduZWQiOiJSdlJ3dENSNmNab09rZ0FLSnYxS2o4ZzVjOUFxRkU4RG1zM0dacHduXC8wRTV0bWJLS21WamhocWg5Q1crOWNGdTZ6ZUltXC9jZ3UyYnhBQXFibE9UMHBkQjcrQ0o4a0YwSTMzeUJ1WGVMbmF3M3ZnM2FjZkZESWF6MlhhUFZabFlCNlNkQVJBbWtaXC9hdFZPckNaTUNERk5lZEFMZ2F1ZTQyXC9ocFlKWEN3aVwvaFwvVTk0QWdoUmorZXMxcVA4Q1NuTk05MEFsV0xJRkZEc25JUjkwR2RDbmltQTRPN1JjcGNIVGhwM2k0d3p6MUoxd3IzcjV2VHQ2eTltSHpOcmRPYkdxSWJYdWZvTGxJQ2IwUU5mWTk2eExrcjJsTmY0K2xlK3hOSitKeE1MdDVCUnNjcng2V3M0WlRlZHcxWVhxWG9vQ3pKS0o3YjhoTmFodTZmWjI3SFVBdlE9PSIsImFwIjoieWVzIiwiaG4iOiJtYWQtdHJhaWxzLjFnYW1lcy5pbyIsImRvbWFpbiI6IjFnYW1lcy5pbyIsInMiOiJ5ZXMiLCJzdHlwZSI6Mn0=");
+	</script>
+</head>
+
+<body>
+<div id="unity-container" style="display: none;">
+	<canvas id="unity-canvas"></canvas> 
+</div>
+<div id="loadingBlock" style="">
+  <div id="loading-text"
+    style="color: white; font-size: 48px; font-family: cursive; text-align: center; margin-top: 20px;"> LOADING...
+  </div>
+
+	<div class="jss31 jss34 jss1">
+	<div style="position: absolute; font-family: Arial, Helvetica, sans-serif;	bottom: 10px; right: 10px; font-size: 18px; color: #ffffff; opacity: 0.5;">26040302</div>
+		<div class="spinner"></div>
+		<div class="jss31 jss34 jss48" style="flex: 1 1 0%;">
+			<div class="jss32">
+				<div class="jss7 jss9 jss20 jss3">
+					<div class="jss125">
+						<div class="jss123">
+						 <img src="26040302/logo.png">
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<!--PRODUCT_VERSION:26040302END-->
+		<div class="jss31 jss34" style="flex: 3 1 0%;">
+			<div class="jss32">
+				<div class="jss31 jss34 jss39 jss50 gameloader">
+					<div class="jss32">
+						<div class="gameloader-game-name">Lift Off 2</div>
+					</div>
+					<div class="jss32">
+						<div class="jss32 gameloader-logo">
+							<img id="game-logo" src="loading.png">
+						</div>
+					</div>
+					<div class="jss32">
+						<div>
+							<div class="gameloader-progressbar">
+								<div class="gameloader-progressbar-progress" id="progress_fill"
+										 style="width: 0%;"></div>
+							</div>
+							<div class="gameloader-progress-info">Game Loading...</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+	<script>
+    (async () => {
+ 
+		var progressElement = document.getElementById('progress_fill');
+		var container =	document.getElementById("unity-container");
+		var canvas =	document.getElementById("unity-canvas");
+		var loadingBar = document.querySelector("#loadingBlock");
+		var progressBarFull = document.querySelector("#progress_fill");
+		var progress_text = document.querySelector(".gameloader-progress-info");
+        var loadingtext = document.querySelector("#loading-text");
+		let text_percent = "";
+		var script = document.createElement("script");
+		script.src = loaderUrl;
+		script.onload = () => {
+		createUnityInstance(canvas, config, (progress) => {
+			progressElement.style.width = 100 * progress + "%";
+			text_percent = "Downloading file: " + Math.round(progress*100) + "%";
+			progress_text.innerText = text_percent;
+			if (progress >= 99) {
+				progress_text.innerText = "Game Loading ...";
+			}
+		}).then((unityInstance) => {
+			window.unityInstance = unityInstance;
+			setTimeout(function() {
+				loadingBar.style.display = "none";
+                    if (loadingtext) loadingtext.remove();
+				window.focus();
+			}, 2000);
+			container.style.display = "block";
+		}).catch((message) => {
+			alert(message);
+		});
+		};
+		document.body.appendChild(script);
+	
+    })();
+</script>
+	<script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
+	<script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
+	<script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-auth-compat.js"></script>
+	<script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-analytics-compat.js"></script>
+	<script type="module">
+		const firebaseConfig = {
+ apiKey: "AIzaSyBDxhSufVa0tXRL8F8zoOdmYBE6Cayv8Sg",
+ authDomain: "lift-off-2-1g.firebaseapp.com",
+ projectId: "lift-off-2-1g",
+ storageBucket: "lift-off-2-1g.firebasestorage.app",
+ messagingSenderId: "27927310987",
+ appId: "1:27927310987:web:5fd5e55766a66024719a8e",
+ measurementId: "G-YPM0TKX1L0"
+};
+		if (typeof firebaseConfig !== 'undefined'){
+			if(firebaseConfig ){
+				window.dataLayer = window.dataLayer || [];
+				window.gtag = function () { window.dataLayer.push(arguments); }
+
+				window.gtag("config", firebaseConfig.measurementId, {
+				  cookie_domain: window.location.hostname,
+				  cookie_flags: "SameSite=None;Secure",
+				});
+				// Initialize Firebase
+				const app = firebase.initializeApp(firebaseConfig);
+				//const auth = getAuth(app);
+			}
+		}		
+	</script>
+	<script>
+		function firebaseSetUserProperties(props) {
+			if (firebase.apps.length === 0) return;
+				firebase.analytics().setUserProperties(props);
+			
+		}
+		function firebaseLogEvent(event_name) {
+			if (firebase.apps.length === 0) return;
+				firebase.analytics().logEvent(event_name);				
+		}
+		function firebaseLogEventParameter(event_name, event_param) {
+			if (firebase.apps.length === 0) return;
+				firebase.analytics().logEvent(event_name, event_param);						
+		}
+	</script>
+	</html>
+

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <base href="./">
+  <title>LuckyBlocks.io | Break Lucky Blocks, Escape Sammy — Free Browser Game</title>
+  <link rel="canonical" href="https://luckyblocks.io/">
+  <link rel="icon" href="./favicon/favicon.ico" type="image/x-icon">
+  <link rel="preload" href="./main.css" as="style" onload="this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="./main.css"></noscript>
+  <script>
+    var unityLoadingIsSDKDependant = false;
+    var _sdk = document.createElement("script");
+    _sdk.src = "./sdk.js";
+    document.head.appendChild(_sdk);
+    var _legion_integration_js = document.createElement("script");
+    _legion_integration_js.src = "./legion_integration.js";
+    document.head.appendChild(_legion_integration_js);
+
+    function waitForSDKThenStart(callback) {
+      if (!unityLoadingIsSDKDependant) { callback(); return; }
+      var maxWait = 10000, interval = 10, waited = 0;
+      var check = function() {
+        if (window.SDK && typeof window.SDK.getBuildURL === "function") {
+          callback();
+        } else if (waited >= maxWait) {
+          callback();
+        } else {
+          waited += interval;
+          setTimeout(check, interval);
+        }
+      };
+      check();
+    }
+  </script>
+</head>
+<body style="background-color:black;color:black;">
+  <div id="videoad"></div>
+  <div id="unity-container"><canvas id="unity-canvas"></canvas></div>
+  <div id="unity-loading-container">
+    <div id="loading-percentage">1%</div>
+    <img src="./logo.webp" class="logo" alt="Logo" decoding="async" fetchpriority="high">
+    <div id="unity-loading-bar"><div id="unity-loading-bar-inner"></div></div>
+  </div>
+  <script>
+    waitForSDKThenStart(function() {
+      var buildUrl = "./Build";
+      var config = {
+        dataUrl:            buildUrl + "/b88249b377c7ddc2e46fc74ba481f77f.data",
+        frameworkUrl:       buildUrl + "/f2225951ba674a9299e9bbcb45058575.framework.js",
+        codeUrl:            buildUrl + "/3dff37c96470ffdc81302a4acc0ac53f.wasm",
+        streamingAssetsUrl: "./StreamingAssets",
+        companyName:        "LEGiON Platforms",
+        productName:        "Luckyblocks.io",
+        productVersion:     "10z78134720",
+        autoSyncPersistentDataPath: true,
+        devicePixelRatio:   1.0
+      };
+
+      var canvas           = document.getElementById("unity-canvas");
+      var loadingContainer = document.getElementById("unity-loading-container");
+      var loadingBar       = document.getElementById("unity-loading-bar-inner");
+      var loadingPct       = document.getElementById("loading-percentage");
+      var target = 51;
+
+      var prog = setInterval(function() {
+        target = Math.min(target + 0.12, 99);
+        loadingBar.style.width = target + "%";
+        loadingPct.textContent = Math.floor(target) + "%";
+      }, 100);
+
+      if (window.SDK && typeof window.SDK.loadingStart === "function")
+        window.SDK.loadingStart();
+
+      function startUnity() {
+        createUnityInstance(canvas, config, function(p) {
+          var a = Math.min(Math.max(p * 100, 51), 99);
+          if (a > target) target = a;
+        }).then(function(ui) {
+          window.unityInstance = ui;
+          if (window.SDK && typeof window.SDK.loadingEnd === "function")
+            window.SDK.loadingEnd();
+          target = 100;
+          loadingBar.style.width = "100%";
+          loadingPct.textContent = "100%";
+          clearInterval(prog);
+          if (loadingContainer) loadingContainer.remove();
+        }).catch(function(e) { clearInterval(prog); console.error(e); });
+      }
+
+      var loaderUrl = buildUrl + "/d2a93ee7850937441c12d6ce6a859b85.loader.js";
+      var s = document.createElement("script");
+      s.src = loaderUrl;
+      s.addEventListener("load", startUnity, { once: true });
+      s.addEventListener("error", function() {
+        clearInterval(prog);
+        loadingPct.textContent = "Load failed. Please refresh.";
+      }, { once: true });
+      document.body.appendChild(s);
+    });
+  </script>
+  <noscript>Please enable JavaScript to run this game.</noscript>
+  <script src="./s/cursor.js" defer></script>
+  <script src="./s/pwa.js" defer></script>
+  <script src="./s/utils.js" defer></script>
+  <script src="./s/pinger.js" defer></script>
+  <script src="./s/exit-intent.js" defer></script>
+  <script src="./s/analytics.js" defer></script>
+</body>
+</html>

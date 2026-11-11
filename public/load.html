@@ -1,0 +1,1891 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <script src="./js/site.js?v=20261110.1"></script>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+
+    <link
+      rel="shortcut icon"
+      href="./assets/images/icon.png"
+      type="image/png"
+    />
+    <title>Aetheris</title>
+
+    <link rel="stylesheet" href="./css/main.css?v=20261011.2" />
+    <link rel="stylesheet" href="./css/cards.css?v=20260907.1" />
+    <link rel="stylesheet" href="./css/themes.css?v=20261101.1" />
+    <link rel="stylesheet" href="./css/nav.css?v=20261102.1" />
+    <link rel="stylesheet" href="./css/load.css?v=20261103.2" />
+    <script src="./js/theme.js?v=20261101.1"></script>
+
+    <script defer src="./js/preload.js?v=20261008.1"></script>
+    <!-- scramjet bundles are loaded on demand by scramjet-init.js the first
+         time a proxied frame is needed; a noProxy item skips ~245KB of JS
+         parsing. -->
+    <script src="/js/scramjet-init.js?v=20261108.3"></script>
+    <script src="./js/dm-shared.js?v=20261106.3"></script>
+
+    <script>
+      (function () {
+        function injectadblocker(iframe) {
+          var win, doc;
+          try {
+            win = iframe.contentWindow;
+            doc = iframe.contentDocument || (win && win.document);
+          } catch (e) {
+            return;
+          }
+          if (!win || !doc) return;
+
+          var blockeddomains = [
+            "doubleclick.net",
+            "googlesyndication.com",
+            "googleadservices.com",
+            "adservice.google",
+            "googletagmanager.com",
+            "googletagservices.com",
+            "imasdk.googleapis.com",
+            "adnxs.com",
+            "amazon-adsystem.com",
+            "outbrain.com",
+            "taboola.com",
+            "moatads.com",
+            "pubmatic.com",
+            "rubiconproject.com",
+            "openx.net",
+            "criteo.com",
+            "media.net",
+            "adsafeprotected.com",
+            "spotxchange.com",
+            "rlcdn.com",
+            "casalemedia.com",
+            "2mdn.net",
+            "ads.yahoo.com",
+            "adsymptotic.com",
+            "serving-sys.com",
+            "pagead2.googlesyndication.com",
+            "securepubads.g.doubleclick.net",
+            "ad.doubleclick.net",
+            "adsense.google.com",
+            "adtech.de",
+            "yieldmanager.com",
+            "advertising.com",
+            "adform.net",
+            "smartadserver.com",
+            "sharethrough.com",
+            "teads.tv",
+            "springserve.com",
+            "innovid.com",
+            "tremorhub.com",
+            "yieldmo.com",
+            "gumgum.com",
+            "loopme.me",
+            "smaato.net",
+            "applovin.com",
+            "unityads.unity3d.com",
+            "ironsrc.com",
+            "vungle.com",
+            "chartboost.com",
+            "adcolony.com",
+            "inmobi.com",
+            "startappservice.com",
+            "tapjoy.com",
+            "supersonicads.com",
+            "fyber.com",
+            "heyzap.com",
+            "adcash.com",
+            "popads.net",
+            "propellerads.com",
+            "onclickads.net",
+            "adsterra.com",
+            "hilltopads.net",
+          ];
+
+          var adselectors = [
+            "ins.adsbygoogle",
+            "[id*='google_ads_iframe']",
+            "[id*='google_ads']",
+            "[id*='ad-container']",
+            "[class*='ad-banner']",
+            "[class*='advertisement']",
+            "[class*='ad-unit']",
+            "[id^='div-gpt-ad']",
+            "[class*='gpt-ad']",
+            "iframe[src*='doubleclick']",
+            "iframe[src*='googlesyndication']",
+            "iframe[src*='adnxs']",
+            "iframe[src*='2mdn.net']",
+            "[data-ad-client]",
+            "[id*='taboola']",
+            "[class*='taboola']",
+            "[id*='outbrain']",
+            "[class*='outbrain']",
+            "#carbonads",
+            ".carbonads",
+          ].join(",");
+
+          function isadurl(url) {
+            if (!url) return false;
+            var u = String(url).toLowerCase();
+            for (var i = 0; i < blockeddomains.length; i++) {
+              if (u.indexOf(blockeddomains[i]) !== -1) return true;
+            }
+            return false;
+          }
+
+          function removeads(root) {
+            if (!root || !root.querySelectorAll) return;
+            try {
+              var els = root.querySelectorAll(adselectors);
+              for (var i = 0; i < els.length; i++) {
+                try {
+                  if (els[i].parentNode) els[i].parentNode.removeChild(els[i]);
+                } catch (e) {}
+              }
+            } catch (e) {}
+            // Ad iframes usually have no telltale id/class; match their src.
+            try {
+              var frames = root.querySelectorAll("iframe[src]");
+              for (var j = 0; j < frames.length; j++) {
+                if (isadurl(frames[j].getAttribute("src"))) {
+                  try {
+                    if (frames[j].parentNode)
+                      frames[j].parentNode.removeChild(frames[j]);
+                  } catch (e) {}
+                }
+              }
+            } catch (e) {}
+          }
+
+          // Ad SDKs open popunders through window.open; scramjet replaces the
+          // function inside a proxied frame, so patch whatever is current.
+          if (typeof win.open === "function") {
+            var origopen = win.open;
+            win.open = function (url) {
+              if (isadurl(url)) {
+                console.debug("[Aetheris] Blocked ad popup:", url);
+                return null;
+              }
+              return origopen.apply(win, arguments);
+            };
+          }
+
+          if (typeof win.fetch === "function") {
+            var origfetch = win.fetch.bind(win);
+            win.fetch = function (input) {
+              var url =
+                typeof input === "string" ? input : input && (input.url || "");
+              if (isadurl(url)) {
+                console.debug("[Aetheris] Blocked ad fetch:", url);
+                return new Promise(function () {});
+              }
+              return origfetch.apply(this, arguments);
+            };
+          }
+
+          if (win.XMLHttpRequest) {
+            var xhrproto = win.XMLHttpRequest.prototype;
+            var origopen = xhrproto.open;
+            var origsend = xhrproto.send;
+            xhrproto.open = function (method, url) {
+              this.__adBlocked = isadurl(url);
+              if (this.__adBlocked) {
+                console.debug("[Aetheris] Blocked ad XHR:", url);
+                return;
+              }
+              return origopen.apply(this, arguments);
+            };
+            xhrproto.send = function () {
+              if (this.__adBlocked) return;
+              return origsend.apply(this, arguments);
+            };
+          }
+
+          removeads(doc.documentElement || doc.body);
+
+          if (win.MutationObserver) {
+            var adobserver = new win.MutationObserver(function (mutations) {
+              for (var i = 0; i < mutations.length; i++) {
+                var added = mutations[i].addedNodes;
+                for (var j = 0; j < added.length; j++) {
+                  var node = added[j];
+                  if (node.nodeType !== 1) continue;
+                  if (
+                    (node.matches && node.matches(adselectors)) ||
+                    (node.tagName === "IFRAME" &&
+                      isadurl(node.getAttribute("src")))
+                  ) {
+                    try {
+                      if (node.parentNode) node.parentNode.removeChild(node);
+                    } catch (e) {}
+                  } else {
+                    removeads(node);
+                  }
+                }
+              }
+            });
+            try {
+              adobserver.observe(doc.documentElement, {
+                childList: true,
+                subtree: true,
+              });
+            } catch (e) {}
+          }
+        }
+
+        function sandboxiframe(iframe) {
+          try {
+            var current = iframe.getAttribute("sandbox") || "";
+            if (current === "") {
+              iframe.setAttribute(
+                "sandbox",
+                "allow-scripts allow-same-origin allow-forms allow-popups " +
+                  "allow-pointer-lock allow-downloads allow-modals allow-orientation-lock " +
+                  "allow-presentation allow-storage-access-by-user-activation",
+              );
+            } else {
+              var cleaned = current
+                .replace(/allow-top-navigation-by-user-activation/g, "")
+                .replace(/allow-top-navigation/g, "")
+                .replace(/\s+/g, " ")
+                .trim();
+              iframe.setAttribute("sandbox", cleaned);
+            }
+          } catch (e) {}
+          // Safari requires allow="autoplay" for AudioContext.resume() to work after a gesture
+          try {
+            if (!iframe.getAttribute("allow")) {
+              iframe.setAttribute("allow", "autoplay; fullscreen");
+            }
+          } catch (e) {}
+        }
+
+        function watchiframe(iframe) {
+          if (!iframe || iframe.__aetherisWatched) return;
+          iframe.__aetherisWatched = true;
+
+          sandboxiframe(iframe);
+
+          var attach = function () {
+            try {
+              injectadblocker(iframe);
+            } catch (e) {}
+          };
+          iframe.addEventListener("load", attach);
+          attach();
+        }
+
+        function startobserver() {
+          var host = document.getElementById("game-frame");
+          if (!host) {
+            requestAnimationFrame(startobserver);
+            return;
+          }
+
+          var existing = host.querySelector("iframe");
+          if (existing) watchiframe(existing);
+
+          var mo = new MutationObserver(function (mutations) {
+            for (var i = 0; i < mutations.length; i++) {
+              var added = mutations[i].addedNodes;
+              for (var j = 0; j < added.length; j++) {
+                var node = added[j];
+                if (node && node.tagName === "IFRAME") watchiframe(node);
+                else if (node && node.querySelector) {
+                  var nested = node.querySelector("iframe");
+                  if (nested) watchiframe(nested);
+                }
+              }
+            }
+          });
+          mo.observe(host, { childList: true, subtree: true });
+        }
+
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", startobserver, {
+            once: true,
+          });
+        } else {
+          startobserver();
+        }
+      })();
+    </script>
+    <link rel="stylesheet" href="./css/usability.css?v=20261103.3" />
+  </head>
+
+  <body>
+    <div class="game-wrapper">
+      <div
+        id="game-frame"
+        style="
+          width: 100vw;
+          height: 100svh;
+          border: 0;
+          display: block;
+          overflow: hidden;
+        "
+      ></div>
+
+      <!-- Info panel shown below the game -->
+      <div class="game-sidebar">
+        <div class="game-header">
+          <img id="game-img" alt="" />
+          <h3 id="game-title"></h3>
+        </div>
+        <p id="game-desc"></p>
+
+        <!-- Action buttons -->
+        <div class="action-buttons" style="gap: 8px">
+          <button
+            onclick="window.goback ? window.goback() : history.back()"
+            aria-label="Back to library"
+            title="Back"
+            style="min-width: 44px; min-height: 44px; font-size: 20px"
+          >
+            ←
+          </button>
+          <button
+            onclick="Aetheris.fullscreen(document.getElementById('game-frame'))"
+            aria-label="Expand game"
+            title="Fullscreen"
+            style="min-width: 44px; min-height: 44px; font-size: 20px"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M9 3H3v6m12-6h6v6M3 15v6h6m12-6v6h-6"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+          <button
+            onclick="openinnewtab()"
+            title="Open in new tab"
+            style="min-width: 44px; min-height: 44px; font-size: 20px"
+          >
+            ↗
+          </button>
+          <button
+            title="Favorite"
+            aria-label="Add to favorites"
+            aria-pressed="false"
+            id="fav-btn"
+            style="min-width: 44px; min-height: 44px; font-size: 20px"
+          >
+            ☆
+          </button>
+          <button
+            onclick="refreshgame()"
+            title="Refresh"
+            style="min-width: 44px; min-height: 44px; font-size: 20px"
+          >
+            ↺
+          </button>
+          <button
+            onclick="togglehandedmode()"
+            title="Toggle left/right handed mode"
+            id="handed-btn"
+            style="min-width: 44px; min-height: 44px; font-size: 20px"
+          >
+            ⇄
+          </button>
+        </div>
+        <div class="player-extra-tools" id="player-extra-tools"></div>
+      </div>
+    </div>
+
+    <script defer src="./register-sw.js?v=20260907.1"></script>
+    <script defer src="./js/player-data.js?v=20261105.2"></script>
+    <script defer src="./js/load.js?v=20261110.1"></script>
+
+    <script>
+      function refreshgame() {
+        var iframe = document.querySelector("#game-frame iframe");
+        if (!iframe) {
+          alert("No game loaded yet.");
+          return;
+        }
+        try {
+          iframe.contentWindow.location.reload();
+          return;
+        } catch (e) {}
+        // cross-origin fallback: cycle src to avoid stripping query params
+        if (!iframe.src) {
+          alert("No game loaded yet.");
+          return;
+        }
+        var url = new URL(iframe.src);
+        url.searchParams.set("_", Date.now());
+        iframe.src = url.href;
+      }
+
+      // Eruda is opt-in from Settings → DevTools; the player has no debug button.
+      var erudaActive = localStorage.getItem("erudaEnabled") === "true";
+
+      function injecterudaintoiframe(iframe) {
+        try {
+          var doc = iframe.contentDocument || iframe.contentWindow.document;
+          if (!doc) return;
+          var win = iframe.contentWindow;
+          if (win.eruda && win.__erudaInjected) return;
+          var s1 = doc.createElement("script");
+          s1.src = "https://cdn.jsdelivr.net/npm/eruda";
+          s1.onload = function () {
+            var s2 = doc.createElement("script");
+            s2.textContent = "eruda.init(); window.__erudaInjected = true;";
+            doc.body.appendChild(s2);
+          };
+          doc.body.appendChild(s1);
+        } catch (e) {}
+      }
+
+      // Re-inject Eruda after iframe refreshes
+      document.getElementById("game-frame").addEventListener(
+        "load",
+        function (e) {
+          if (e.target && e.target.tagName === "IFRAME" && erudaActive) {
+            injecterudaintoiframe(e.target);
+          }
+        },
+        true,
+      );
+
+      if (erudaActive) {
+        var debugframe = document.querySelector("#game-frame iframe");
+        if (debugframe) injecterudaintoiframe(debugframe);
+      }
+
+      function eschtml(s) {
+        return String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      function openinnewtab() {
+        var iframe = document.querySelector("#game-frame iframe");
+        if (!iframe) {
+          alert("No game loaded yet.");
+          return;
+        }
+
+        // Open the game itself, not another copy of this player page.
+        // The live location also follows navigation inside the game;
+        // fall back to the src attribute when it can't be read.
+        var gameurl = "";
+        try {
+          var livehref =
+            iframe.contentWindow && iframe.contentWindow.location.href;
+          if (livehref && livehref !== "about:blank") gameurl = livehref;
+        } catch (e) {}
+        if (!gameurl) gameurl = iframe.src || iframe.getAttribute("src") || "";
+        if (!gameurl || gameurl === "about:blank") {
+          alert("No game loaded yet.");
+          return;
+        }
+
+        // Proxied (/~/sj/...) URLs only route under this tab's Controller,
+        // so they can't load in a bare new tab — reopen those through the
+        // player shell, which boots its own proxy.
+        if (gameurl.indexOf("/~/sj/") !== -1) {
+          gameurl = location.origin + "/index.html#load" + location.search;
+        }
+        var tabtitle = localStorage.getItem("tabName") || "Google";
+        var tabicon =
+          localStorage.getItem("tabIcon") ||
+          "https://www.google.com/favicon.ico";
+
+        var newwindow = window.open("about:blank", "_blank");
+        if (!newwindow) {
+          alert("Popup blocked. Please allow popups for this site.");
+          return;
+        }
+
+        newwindow.document.write(
+          "<!DOCTYPE html><html><head>" +
+            "<title>" +
+            eschtml(tabtitle) +
+            "</title>" +
+            '<link rel="icon" href="' +
+            eschtml(tabicon) +
+            '">' +
+            "<style>body{margin:0;overflow:hidden;background:#000}" +
+            "iframe{border:none;width:100vw;height:100vh;position:fixed;inset:0}</style>" +
+            "</head><body>" +
+            '<iframe src="' +
+            eschtml(gameurl) +
+            '" allowfullscreen allow="autoplay; fullscreen" referrerpolicy="no-referrer"' +
+            ' sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-pointer-lock allow-downloads allow-modals allow-orientation-lock allow-presentation allow-storage-access-by-user-activation"></iframe>' +
+            "</body></html>",
+        );
+        newwindow.document.close();
+      }
+
+      (function () {
+        if (localStorage.getItem("leftHanded") === "true") {
+          document.body.classList.add("left-handed");
+        }
+      })();
+
+      function dismissshaphint() {
+        var hint = document.getElementById("swap-hint");
+        if (hint) hint.hidden = true;
+        try {
+          localStorage.setItem("swapHintDismissed", "true");
+        } catch (e) {}
+      }
+
+      function togglehandedmode() {
+        var isleft = document.body.classList.toggle("left-handed");
+        localStorage.setItem("leftHanded", isleft ? "true" : "false");
+        document.getElementById("handed-btn").title = isleft
+          ? "Switch to right-handed mode"
+          : "Switch to left-handed mode";
+      }
+
+      var chatopen = false;
+      var chatloaded = false;
+
+      function togglechat() {
+        var panel = document.getElementById("chat-panel");
+        chatopen = !chatopen;
+        if (chatopen) {
+          if (!chatloaded) {
+            document.getElementById("chat-iframe").src = "./minichat.html";
+            chatloaded = true;
+          }
+          panel.style.display = "block";
+          requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+              panel.classList.add("open");
+            });
+          });
+          document.getElementById("chat-pill-badge").style.display = "none";
+        } else {
+          panel.classList.remove("open");
+          setTimeout(function () {
+            if (!chatopen) panel.style.display = "none";
+          }, 220);
+        }
+      }
+
+      document.addEventListener("DOMContentLoaded", function () {
+        var tools = document.getElementById("player-extra-tools");
+        document
+          .querySelectorAll(".swap-pill, .chat-pill, .report-pill, .osk-pill")
+          .forEach(function (button) {
+            tools.appendChild(button);
+          });
+        document
+          .querySelectorAll(".action-buttons button")
+          .forEach(function (button) {
+            if (!button.hasAttribute("aria-label"))
+              button.setAttribute("aria-label", button.title);
+          });
+      });
+
+      window.addEventListener("message", function (e) {
+        var data = e.data;
+        if (!data || typeof data !== "object") return;
+
+        // Chat unread badge — same-origin only, otherwise any embedded
+        // (proxied/game) frame could spoof the badge count
+        if (
+          e.origin === location.origin &&
+          e.source === document.getElementById("chat-iframe").contentWindow &&
+          data.type === "chat-unread" &&
+          !chatopen
+        ) {
+          var badge = document.getElementById("chat-pill-badge");
+          if (data.count > 0) {
+            badge.textContent = data.count > 99 ? "99+" : data.count;
+            badge.style.display = "flex";
+          } else {
+            badge.style.display = "none";
+          }
+          return;
+        }
+
+        // Preserve the existing message protocol, but never acknowledge a
+        // successful save while discarding the content. Scope saves to the
+        // selected game, requester origin, and slot.
+        var saveactions = ["load", "load_content", "save_content", "save"];
+        if (saveactions.indexOf(data.action) !== -1) {
+          var gameFrame = document.querySelector("#game-frame iframe");
+          if (!gameFrame || e.source !== gameFrame.contentWindow) return;
+          var content = "",
+            error = false,
+            detail = "ok";
+          try {
+            var slot = data.slot == null ? "default" : String(data.slot);
+            if (slot.length > 128) throw new Error("Invalid save slot.");
+            var key =
+              "aetheris-save:" +
+              encodeURIComponent(location.search) +
+              ":" +
+              encodeURIComponent(e.origin) +
+              ":" +
+              encodeURIComponent(slot);
+            if (data.action === "save" || data.action === "save_content") {
+              if (data.content === undefined)
+                throw new Error("No save content supplied.");
+              var encoded = JSON.stringify(
+                data.content,
+                function (_key, value) {
+                  if (
+                    value instanceof ArrayBuffer ||
+                    ArrayBuffer.isView(value) ||
+                    value instanceof Blob ||
+                    value instanceof Map ||
+                    value instanceof Set ||
+                    typeof value === "bigint" ||
+                    typeof value === "undefined" ||
+                    (typeof value === "number" && !Number.isFinite(value))
+                  ) {
+                    throw new Error(
+                      "This save API requires JSON-compatible content.",
+                    );
+                  }
+                  return value;
+                },
+              );
+              if (!encoded || encoded.length > 2 * 1024 * 1024)
+                throw new Error("Save content is too large.");
+              localStorage.setItem(key, encoded);
+              content = data.content;
+            } else {
+              var saved = localStorage.getItem(key);
+              content = saved === null ? "" : JSON.parse(saved);
+            }
+          } catch (saveError) {
+            error = true;
+            detail = saveError.message;
+          }
+          e.source.postMessage(
+            {
+              type: "save_content",
+              error: error,
+              message: detail,
+              content: content,
+              slot: data.slot,
+            },
+            e.origin === "null" ? "*" : e.origin,
+          );
+        }
+      });
+    </script>
+
+    <!-- swap source pill (above the chat pill) -->
+    <button
+      class="swap-pill"
+      id="swap-source-btn"
+      onclick="window.swapsource ? window.swapsource() : null"
+      aria-label="Swap source"
+      title="Change source"
+    >
+      <span class="swap-pill-icon">⇆</span>
+      <span>Swap source</span>
+    </button>
+
+    <!-- hint (top right of the game) -->
+    <div class="swap-hint" id="swap-hint" role="status" hidden>
+      <span>Not working? Press <strong>swap source</strong></span>
+      <button
+        class="swap-hint-close"
+        onclick="dismissshaphint()"
+        aria-label="Dismiss hint"
+      >
+        ×
+      </button>
+    </div>
+
+    <!-- chat pill (above report pill) -->
+    <button
+      class="chat-pill"
+      id="chat-pill-btn"
+      onclick="togglechat()"
+      aria-label="Open DMs"
+      style="position: fixed"
+    >
+      <span class="chat-pill-icon">💬</span>
+      <span>Chat</span>
+      <span
+        class="chat-pill-badge"
+        id="chat-pill-badge"
+        style="display: none"
+      ></span>
+    </button>
+
+    <!-- chat panel (slides in above the pill) -->
+    <div id="chat-panel" class="chat-panel">
+      <iframe
+        id="chat-iframe"
+        title="Game chat"
+        src="about:blank"
+        allow="autoplay"
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-storage-access-by-user-activation"
+      ></iframe>
+    </div>
+
+    <!-- report pill (bottom-right) -->
+    <button
+      class="report-pill"
+      onclick="openreport()"
+      aria-label="Report an issue"
+    >
+      <span class="report-pill-icon">🚩</span>
+      <span>Report</span>
+    </button>
+
+    <!-- Report modal overlay -->
+    <div
+      id="report-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="report-title"
+      style="
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        background: rgba(4, 5, 14, 0.72);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        align-items: center;
+        justify-content: center;
+      "
+    >
+      <div
+        id="report-modal"
+        style="
+          background: linear-gradient(
+            160deg,
+            rgba(22, 22, 24, 0.98),
+            rgba(10, 10, 12, 0.99)
+          );
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 20px;
+          padding: 28px 26px 22px;
+          width: min(460px, 92vw);
+          box-shadow: 0 32px 80px rgba(0, 0, 0, 0.6);
+          font-family: var(--font-sans);
+          color: #e5e5e5;
+          position: relative;
+        "
+      >
+        <!-- Header -->
+        <div
+          style="
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+          "
+        >
+          <div style="display: flex; align-items: center; gap: 10px">
+            <span style="font-size: 20px">🚩</span>
+            <div>
+              <div
+                id="report-title"
+                style="
+                  font-size: 15px;
+                  font-weight: 700;
+                  letter-spacing: 0.02em;
+                "
+              >
+                Report a problem
+              </div>
+              <div
+                id="report-game-name"
+                style="font-size: 11px; opacity: 0.45; margin-top: 2px"
+              ></div>
+            </div>
+          </div>
+          <button
+            onclick="closereport()"
+            aria-label="Close report form"
+            onmouseover="this.style.background = 'rgba(255,255,255,0.12)'"
+            onmouseout="this.style.background = 'rgba(255,255,255,0.06)'"
+            style="
+              background: rgba(255, 255, 255, 0.06);
+              border: 1px solid rgba(255, 255, 255, 0.1);
+              border-radius: 8px;
+              color: #e5e5e5;
+              font-size: 16px;
+              width: 32px;
+              height: 32px;
+              cursor: pointer;
+              display: grid;
+              place-items: center;
+              transition: background 0.15s;
+            "
+          >
+            &times;
+          </button>
+        </div>
+
+        <div style="margin-bottom: 16px">
+          <span
+            id="report-type-label"
+            style="
+              font-size: 11px;
+              opacity: 0.55;
+              letter-spacing: 0.06em;
+              text-transform: uppercase;
+              display: block;
+              margin-bottom: 8px;
+            "
+            >What's wrong?</span
+          >
+          <div
+            role="group"
+            aria-labelledby="report-type-label"
+            style="display: flex; flex-wrap: wrap; gap: 7px"
+          >
+            <button
+              class="rtype"
+              onclick="pickreporttype(this, 'Game not loading')"
+            >
+              Game not loading
+            </button>
+            <button
+              class="rtype"
+              onclick="pickreporttype(this, 'Black / blank screen')"
+            >
+              Black screen
+            </button>
+            <button
+              class="rtype"
+              onclick="pickreporttype(this, 'Game crashes')"
+            >
+              Game crashes
+            </button>
+            <button
+              class="rtype"
+              onclick="pickreporttype(this, 'Controls broken')"
+            >
+              Controls broken
+            </button>
+            <button
+              class="rtype"
+              onclick="pickreporttype(this, 'Audio issues')"
+            >
+              Audio issues
+            </button>
+            <button
+              class="rtype"
+              onclick="pickreporttype(this, 'Wrong game loaded')"
+            >
+              Wrong game
+            </button>
+            <button class="rtype" onclick="pickreporttype(this, 'Other')">
+              Other
+            </button>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 16px">
+          <label
+            for="report-steps"
+            style="
+              font-size: 11px;
+              opacity: 0.55;
+              letter-spacing: 0.06em;
+              text-transform: uppercase;
+              display: block;
+              margin-bottom: 8px;
+            "
+            >How did it happen?</label
+          >
+          <textarea
+            id="report-steps"
+            placeholder="e.g. Open the game, click Play, then it goes black"
+            onfocus="this.style.borderColor = 'rgba(255,255,255,0.25)'"
+            onblur="this.style.borderColor = 'rgba(255,255,255,0.1)'"
+            style="
+              width: 100%;
+              min-height: 80px;
+              resize: vertical;
+              background: rgba(255, 255, 255, 0.05);
+              border: 1px solid rgba(255, 255, 255, 0.1);
+              border-radius: 10px;
+              color: #e5e5e5;
+              font-family: var(--font-sans);
+              font-size: 12px;
+              padding: 10px 12px;
+              box-sizing: border-box;
+              outline: none;
+              transition: border-color 0.15s;
+            "
+          ></textarea>
+        </div>
+
+        <div style="margin-bottom: 20px">
+          <label
+            for="report-notes"
+            style="
+              font-size: 11px;
+              opacity: 0.55;
+              letter-spacing: 0.06em;
+              text-transform: uppercase;
+              display: block;
+              margin-bottom: 8px;
+            "
+          >
+            Anything else? <span style="opacity: 0.4">(optional)</span>
+          </label>
+          <textarea
+            id="report-notes"
+            placeholder="Anything else we should know?"
+            onfocus="this.style.borderColor = 'rgba(255,255,255,0.25)'"
+            onblur="this.style.borderColor = 'rgba(255,255,255,0.1)'"
+            style="
+              width: 100%;
+              min-height: 56px;
+              resize: vertical;
+              background: rgba(255, 255, 255, 0.05);
+              border: 1px solid rgba(255, 255, 255, 0.1);
+              border-radius: 10px;
+              color: #e5e5e5;
+              font-family: var(--font-sans);
+              font-size: 12px;
+              padding: 10px 12px;
+              box-sizing: border-box;
+              outline: none;
+              transition: border-color 0.15s;
+            "
+          ></textarea>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 10px">
+          <button
+            id="report-submit"
+            onclick="sendreport()"
+            onmouseover="this.style.filter = 'brightness(1.12)'"
+            onmouseout="this.style.filter = ''"
+            onmousedown="this.style.transform = 'scale(0.97)'"
+            onmouseup="this.style.transform = ''"
+            style="
+              flex: 1;
+              background: rgba(255, 255, 255, 0.12);
+              border: 1px solid rgba(255, 255, 255, 0.15);
+              border-radius: 11px;
+              color: #fff;
+              font-family: var(--font-sans);
+              font-size: 13px;
+              font-weight: 700;
+              padding: 11px;
+              cursor: pointer;
+              transition:
+                filter 0.15s,
+                transform 0.12s;
+              letter-spacing: 0.02em;
+            "
+          >
+            Send report
+          </button>
+          <button
+            onclick="closereport()"
+            onmouseover="this.style.background = 'rgba(255,255,255,0.09)'"
+            onmouseout="this.style.background = 'rgba(255,255,255,0.05)'"
+            style="
+              background: rgba(255, 255, 255, 0.05);
+              border: 1px solid rgba(255, 255, 255, 0.09);
+              border-radius: 11px;
+              color: rgba(229, 229, 229, 0.6);
+              font-family: var(--font-sans);
+              font-size: 13px;
+              padding: 11px 18px;
+              cursor: pointer;
+              transition: background 0.15s;
+            "
+          >
+            Cancel
+          </button>
+        </div>
+
+        <div
+          id="report-status"
+          role="status"
+          aria-live="polite"
+          style="
+            display: none;
+            margin-top: 14px;
+            font-size: 12px;
+            text-align: center;
+            border-radius: 8px;
+            padding: 9px 12px;
+          "
+        ></div>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        if (localStorage.getItem("oskEnabled") !== "true") return;
+
+        var scale = Math.max(
+          0.5,
+          Math.min(1.5, parseFloat(localStorage.getItem("oskScale") || "1")),
+        );
+        var mods = { shift: false, ctrl: false, alt: false, caps: false };
+        var oskVisible = false,
+          positioned = false;
+        var dragging = false,
+          dragOffX = 0,
+          dragOffY = 0;
+
+        var ROWS = [
+          [
+            { l: "Esc", k: "Escape", c: "Escape" },
+            { l: "`", k: "`", c: "Backquote", s: "~" },
+            { l: "1", k: "1", c: "Digit1", s: "!" },
+            { l: "2", k: "2", c: "Digit2", s: "@" },
+            { l: "3", k: "3", c: "Digit3", s: "#" },
+            { l: "4", k: "4", c: "Digit4", s: "$" },
+            { l: "5", k: "5", c: "Digit5", s: "%" },
+            { l: "6", k: "6", c: "Digit6", s: "^" },
+            { l: "7", k: "7", c: "Digit7", s: "&" },
+            { l: "8", k: "8", c: "Digit8", s: "*" },
+            { l: "9", k: "9", c: "Digit9", s: "(" },
+            { l: "0", k: "0", c: "Digit0", s: ")" },
+            { l: "-", k: "-", c: "Minus", s: "_" },
+            { l: "=", k: "=", c: "Equal", s: "+" },
+            { l: "⌫", k: "Backspace", c: "Backspace", w: "wide" },
+          ],
+          [
+            { l: "Tab", k: "Tab", c: "Tab", w: "wide" },
+            { l: "Q", k: "q", c: "KeyQ", s: "Q" },
+            { l: "W", k: "w", c: "KeyW", s: "W" },
+            { l: "E", k: "e", c: "KeyE", s: "E" },
+            { l: "R", k: "r", c: "KeyR", s: "R" },
+            { l: "T", k: "t", c: "KeyT", s: "T" },
+            { l: "Y", k: "y", c: "KeyY", s: "Y" },
+            { l: "U", k: "u", c: "KeyU", s: "U" },
+            { l: "I", k: "i", c: "KeyI", s: "I" },
+            { l: "O", k: "o", c: "KeyO", s: "O" },
+            { l: "P", k: "p", c: "KeyP", s: "P" },
+            { l: "[", k: "[", c: "BracketLeft", s: "{" },
+            { l: "]", k: "]", c: "BracketRight", s: "}" },
+            { l: "\\", k: "\\", c: "Backslash", s: "|" },
+          ],
+          [
+            { l: "Caps", k: "CapsLock", c: "CapsLock", w: "wider", m: "caps" },
+            { l: "A", k: "a", c: "KeyA", s: "A" },
+            { l: "S", k: "s", c: "KeyS", s: "S" },
+            { l: "D", k: "d", c: "KeyD", s: "D" },
+            { l: "F", k: "f", c: "KeyF", s: "F" },
+            { l: "G", k: "g", c: "KeyG", s: "G" },
+            { l: "H", k: "h", c: "KeyH", s: "H" },
+            { l: "J", k: "j", c: "KeyJ", s: "J" },
+            { l: "K", k: "k", c: "KeyK", s: "K" },
+            { l: "L", k: "l", c: "KeyL", s: "L" },
+            { l: ";", k: ";", c: "Semicolon", s: ":" },
+            { l: "'", k: "'", c: "Quote", s: '"' },
+            { l: "Enter", k: "Enter", c: "Enter", w: "wider" },
+          ],
+          [
+            { l: "⇧", k: "Shift", c: "ShiftLeft", w: "wider", m: "shift" },
+            { l: "Z", k: "z", c: "KeyZ", s: "Z" },
+            { l: "X", k: "x", c: "KeyX", s: "X" },
+            { l: "C", k: "c", c: "KeyC", s: "C" },
+            { l: "V", k: "v", c: "KeyV", s: "V" },
+            { l: "B", k: "b", c: "KeyB", s: "B" },
+            { l: "N", k: "n", c: "KeyN", s: "N" },
+            { l: "M", k: "m", c: "KeyM", s: "M" },
+            { l: ",", k: ",", c: "Comma", s: "<" },
+            { l: ".", k: ".", c: "Period", s: ">" },
+            { l: "/", k: "/", c: "Slash", s: "?" },
+            { l: "⇧", k: "Shift", c: "ShiftRight", w: "wider", m: "shift" },
+          ],
+          [
+            {
+              l: "Ctrl",
+              k: "Control",
+              c: "ControlLeft",
+              w: "wider",
+              m: "ctrl",
+            },
+            { l: "Alt", k: "Alt", c: "AltLeft", m: "alt" },
+            { l: "Space", k: " ", c: "Space", w: "space" },
+            { l: "Alt", k: "Alt", c: "AltRight", m: "alt" },
+            {
+              l: "Ctrl",
+              k: "Control",
+              c: "ControlRight",
+              w: "wider",
+              m: "ctrl",
+            },
+            { l: "←", k: "ArrowLeft", c: "ArrowLeft" },
+            { l: "↑", k: "ArrowUp", c: "ArrowUp" },
+            { l: "↓", k: "ArrowDown", c: "ArrowDown" },
+            { l: "→", k: "ArrowRight", c: "ArrowRight" },
+          ],
+        ];
+
+        // Build panel
+        var panel = document.createElement("div");
+        panel.className = "osk-panel";
+        panel.id = "osk-panel";
+
+        var handle = document.createElement("div");
+        handle.className = "osk-handle";
+
+        function mkctrl(txt, title) {
+          var b = document.createElement("button");
+          b.className = "osk-ctrl-btn";
+          b.textContent = txt;
+          b.title = title;
+          return b;
+        }
+
+        var minusBtn = mkctrl("−", "Shrink keyboard");
+        var titleEl = document.createElement("div");
+        titleEl.className = "osk-title";
+        titleEl.textContent = "⠇ keyboard";
+        var plusBtn = mkctrl("+", "Grow keyboard");
+        var closeBtn = mkctrl("×", "Close keyboard");
+
+        handle.appendChild(minusBtn);
+        handle.appendChild(titleEl);
+        handle.appendChild(plusBtn);
+        handle.appendChild(closeBtn);
+        panel.appendChild(handle);
+
+        var rowsEl = document.createElement("div");
+        rowsEl.className = "osk-rows";
+        var allKeys = [];
+
+        ROWS.forEach(function (row) {
+          var rowEl = document.createElement("div");
+          rowEl.className = "osk-row";
+          row.forEach(function (kd) {
+            var btn = document.createElement("button");
+            btn.className = "osk-key";
+            btn.setAttribute("tabindex", "-1");
+            btn.textContent = kd.l;
+            if (kd.w) btn.dataset.w = kd.w;
+            if (kd.m) btn.dataset.mod = kd.m;
+            btn.dataset.key = kd.k;
+            btn.dataset.code = kd.c;
+            if (kd.s) btn.dataset.shift = kd.s;
+            rowEl.appendChild(btn);
+            allKeys.push(btn);
+          });
+          rowsEl.appendChild(rowEl);
+        });
+
+        panel.appendChild(rowsEl);
+        document.body.appendChild(panel);
+
+        // Pill button
+        var pill = document.createElement("button");
+        pill.className = "osk-pill";
+        pill.id = "osk-pill-btn";
+        pill.setAttribute("aria-label", "Toggle on-screen keyboard");
+        pill.innerHTML =
+          '<span style="font-size:1rem;line-height:1">⌨</span><span>Keys</span>';
+        document.body.appendChild(pill);
+
+        // Scale
+        function applyScale() {
+          var fit = panel.offsetWidth
+            ? Math.min(scale, (window.innerWidth - 16) / panel.offsetWidth)
+            : scale;
+          panel.style.transform = "scale(" + fit + ")";
+        }
+        applyScale();
+
+        // Mod UI
+        function updateMods() {
+          allKeys.forEach(function (btn) {
+            var m = btn.dataset.mod;
+            if (m) btn.classList.toggle("osk-mod-on", !!mods[m]);
+          });
+        }
+
+        var KEYCODE_BY_CODE = {
+          Escape: 27, Tab: 9, Space: 32, Enter: 13, Backspace: 8,
+          ShiftLeft: 16, ShiftRight: 16, ControlLeft: 17, ControlRight: 17,
+          AltLeft: 18, AltRight: 18, CapsLock: 20,
+          ArrowLeft: 37, ArrowUp: 38, ArrowRight: 39, ArrowDown: 40,
+          Digit0: 48, Digit1: 49, Digit2: 50, Digit3: 51, Digit4: 52,
+          Digit5: 53, Digit6: 54, Digit7: 55, Digit8: 56, Digit9: 57,
+          KeyA: 65, KeyB: 66, KeyC: 67, KeyD: 68, KeyE: 69, KeyF: 70,
+          KeyG: 71, KeyH: 72, KeyI: 73, KeyJ: 74, KeyK: 75, KeyL: 76,
+          KeyM: 77, KeyN: 78, KeyO: 79, KeyP: 80, KeyQ: 81, KeyR: 82,
+          KeyS: 83, KeyT: 84, KeyU: 85, KeyV: 86, KeyW: 87, KeyX: 88,
+          KeyY: 89, KeyZ: 90,
+          Minus: 189, Equal: 187, BracketLeft: 219, BracketRight: 221,
+          Backslash: 220, Semicolon: 186, Quote: 222, Backquote: 192,
+          Comma: 188, Period: 190, Slash: 191,
+        };
+
+        function keyCodeFor(key, code) {
+          if (code && KEYCODE_BY_CODE[code] != null)
+            return KEYCODE_BY_CODE[code];
+          if (key === " ") return 32;
+          if (key === "Enter") return 13;
+          if (key === "Tab") return 9;
+          if (key === "Escape") return 27;
+          if (key === "Backspace") return 8;
+          if (key === "Shift" || key === "ShiftLeft" || key === "ShiftRight")
+            return 16;
+          if (key === "Control" || key === "ControlLeft" || key === "ControlRight")
+            return 17;
+          if (key === "Alt" || key === "AltLeft" || key === "AltRight")
+            return 18;
+          if (key === "CapsLock") return 20;
+          if (key === "ArrowLeft") return 37;
+          if (key === "ArrowUp") return 38;
+          if (key === "ArrowRight") return 39;
+          if (key === "ArrowDown") return 40;
+          if (key && key.length === 1) {
+            var up = key.toUpperCase();
+            if (up >= "A" && up <= "Z") return up.charCodeAt(0);
+            if (up >= "0" && up <= "9") return up.charCodeAt(0);
+            var punct = {
+              ";": 186, ":": 186, "=": 187, "+": 187, ",": 188, "<": 188,
+              "-": 189, "_": 189, ".": 190, ">": 190, "/": 191, "?": 191,
+              "`": 192, "~": 192, "[": 219, "{": 219, "\\": 220, "|": 220,
+              "]": 221, "}": 221, "'": 222, '"': 222, "!": 49, "@": 50,
+              "#": 51, "$": 52, "%": 53, "^": 54, "&": 55, "*": 56, "(": 57, ")": 48,
+            };
+            if (punct[key] != null) return punct[key];
+            return up.charCodeAt(0);
+          }
+          return 0;
+        }
+
+        function oskLocation(code) {
+          if (!code) return 0;
+          if (/Left$/.test(code)) return 1;
+          if (/Right$/.test(code)) return 2;
+          return 0;
+        }
+
+        function isEditable(el) {
+          if (!el || !el.tagName) return false;
+          if (el.isContentEditable) return true;
+          var tag = el.tagName.toUpperCase();
+          if (tag === "TEXTAREA") return !el.disabled && !el.readOnly;
+          if (tag === "INPUT") {
+            if (el.disabled || el.readOnly) return false;
+            var t = (el.type || "text").toLowerCase();
+            return (
+              t === "text" || t === "search" || t === "url" || t === "tel" ||
+              t === "password" || t === "number" || t === "email" || t === ""
+            );
+          }
+          return false;
+        }
+
+        function focusGame() {
+          var iframe = document.querySelector("#game-frame iframe");
+          if (!iframe) return null;
+          try {
+            iframe.focus();
+          } catch (e) {}
+          try {
+            if (iframe.contentWindow) iframe.contentWindow.focus();
+          } catch (e) {}
+          return iframe;
+        }
+
+        function buildOskEvent(win, type, key, code) {
+          var keyCode = keyCodeFor(key, code);
+          var opts = {
+            key: key,
+            code: code,
+            location: oskLocation(code),
+            bubbles: true,
+            cancelable: true,
+            composed: true,
+            repeat: false,
+            isComposing: false,
+            shiftKey: !!(mods.shift || mods.caps),
+            ctrlKey: !!mods.ctrl,
+            altKey: !!mods.alt,
+            metaKey: false,
+          };
+          var Evt = (win && win.KeyboardEvent) || window.KeyboardEvent;
+          var ev = new Evt(type, opts);
+          try {
+            var charCode = 0;
+            if (type === "keypress") {
+              if (key && key.length === 1) charCode = key.charCodeAt(0);
+              else if (key === "Enter") charCode = 13;
+              else if (key === "Tab") charCode = 9;
+              else if (key === " ") charCode = 32;
+            }
+            Object.defineProperties(ev, {
+              keyCode: { value: type === "keypress" ? charCode : keyCode },
+              which: { value: type === "keypress" ? charCode : keyCode },
+              charCode: { value: type === "keypress" ? charCode : 0 },
+            });
+          } catch (e) {}
+          try {
+            if (ev.keyCode !== keyCode && type !== "keypress") {
+              ev.keyCode = keyCode;
+              ev.which = keyCode;
+            }
+          } catch (e) {}
+          return { ev: ev, keyCode: keyCode };
+        }
+
+        function dispatchToGame(type, key, code) {
+          var iframe = focusGame();
+          if (!iframe) return false;
+          try {
+            var win = iframe.contentWindow;
+            var doc = iframe.contentDocument || (win && win.document);
+            if (!doc) return false;
+            var built = buildOskEvent(win, type, key, code);
+            var target =
+              doc.activeElement && doc.activeElement !== doc.body
+                ? doc.activeElement
+                : doc.body || doc.documentElement;
+            if (!target) return false;
+            try {
+              if (target.focus && target !== doc.body && target !== doc.documentElement) {
+                try {
+                  target.focus({ preventScroll: true });
+                } catch (e2) {
+                  target.focus();
+                }
+              }
+            } catch (e) {}
+            // Single dispatch on the deepest target: it bubbles through
+            // document -> window, so game listeners at any level fire once.
+            target.dispatchEvent(built.ev);
+            return true;
+          } catch (e) {
+            return false;
+          }
+        }
+
+        function inputEventFor(win, type, data, inputType) {
+          var Ctor = (win && win.InputEvent) || window.InputEvent;
+          try {
+            return new Ctor(type, {
+              data: data,
+              inputType: inputType,
+              bubbles: true,
+              cancelable: true,
+              composed: true,
+            });
+          } catch (e) {
+            var ev = document.createEvent("Event");
+            ev.initEvent(type, true, true);
+            ev.data = data;
+            ev.inputType = inputType;
+            return ev;
+          }
+        }
+
+        function typeIntoGame(key, code) {
+          var iframe = document.querySelector("#game-frame iframe");
+          if (!iframe) return;
+          var win, doc, target;
+          try {
+            win = iframe.contentWindow;
+            doc = iframe.contentDocument || (win && win.document);
+            if (!doc) return;
+            target =
+              doc.activeElement && doc.activeElement !== doc.body
+                ? doc.activeElement
+                : doc.body || doc.documentElement;
+          } catch (e) {
+            return;
+          }
+          if (!target || !isEditable(target)) return;
+
+          function fireInput(data, inputType) {
+            try {
+              target.dispatchEvent(inputEventFor(win, "beforeinput", data, inputType));
+            } catch (e) {}
+            try {
+              target.dispatchEvent(inputEventFor(win, "input", data, inputType));
+            } catch (e) {}
+          }
+
+          try {
+            if (key === "Backspace") {
+              var done = false;
+              try {
+                if (doc.execCommand) done = doc.execCommand("delete") || false;
+              } catch (e) {}
+              if (!done) {
+                var tag = (target.tagName || "").toUpperCase();
+                if (tag === "TEXTAREA" || tag === "INPUT") {
+                  var s = target.selectionStart;
+                  var en = target.selectionEnd;
+                  if (s != null && en != null) {
+                    if (s === en && s > 0) {
+                      target.setRangeText("", s - 1, en, "end");
+                      fireInput(null, "deleteContentBackward");
+                    } else if (s !== en) {
+                      target.setRangeText("", s, en, "end");
+                      fireInput(null, "deleteContentBackward");
+                    }
+                  }
+                } else if (target.isContentEditable) {
+                  fireInput(null, "deleteContentBackward");
+                }
+              }
+              return;
+            }
+            if (key === "Enter") {
+              var t2 = (target.tagName || "").toUpperCase();
+              if (t2 === "TEXTAREA" || target.isContentEditable) {
+                var txt = "\n";
+                var ok = false;
+                try {
+                  if (doc.execCommand)
+                    ok = doc.execCommand("insertText", false, txt) || false;
+                } catch (e) {}
+                if (!ok && t2 === "TEXTAREA") {
+                  var a = target.selectionStart;
+                  var b = target.selectionEnd;
+                  if (a != null && b != null) {
+                    target.setRangeText(txt, a, b, "end");
+                  } else {
+                    target.value = (target.value || "") + txt;
+                  }
+                }
+                fireInput(txt, "insertParagraph");
+              }
+              return;
+            }
+            if (key === "Tab") {
+              if ((target.tagName || "").toUpperCase() === "TEXTAREA") {
+                var ok2 = false;
+                try {
+                  if (doc.execCommand)
+                    ok2 = doc.execCommand("insertText", false, "\t") || false;
+                } catch (e) {}
+                if (!ok2) {
+                  var c = target.selectionStart;
+                  var d = target.selectionEnd;
+                  if (c != null && d != null) {
+                    target.setRangeText("\t", c, d, "end");
+                  }
+                }
+                fireInput("\t", "insertText");
+              }
+              return;
+            }
+            if (key && key.length === 1) {
+              var inserted = false;
+              try {
+                if (doc.execCommand)
+                  inserted = doc.execCommand("insertText", false, key) || false;
+              } catch (e) {}
+              if (!inserted) {
+                var tg = (target.tagName || "").toUpperCase();
+                if (tg === "TEXTAREA" || tg === "INPUT") {
+                  var st = target.selectionStart;
+                  var ed = target.selectionEnd;
+                  if (st != null && ed != null) {
+                    target.setRangeText(key, st, ed, "end");
+                    inserted = true;
+                  } else {
+                    target.value = (target.value || "") + key;
+                    inserted = true;
+                  }
+                }
+              }
+              fireInput(key, "insertText");
+            }
+          } catch (e) {}
+        }
+
+        function sendKey(type, key, code) {
+          if (type === "keydown") {
+            dispatchToGame("keydown", key, code);
+            // Legacy keypress for printable chars + Enter/Tab/Space; many
+            // canvas engines and text fields still gate on it.
+            var printable =
+              (key && key.length === 1) ||
+              key === "Enter" ||
+              key === "Tab" ||
+              key === " ";
+            if (printable && !mods.ctrl && !mods.alt) {
+              dispatchToGame("keypress", key, code);
+              typeIntoGame(key, code);
+            }
+            return;
+          }
+          dispatchToGame(type, key, code);
+        }
+
+        // Key interaction
+        allKeys.forEach(function (btn) {
+          var mod = btn.dataset.mod;
+          var down = null;
+
+          function releaseKey() {
+            btn.classList.remove("osk-pressed");
+            if (!down) return;
+            sendKey("keyup", down.key, down.code);
+            down = null;
+            if (mods.shift) {
+              sendKey("keyup", "Shift", "ShiftLeft");
+              mods.shift = false;
+              updateMods();
+            }
+          }
+          btn.releaseOskKey = releaseKey;
+
+          btn.addEventListener("pointerdown", function (e) {
+            e.preventDefault();
+            if (btn.setPointerCapture) btn.setPointerCapture(e.pointerId);
+            btn.classList.add("osk-pressed");
+            if (mod) {
+              mods[mod] = !mods[mod];
+              updateMods();
+              sendKey(
+                mods[mod] ? "keydown" : "keyup",
+                btn.dataset.key,
+                btn.dataset.code,
+              );
+              return;
+            }
+            var key = btn.dataset.key;
+            var code = btn.dataset.code;
+            if ((mods.shift || mods.caps) && btn.dataset.shift)
+              key = btn.dataset.shift;
+            down = { key: key, code: code };
+            sendKey("keydown", key, code);
+          });
+
+          btn.addEventListener("pointerup", function (e) {
+            e.preventDefault();
+            btn.classList.remove("osk-pressed");
+            if (mod) return;
+            releaseKey();
+          });
+
+          btn.addEventListener("pointercancel", releaseKey);
+          btn.addEventListener("lostpointercapture", releaseKey);
+        });
+
+        // Show/hide
+        function showOsk() {
+          oskVisible = true;
+          panel.style.visibility = "hidden";
+          panel.classList.add("osk-visible");
+          applyScale();
+          if (!positioned) {
+            var r = panel.getBoundingClientRect();
+            var gameBounds = document
+              .getElementById("game-frame")
+              .getBoundingClientRect();
+            panel.style.left =
+              Math.max(0, gameBounds.left + (gameBounds.width - r.width) / 2) +
+              "px";
+            panel.style.top =
+              Math.max(0, gameBounds.bottom - r.height - 12) + "px";
+            positioned = true;
+          }
+          panel.style.visibility = "";
+        }
+
+        function hideOsk() {
+          releaseAllKeys();
+          oskVisible = false;
+          panel.classList.remove("osk-visible");
+        }
+        function releaseAllKeys() {
+          allKeys.forEach(function (btn) {
+            if (btn.releaseOskKey) btn.releaseOskKey();
+          });
+          [
+            ["shift", "Shift", "ShiftLeft"],
+            ["ctrl", "Control", "ControlLeft"],
+            ["alt", "Alt", "AltLeft"],
+            ["caps", "CapsLock", "CapsLock"],
+          ].forEach(function (m) {
+            if (mods[m[0]]) sendKey("keyup", m[1], m[2]);
+            mods[m[0]] = false;
+          });
+          updateMods();
+        }
+        window.addEventListener("blur", releaseAllKeys);
+        window.addEventListener("resize", function () {
+          if (!oskVisible) return;
+          applyScale();
+          var rect = panel.getBoundingClientRect();
+          panel.style.left =
+            Math.max(0, Math.min(rect.left, window.innerWidth - rect.width)) +
+            "px";
+          panel.style.top =
+            Math.max(0, Math.min(rect.top, window.innerHeight - rect.height)) +
+            "px";
+        });
+
+        pill.addEventListener("click", function () {
+          if (oskVisible) hideOsk();
+          else showOsk();
+        });
+
+        closeBtn.addEventListener("click", function (e) {
+          e.stopPropagation();
+          hideOsk();
+        });
+
+        // Size controls
+        plusBtn.addEventListener("click", function (e) {
+          e.stopPropagation();
+          scale = Math.min(1.5, +(scale + 0.1).toFixed(1));
+          localStorage.setItem("oskScale", scale);
+          applyScale();
+          if (positioned) {
+            var r = panel.getBoundingClientRect();
+            panel.style.left =
+              Math.max(
+                0,
+                Math.min(
+                  parseFloat(panel.style.left) || 0,
+                  window.innerWidth - r.width,
+                ),
+              ) + "px";
+            panel.style.top =
+              Math.max(
+                0,
+                Math.min(
+                  parseFloat(panel.style.top) || 0,
+                  window.innerHeight - r.height,
+                ),
+              ) + "px";
+          }
+        });
+
+        minusBtn.addEventListener("click", function (e) {
+          e.stopPropagation();
+          scale = Math.max(0.5, +(scale - 0.1).toFixed(1));
+          localStorage.setItem("oskScale", scale);
+          applyScale();
+          if (positioned) {
+            var r = panel.getBoundingClientRect();
+            panel.style.left =
+              Math.max(
+                0,
+                Math.min(
+                  parseFloat(panel.style.left) || 0,
+                  window.innerWidth - r.width,
+                ),
+              ) + "px";
+            panel.style.top =
+              Math.max(
+                0,
+                Math.min(
+                  parseFloat(panel.style.top) || 0,
+                  window.innerHeight - r.height,
+                ),
+              ) + "px";
+          }
+        });
+
+        // Drag (on handle, not on control buttons)
+        handle.addEventListener("pointerdown", function (e) {
+          if (e.target.classList.contains("osk-ctrl-btn")) return;
+          e.preventDefault();
+          dragging = true;
+          handle.setPointerCapture(e.pointerId);
+          var r = panel.getBoundingClientRect();
+          dragOffX = e.clientX - r.left;
+          dragOffY = e.clientY - r.top;
+          document.addEventListener("pointermove", onDragMove);
+          document.addEventListener("pointerup", onDragEnd);
+          document.addEventListener("pointercancel", onDragEnd);
+        });
+
+        function onDragMove(e) {
+          var r = panel.getBoundingClientRect();
+          var newL = Math.max(
+            0,
+            Math.min(e.clientX - dragOffX, window.innerWidth - r.width),
+          );
+          var newT = Math.max(
+            0,
+            Math.min(e.clientY - dragOffY, window.innerHeight - r.height),
+          );
+          panel.style.left = newL + "px";
+          panel.style.top = newT + "px";
+        }
+
+        function onDragEnd() {
+          dragging = false;
+          document.removeEventListener("pointermove", onDragMove);
+          document.removeEventListener("pointerup", onDragEnd);
+          document.removeEventListener("pointercancel", onDragEnd);
+        }
+      })();
+    </script>
+
+    <script>
+      // getdeviceid lives in ./js/dm-shared.js (loaded in <head>)
+
+      var reporttype = "";
+      var lastReportFocus = null;
+
+      function pickreporttype(btn, label) {
+        var all = document.querySelectorAll(".rtype");
+        for (var i = 0; i < all.length; i++) {
+          all[i].classList.remove("selected");
+          all[i].setAttribute("aria-pressed", "false");
+        }
+        btn.classList.add("selected");
+        btn.setAttribute("aria-pressed", "true");
+        reporttype = label;
+      }
+
+      function openreport() {
+        var titleel = document.getElementById("game-title");
+        var gamename =
+          (titleel && titleel.textContent.trim()) || "Unknown game";
+        document.getElementById("report-game-name").textContent = gamename;
+
+        lastReportFocus = document.activeElement;
+        reporttype = "";
+        var btns = document.querySelectorAll(".rtype");
+        for (var i = 0; i < btns.length; i++) {
+          btns[i].classList.remove("selected");
+          btns[i].setAttribute("aria-pressed", "false");
+        }
+        document.getElementById("report-steps").value = "";
+        document.getElementById("report-notes").value = "";
+        document.getElementById("report-status").style.display = "none";
+        document.getElementById("report-submit").disabled = false;
+        document.getElementById("report-submit").textContent = "send it";
+
+        var overlay = document.getElementById("report-overlay");
+        var modal = document.getElementById("report-modal");
+
+        overlay.style.display = "flex";
+        modal.style.opacity = "0";
+        modal.style.transform = "scale(0.92) translateY(12px)";
+        modal.style.transition =
+          "opacity 0.22s ease, transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1)";
+
+        requestAnimationFrame(function () {
+          modal.style.opacity = "1";
+          modal.style.transform = "scale(1) translateY(0)";
+        });
+        document.getElementById("report-steps").focus();
+      }
+
+      function closereport() {
+        var overlay = document.getElementById("report-overlay");
+        var modal = document.getElementById("report-modal");
+        modal.style.opacity = "0";
+        modal.style.transform = "scale(0.92) translateY(8px)";
+        setTimeout(function () {
+          overlay.style.display = "none";
+        }, 200);
+        if (lastReportFocus && lastReportFocus.isConnected) {
+          lastReportFocus.focus();
+          lastReportFocus = null;
+        }
+      }
+
+      document
+        .getElementById("report-overlay")
+        .addEventListener("click", function (e) {
+          if (e.target === this) closereport();
+        });
+
+      async function sendreport() {
+        var steps = document.getElementById("report-steps").value.trim();
+        var notes = document.getElementById("report-notes").value.trim();
+        var gamename =
+          document.getElementById("report-game-name").textContent || "Unknown";
+        var submitbtn = document.getElementById("report-submit");
+
+        if (!reporttype) {
+          showstatus("pick a type first", "warn");
+          return;
+        }
+        if (!steps) {
+          showstatus("describe what happened first", "warn");
+          return;
+        }
+
+        submitbtn.disabled = true;
+        submitbtn.textContent = "sending...";
+
+        try {
+          var devid = await getdeviceid();
+          var res = await fetch("/api/report", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              game: gamename,
+              issue: reporttype,
+              steps: steps,
+              notes: notes || undefined,
+              url: window.location.href,
+              deviceId: devid,
+            }),
+          });
+
+          var data = await res.json().catch(function () {
+            return {};
+          });
+
+          if (!res.ok) throw new Error(data.error || "HTTP " + res.status);
+
+          showstatus("sent! thanks for the heads up", "ok");
+          submitbtn.textContent = "sent!";
+          setTimeout(closereport, 1800);
+        } catch (err) {
+          showstatus(err.message || "failed to send. try again.", "err");
+          submitbtn.disabled = false;
+          submitbtn.textContent = "send it";
+          console.error("report error:", err);
+        }
+      }
+
+      function showstatus(message, type) {
+        var el = document.getElementById("report-status");
+        var colours = {
+          ok: {
+            bg: "rgba(34,197,94,0.15)",
+            color: "#86efac",
+            border: "rgba(34,197,94,0.3)",
+          },
+          warn: {
+            bg: "rgba(234,179,8,0.15)",
+            color: "#fde047",
+            border: "rgba(234,179,8,0.3)",
+          },
+          err: {
+            bg: "rgba(239,68,68,0.15)",
+            color: "#fca5a5",
+            border: "rgba(239,68,68,0.3)",
+          },
+        };
+        var c = colours[type] || colours.err;
+        el.textContent = message;
+        el.style.display = "block";
+        el.style.background = c.bg;
+        el.style.color = c.color;
+        el.style.border = "1px solid " + c.border;
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en-us">
+
+<head>
+    <base href="https://cdn.jsdelivr.net/gh/mynamescrax/gamesforaetheris@main/obbyroads/">
+	<script src="scripts/constants.js"></script>
+	
+		<!-- InMobi Choice. Consent Manager Tag v3.0 (for TCF 2.2) -->
+<script type="text/javascript" async=true>
+		(function() {
+		var host = window.location.hostname;
+		var element = document.createElement('script');
+		var firstScript = document.getElementsByTagName('script')[0];
+		var url = 'https://cmp.inmobi.com'
+		.concat('/choice/', '600wneGfB76p_', '/', host, '/choice.js?tag_version=V3');
+		var uspTries = 0;
+		var uspTriesLimit = 3;
+		element.async = true;
+		element.type = 'text/javascript';
+		element.src = url;
+
+		firstScript.parentNode.insertBefore(element, firstScript);
+
+		function makeStub() {
+		var TCF_LOCATOR_NAME = '__tcfapiLocator';
+		var queue = [];
+		var win = window;
+		var cmpFrame;
+
+		function addFrame() {
+		var doc = win.document;
+		var otherCMP = !!(win.frames[TCF_LOCATOR_NAME]);
+
+		if (!otherCMP) {
+		if (doc.body) {
+		var iframe = doc.createElement('iframe');
+
+		iframe.style.cssText = 'display:none';
+		iframe.name = TCF_LOCATOR_NAME;
+		doc.body.appendChild(iframe);
+		} else {
+		setTimeout(addFrame, 5);
+		}
+		}
+		return !otherCMP;
+		}
+
+		function tcfAPIHandler() {
+		var gdprApplies;
+		var args = arguments;
+
+		if (!args.length) {
+		return queue;
+		} else if (args[0] === 'setGdprApplies') {
+		if (
+		args.length > 3 &&
+		args[2] === 2 &&
+		typeof args[3] === 'boolean'
+		) {
+		gdprApplies = args[3];
+		if (typeof args[2] === 'function') {
+		args[2]('set', true);
+		}
+		}
+		} else if (args[0] === 'ping') {
+		var retr = {
+		gdprApplies: gdprApplies,
+		cmpLoaded: false,
+		cmpStatus: 'stub'
+		};
+
+		if (typeof args[2] === 'function') {
+		args[2](retr);
+		}
+		} else {
+		if(args[0] === 'init' && typeof args[3] === 'object') {
+		args[3] = Object.assign(args[3], { tag_version: 'V3' });
+		}
+		queue.push(args);
+		}
+		}
+
+		function postMessageEventHandler(event) {
+		var msgIsString = typeof event.data === 'string';
+		var json = {};
+
+		try {
+		if (msgIsString) {
+		json = JSON.parse(event.data);
+		} else {
+		json = event.data;
+		}
+		} catch (ignore) {}
+
+		var payload = json.__tcfapiCall;
+
+		if (payload) {
+		window.__tcfapi(
+		payload.command,
+		payload.version,
+		function(retValue, success) {
+		var returnMsg = {
+		__tcfapiReturn: {
+			returnValue: retValue,
+			success: success,
+			callId: payload.callId
+		}
+		};
+		if (msgIsString) {
+		returnMsg = JSON.stringify(returnMsg);
+		}
+		if (event && event.source && event.source.postMessage) {
+		event.source.postMessage(returnMsg, '*');
+		}
+		},
+		payload.parameter
+		);
+		}
+		}
+
+		while (win) {
+		try {
+		if (win.frames[TCF_LOCATOR_NAME]) {
+		cmpFrame = win;
+		break;
+		}
+		} catch (ignore) {}
+
+		if (win === window.top) {
+		break;
+		}
+		win = win.parent;
+		}
+		if (!cmpFrame) {
+		addFrame();
+		win.__tcfapi = tcfAPIHandler;
+		win.addEventListener('message', postMessageEventHandler, false);
+		}
+		};
+
+		makeStub();
+
+		function makeGppStub() {
+		const CMP_ID = 10;
+		const SUPPORTED_APIS = [
+		'2:tcfeuv2',
+		'6:uspv1',
+		'7:usnatv1',
+		'8:usca',
+		'9:usvav1',
+		'10:uscov1',
+		'11:usutv1',
+		'12:usctv1'
+		];
+
+		window.__gpp_addFrame = function (n) {
+		if (!window.frames[n]) {
+		if (document.body) {
+		var i = document.createElement("iframe");
+		i.style.cssText = "display:none";
+		i.name = n;
+		document.body.appendChild(i);
+		} else {
+		window.setTimeout(window.__gpp_addFrame, 10, n);
+		}
+		}
+		};
+		window.__gpp_stub = function () {
+		var b = arguments;
+		__gpp.queue = __gpp.queue || [];
+		__gpp.events = __gpp.events || [];
+
+		if (!b.length || (b.length == 1 && b[0] == "queue")) {
+		return __gpp.queue;
+		}
+
+		if (b.length == 1 && b[0] == "events") {
+		return __gpp.events;
+		}
+
+		var cmd = b[0];
+		var clb = b.length > 1 ? b[1] : null;
+		var par = b.length > 2 ? b[2] : null;
+		if (cmd === "ping") {
+		clb(
+		{
+		gppVersion: "1.1", // must be “Version.Subversion”, current: “1.1”
+		cmpStatus: "stub", // possible values: stub, loading, loaded, error
+		cmpDisplayStatus: "hidden", // possible values: hidden, visible, disabled
+		signalStatus: "not ready", // possible values: not ready, ready
+		supportedAPIs: SUPPORTED_APIS, // list of supported APIs
+		cmpId: CMP_ID, // IAB assigned CMP ID, may be 0 during stub/loading
+		sectionList: [],
+		applicableSections: [-1],
+		gppString: "",
+		parsedSections: {},
+		},
+		true
+		);
+		} else if (cmd === "addEventListener") {
+		if (!("lastId" in __gpp)) {
+		__gpp.lastId = 0;
+		}
+		__gpp.lastId++;
+		var lnr = __gpp.lastId;
+		__gpp.events.push({
+		id: lnr,
+		callback: clb,
+		parameter: par,
+		});
+		clb(
+		{
+		eventName: "listenerRegistered",
+		listenerId: lnr, // Registered ID of the listener
+		data: true, // positive signal
+		pingData: {
+		gppVersion: "1.1", // must be “Version.Subversion”, current: “1.1”
+		cmpStatus: "stub", // possible values: stub, loading, loaded, error
+		cmpDisplayStatus: "hidden", // possible values: hidden, visible, disabled
+		signalStatus: "not ready", // possible values: not ready, ready
+		supportedAPIs: SUPPORTED_APIS, // list of supported APIs
+		cmpId: CMP_ID, // list of supported APIs
+		sectionList: [],
+		applicableSections: [-1],
+		gppString: "",
+		parsedSections: {},
+		},
+		},
+		true
+		);
+		} else if (cmd === "removeEventListener") {
+		var success = false;
+		for (var i = 0; i < __gpp.events.length; i++) {
+		if (__gpp.events[i].id == par) {
+		__gpp.events.splice(i, 1);
+		success = true;
+		break;
+		}
+		}
+		clb(
+		{
+		eventName: "listenerRemoved",
+		listenerId: par, // Registered ID of the listener
+		data: success, // status info
+		pingData: {
+		gppVersion: "1.1", // must be “Version.Subversion”, current: “1.1”
+		cmpStatus: "stub", // possible values: stub, loading, loaded, error
+		cmpDisplayStatus: "hidden", // possible values: hidden, visible, disabled
+		signalStatus: "not ready", // possible values: not ready, ready
+		supportedAPIs: SUPPORTED_APIS, // list of supported APIs
+		cmpId: CMP_ID, // CMP ID
+		sectionList: [],
+		applicableSections: [-1],
+		gppString: "",
+		parsedSections: {},
+		},
+		},
+		true
+		);
+		} else if (cmd === "hasSection") {
+		clb(false, true);
+		} else if (cmd === "getSection" || cmd === "getField") {
+		clb(null, true);
+		}
+		//queue all other commands
+		else {
+		__gpp.queue.push([].slice.apply(b));
+		}
+		};
+		window.__gpp_msghandler = function (event) {
+		var msgIsString = typeof event.data === "string";
+		try {
+		var json = msgIsString ? JSON.parse(event.data) : event.data;
+		} catch (e) {
+		var json = null;
+		}
+		if (typeof json === "object" && json !== null && "__gppCall" in json) {
+		var i = json.__gppCall;
+		window.__gpp(
+		i.command,
+		function (retValue, success) {
+		var returnMsg = {
+		__gppReturn: {
+			returnValue: retValue,
+			success: success,
+			callId: i.callId,
+		},
+		};
+		event.source.postMessage(msgIsString ? JSON.stringify(returnMsg) : returnMsg, "*");
+		},
+		"parameter" in i ? i.parameter : null,
+		"version" in i ? i.version : "1.1"
+		);
+		}
+		};
+		if (!("__gpp" in window) || typeof window.__gpp !== "function") {
+		window.__gpp = window.__gpp_stub;
+		window.addEventListener("message", window.__gpp_msghandler, false);
+		window.__gpp_addFrame("__gppLocator");
+		}
+		};
+
+		makeGppStub();
+
+		var uspStubFunction = function() {
+		var arg = arguments;
+		if (typeof window.__uspapi !== uspStubFunction) {
+		setTimeout(function() {
+		if (typeof window.__uspapi !== 'undefined') {
+		window.__uspapi.apply(window.__uspapi, arg);
+		}
+		}, 500);
+		}
+		};
+
+		var checkIfUspIsReady = function() {
+		uspTries++;
+		if (window.__uspapi === uspStubFunction && uspTries < uspTriesLimit) {
+		console.warn('USP is not accessible');
+		} else {
+		clearInterval(uspInterval);
+		}
+		};
+
+		if (typeof window.__uspapi === 'undefined') {
+		window.__uspapi = uspStubFunction;
+		var uspInterval = setInterval(checkIfUspIsReady, 6000);
+		}
+		})();
+	</script>
+	<!-- End InMobi Choice. Consent Manager Tag v3.0 (for TCF 2.2) -->
+	
+
+	<meta charset="utf-8">
+	<link rel="icon" href="images/favicon.png" sizes="16x16">
+	<!-- og: Open graph meta tags allow you to control what content shows up when a page is shared on Facebook -->
+	<meta property="og:site_name" content="ObbyRoads.io">
+	<meta property="og:title" content="Obby Roads" />
+	<meta property="og:url" content="https://obbyroads.io/" />
+	<meta property="og:type" content="website" />
+	<meta property="og:description"
+		  content="An obby racing game by the creators of Smash Karts! Parkour drive, unlock cool vehicles like monster trucks, toy cars, race cars. Fresh courses & leaderboards weekly!" />
+	<meta property="og:image" content="images/icon-144.png" />
+	<meta property="og:image:width" content="144" />
+	<meta property="og:image:height" content="144" />
+	<meta itemprop="name" content="Obby Roads" />
+	<meta itemprop="url" content="https://obbyroads.io/" />
+	<meta itemprop="description"
+		  content="An obby racing game by the creators of Smash Karts! Parkour drive, unlock cool vehicles like monster trucks, toy cars, race cars. Fresh courses & leaderboards weekly!" />
+	<meta itemprop="thumbnailUrl" content="https://obbyroads.io/" />
+	<link rel="image_src" href="https://obbyroads.io/" />
+	<meta itemprop="image" content="https://obbyroads.io/" />
+	<meta name="twitter:title" content="Obby Roads" />
+	<meta name="twitter:image" content="images/icon-144.png" />
+	<meta name="twitter:url" content="https://obbyroads.io/" />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:description"
+		  content="An obby racing game by the creators of Smash Karts! Parkour drive, unlock cool vehicles like monster trucks, toy cars, race cars. Fresh courses & leaderboards weekly!" />
+	<meta name="description"
+		  content="An obby racing game by the creators of Smash Karts! Parkour drive, unlock cool vehicles like monster trucks, toy cars, race cars. Fresh courses & leaderboards weekly!" />
+	<meta name="google-site-verification" content="Kb9JniKgGSfuiJM_DNO2-Va7cSC00GlcBzbDw1Lgw_4" />
+	<meta itemprop="image primaryImageOfPage" content="images/obbyroads.png" />
+
+	<link rel="manifest" href="manifest.json">
+
+	<meta name="apple-mobile-web-app-title" content="Obby Roads">
+	<meta name="apple-mobile-web-app-capable" content="yes">
+	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+	<link rel="apple-touch-icon" href="images/icon-144.png">
+
+	<!-- <script type="text/javascript" src="xmlhttprequest-length-computable.js"></script> -->
+	<!--<script type="text/javascript" src="xmlhttprequest-length-computable.min.js"></script>
+	<script type="text/javascript">
+		window.xmlHTTPRequestLengthComputable = {
+			CONTENT_ENCODING_MULTIPLE: 3.0
+		}
+	</script> -->
+	
+	<!-- Youtube Game Schema -->
+	<script type="application/ld+json">
+		{
+			"@context": "http://schema.org",
+			"@type":"VideoGame",
+			"publisher": "Tall Team",
+			"name":[
+				{
+					"@language":"en",
+					"@value":"Obby Roads"
+				}
+			],
+			"description":[
+				{
+					"@language":"en",
+					"@value":"Obby Roads is a free io vehicle obby. Drive fast. Unlock cool cars. Parkour your way through endless courses and worlds"
+				}
+			],
+			"applicationCategory":[
+				"Game"
+			],
+			"operatingSystem":[
+				"WEB"
+			],
+			"genre":[
+				"Car Battle",
+				"Shooter",
+				"Multiplayer"
+			],
+			"url":"https://obbyroads.io/",
+			"image":"images/ObbyRoadsPoster.jpg",
+			"screenshot":"images/ObbyRoadsBackground.jpg"
+		}
+	</script>
+	<title>Obby Roads</title>
+	<link rel="stylesheet" href="css/main.css" />
+	<meta name="viewport" content="minimal-ui, user-scalable=no, initial-scale=1, maximum-scale=1, width=device-width, viewport-fit=cover" />
+
+	<script src="scripts/ads-init.js"></script>	
+</head>
+
+<body>
+<div id="mainContainer">
+	<div id="mainContainerBg"></div>
+
+	<div id="gameContainer">
+		<div id="gameCanvasWrapper">
+			<canvas id="gameCanvas"></canvas>
+		</div>		
+		<div id="adContainerMainMenu"> <!-- main menu -->
+			<div id="obbyroads-io_300x600"></div> <!-- adinplay -->
+
+			<!-- playwire -->
+			<div id="pw_mainmenu"></div>
+			<!-- dummy placement to ensure rewarded videos init correctly when ads are disabled for season pass holders -->
+			<div id="pw_mainmenu_dummy" data-pw-desk="med_rect_atf" data-pw-mobi="med_rect_atf"></div> 
+		</div>
+		<div id="adContainerStageCompleteLeft"> <!-- stage complete left -->
+			<div id="obbyroads-io_300x600_completeleft"></div> <!-- adinplay -->
+			
+			<!-- playwire -->
+			<div id="pw_stagecomplete_left"></div>
+		</div>
+		<div id="adContainerStageCompleteRight"> <!-- stage complete right -->
+			<div id="obbyroads-io_300x600_completeright"></div> <!-- adinplay -->
+			
+			<!-- playwire -->
+			<div id="pw_stagecomplete"></div>
+		</div>
+		<div id="adContainerRaceStartLeft"> <!-- race start left -->
+			<div id="obbyroads-io_300x600_left"></div> <!-- adinplay -->
+			
+			<!-- playwire -->
+			<div id="pw_racestart_left"></div>
+		</div>
+		<div id="adContainerRaceStartRight"> <!-- race start right -->
+			<div id="obbyroads-io_300x600_right"></div> <!-- adinplay -->
+			
+			<!-- playwire -->
+			<div id="pw_racestart"></div>
+		</div>
+		<div id="adContainerDeath"> <!-- death -->
+
+			<!-- adinplay -->
+			<div id="obbyroads-io_970x250"></div>
+
+			<!-- playwire -->
+			<div id="pw_ondeath"></div>
+			<!-- <div data-pw-desk="leaderboard_atf" data-pw-mobi="leaderboard_atf"></div> -->
+		</div>
+
+	</div>
+	<div id="pw-video-container"> <!-- playwire -->
+		<div id="pw-video-placeholder"></div>
+	</div>
+	<div id="preroll"></div> <!-- adinplay -->
+	<iframe id="xsolla-iframe"></iframe>
+</div>
+<div id="loader">
+	<img class="logo" src="images/obbyroads.png">
+	<div class="spinner"></div>
+	<div class="progress">
+		<div class="full"></div>
+	</div>
+</div>
+<div id="rotate-landscape">
+	<img src="images/r.png" class="center">
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.9.3/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.9.3/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.9.3/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.9.3/firebase-analytics-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.9.3/firebase-functions-compat.js"></script>
+
+<script src="scripts/main.js"></script>
+<script src="scripts/auth.js"></script>
+<script src="scripts/shop.js"></script>
+<script src="scripts/cc.js"></script>
+ 
+<script src="scripts/ads-common-logic.js"></script>
+<!--<script src="scripts/ads-offcanvas-logic.js"></script>-->
+<script src="scripts/ads-positioning-logic.js"></script>
+<script src="scripts/ads-injector.js"></script>
+<script src="https://game-cdn.poki.com/scripts/v2/poki-sdk.js"></script>
+
+<script>
+
+	if ('serviceWorker' in navigator) {
+			navigator.serviceWorker.register('service-worker2.js');
+    }
+	const firebaseConfig = {
+	apiKey: "AIzaSyD45Qa6FRZsTo-psgoGXjj-pyi3Te-kVMA",
+	authDomain: "obbyroads-c7683.firebaseapp.com",
+	databaseURL: "https://obbyroads-gamedata.firebaseio.com",
+	projectId: "obbyroads-c7683",
+	storageBucket: "obbyroads-c7683.appspot.com",
+	messagingSenderId: "78403186269",
+	appId: "1:78403186269:web:e82031a7831baeec0b67b4",
+	measurementId: "G-LPE2TB5TPW"
+	};
+
+	
+	// Initialize Firebase
+	firebase.initializeApp(firebaseConfig);
+
+	PokiSDK.init().then(() => {
+		console.log("Poki SDK successfully initialized");
+		// fire your function to continue to game
+	}).catch(() => {
+		console.log("Initialized, something went wrong, load you game anyway");
+		// fire your function to continue to game
+	});
+
+	PokiSDK.enableEventTracking(1);
+
+	
+
+	analytics = firebase.analytics();
+	gtag('config', 'G-1W23DRFHK9', {'cookie_flags': 'samesite=none;secure'}); 
+	
+	firebaseSetScreen("loading_start");
+	firebaseLogEvent("loading_page_start");
+
+	updateAdBlockDetected();
+	// updateLoadingAdBanner();
+	
+	var timerStart = Date.now();
+	var sentGameInstanceStartEvent = false;
+
+    // choose the data file based on whether there's support for the ASTC texture compression format
+    var dataFile = "/4269471220af5cd729ee87dd0039e445.data.br";
+    var mobileDataFile = "/e51fe19b9b223f85ab6dc7bcf0ff2350.data.br";
+
+    var addressableCatalogFilename = "catalog_2026.03.31.16.52.39.json";
+    var mobileAddressableCatalogFilename = "catalog_2026.03.31.16.57.30.json";
+
+    //safety check to ensure we dont try to use the mobileDataFile if the filename hasnt been parsed during the build phase
+    if(!mobileDataFile.includes("MOBILE_DATA_FILENAME"))
+    {
+        var c = document.createElement("canvas");
+        var gl = c.getContext("webgl");
+        var gl2 = c.getContext("webgl2");
+        if ((gl && gl.getExtension('WEBGL_compressed_texture_astc')) || (gl2 && gl2.getExtension('WEBGL_compressed_texture_astc')))
+        {
+            dataFile = mobileDataFile;
+
+            if(!mobileAddressableCatalogFilename.includes("MOBILE_ADDRESSABLE_CATALOG_FILENAME"))
+            {
+                addressableCatalogFilename = mobileAddressableCatalogFilename;
+            }
+        }
+    }
+    
+	const buildUrl = "https://smashkartsgc.b-cdn.net/Build2020New";
+
+	const loaderUrl = buildUrl + "/7a2dbded24d57e056180125b1583e7c4.loader.js";
+	const config = {
+		dataUrl: buildUrl + dataFile,
+		frameworkUrl: buildUrl + "/2fc8799eae6376a152d05e2bce78e411.framework.js.br",
+		codeUrl: buildUrl + "/1444a06cb345b05f9d7e6946c2109595.wasm.br",
+		// #if MEMORY_FILENAME
+		//         memoryUrl: buildUrl + "/",
+		// #endif
+		// #if SYMBOLS_FILENAME
+		//         symbolsUrl: buildUrl + "/",
+		// #endif
+		streamingAssetsUrl: "StreamingAssets",
+		companyName: "TallTeam",
+		productName: "Obby Roads",
+		productVersion: "0.20.358",
+	};
+
+	var mainContainer = document.querySelector("#mainContainer");
+	var gameContainer = document.querySelector("#gameContainer");
+	var canvas = document.querySelector("#gameCanvas");
+	var loadingBar = document.querySelector("#loader");
+	var progressBarFull = document.querySelector("#loader .progress .full");
+	var rotateLandscape = document.querySelector("#rotate-landscape");
+	
+	if (isMobile())
+	{
+		mainContainer.className = "unity-mobile";
+
+		// if(isIos())
+		// {
+		// 	//Allow scrolling on mobile iOS so user can scroll off the top tab bar
+		// 	document.body.style.overflow = "visible";
+		// }
+	}
+	else
+	{
+		rotateLandscape.id = "rotateLandscapeOff";
+		rotateLandscape.style.display = "none";
+	}
+	const progress = document.querySelector("#loader .progress");
+	progress.style.display = "block";
+	progressBarFull.style.width = "0%";
+
+	var script = document.createElement("script");
+	script.src = loaderUrl;
+
+	var progressCreateUnityInstance = 0;
+	var progressPostCreateUnityInstance = 0;
+	var updateProgressInterval = setInterval(updateProgress, 100);
+
+	var gameInstance;
+	script.onload = () =>
+	{
+		createUnityInstance(canvas, config, (progress) =>
+		{
+			progressCreateUnityInstance = 100 * progress;
+			setProgressWidth();
+		}).then((unityInstance) =>
+		{
+			if (isMobile()) document.body.style.background = "#000000";
+			loadingBar.style.display = "none";
+			window.unityGame = unityInstance;
+			gameInstance = unityInstance;
+
+			if (updateProgressInterval) clearInterval(updateProgressInterval);
+
+			var lt = Date.now() - timerStart;
+			firebaseLogEventWithParam("loading_page_complete", "time", lt);
+			setV(lt);
+
+			onUnityLoadComplete();
+		}).catch((message) =>
+		{
+			alert("TT UnityLoader Error" + message);
+		});
+	};
+	document.body.appendChild(script);
+
+	function onUnityLoadComplete()
+	{
+		//tell unity what ad providers are enabled
+		window.unityGame.SendMessage(unityFirebaseGameOjbectName, "SetDisplayAdProvider", displayAdProvider);
+		window.unityGame.SendMessage(unityFirebaseGameOjbectName, "SetVideoAdProvider", videoAdProvider);
+		
+		trySendAdBlockDetectedMessage();
+	}
+
+	function updateProgress()
+	{
+		if (progressCreateUnityInstance > 85)
+		{
+			progressPostCreateUnityInstance += 1;
+			setProgressWidth();
+		}
+	}
+
+	function setProgressWidth()
+	{
+		if (progressCreateUnityInstance == 100.0)
+		{
+			progressBarFull.style.width = "100%";
+		}
+		else
+		{
+			var percent;
+			if (isMobile())
+			{
+				percent = progressCreateUnityInstance * 0.6 + (progressPostCreateUnityInstance * 0.5 * 0.2 + progressCreateUnityInstance * 0.5 * 0.2 * 0.05);
+				percent = Math.min(percent, 90);
+			}
+			else
+			{
+				percent = progressCreateUnityInstance * 0.9 + progressPostCreateUnityInstance * 0.1;
+				percent = Math.min(percent, 95);
+			}
+			progressBarFull.style.width = percent + "%";
+		}
+	}
+
+	function setAdinPlaySubIdForABTest(val)
+	{
+		//set adinplay subid which enables segmented daily reports
+		aiptag.subid = val;
+	}
+
+	
+
+    function getAddressableCatalogFilename()
+    {
+        return addressableCatalogFilename;
+    }
+
+</script>
+</body>
+</html>

@@ -1,0 +1,133 @@
+* {
+    padding: 0;
+    margin: 0;
+  }
+
+  html {
+    /* fix mobile viewport menu bar on iOS */
+    height: -webkit-fill-available;
+  }
+
+  body {
+    height: auto; /* allow root scroll on iOS */
+    /* fix mobile viewport menu bar on iOS */
+    min-height: -webkit-fill-available;
+    width: 100%;
+    text-align: center;
+  }
+
+  /* Use dynamic viewport height on mobile browsers that hide URL bar */
+  :root {
+    /* set via JS: --vh = 1% of innerHeight */
+  }
+
+  #unity-container,
+  #unity-canvas {
+    height: calc(var(--vh, 1vh) * 100);
+  }
+
+  #unity-container {
+    position: fixed; /* fixed so root can scroll under it on iOS */
+    left: 0px;
+    top: 0px;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #29404d;
+    touch-action: pan-y; /* allow vertical pan so Safari can collapse bars */
+  }
+
+  #unity-canvas {
+    width: 100%;
+    height: 100%;
+    background-color: #fff;
+  }
+
+  #unity-loading-container {
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    width: 100%;
+    height: 100%;
+    background-color: #292c2f;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 10px;
+
+    opacity: 1;
+    visibility: visible;
+
+    background-image: url('bg.webp');
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center center;
+  }
+
+  #unity-loading-container.finished {
+    opacity: 0;
+    visibility: collapse;
+  }
+  
+  .logo {
+    user-select: none;
+    width: 50%;
+    max-width: 800px;
+    position: absolute;
+    bottom: 9%;
+    left: 0.5%;
+    transform-origin: bottom left;
+  }
+
+  #unity-loading-bar {
+    position: absolute;
+    height: 36px;
+    background: #00000014;
+    background-size: 200% 100%;
+    border: 5px solid #ffffff24;
+    border-radius: 14px;
+    overflow: hidden;
+    animation: shimmer 2s infinite linear;
+    bottom: 20px;
+    right: 120px;
+    left: 20px;
+  }
+  
+  #loading-percentage {
+    position: absolute;
+    right: 16px;
+    bottom: 18px;
+    z-index: 20;
+    font-family: system-ui, sans-serif;
+    font-size: 40px;
+    font-weight: 900;
+    color: #fff;
+    user-select: none;
+  }
+  
+
+  #unity-loading-bar-inner {
+  position: absolute;
+  left: 0%;
+  top: 0%;
+  width: 1%;
+  height: 100%;
+  background: linear-gradient(226deg, #1180ff, #0066cc); /* light to dark blue */
+  box-shadow: 0 0 27px #3cc6ff;
+}
+
+  
+  @keyframes shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+  
+  
+  

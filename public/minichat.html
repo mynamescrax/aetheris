@@ -1,0 +1,822 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <script src="./js/site.js?v=20261110.1"></script>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="./css/themes.css?v=20261101.1" />
+    <script src="./js/theme.js?v=20261101.1"></script>
+    <link rel="stylesheet" href="./css/chat-extras.css?v=20261106.1" />
+    <title>Aetheris DMs</title>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        font-family: var(--font-sans);
+        background: color-mix(in srgb, var(--navbar, #0a0a0a) 95%, transparent);
+        color: #e5e5e5;
+      }
+
+      /* ── AUTH ─────────────────────────────────── */
+      #auth {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 18px 16px;
+        height: 100%;
+        justify-content: center;
+      }
+      .auth-title {
+        font-size: 15px;
+        font-weight: 700;
+        text-align: center;
+        margin-bottom: 4px;
+      }
+      .auth-title em {
+        color: var(--accent, #a855f7);
+        font-style: normal;
+      }
+      .tabs {
+        display: flex;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        border-radius: 9px;
+        padding: 3px;
+        gap: 3px;
+      }
+      .tabs button {
+        flex: 1;
+        padding: 5px 0;
+        border-radius: 6px;
+        border: none;
+        background: transparent;
+        color: rgba(255, 255, 255, 0.45);
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        font-family: inherit;
+      }
+      .tabs button.active {
+        background: color-mix(in srgb, var(--accent, #a855f7) 30%, transparent);
+        color: #fff;
+      }
+      .fi {
+        height: 38px;
+        border-radius: 9px;
+        background: rgba(255, 255, 255, 0.07);
+        border: 1.5px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        align-items: center;
+        overflow: hidden;
+        transition: border-color 0.18s;
+      }
+      .fi:focus-within {
+        border-color: color-mix(
+          in srgb,
+          var(--accent, #a855f7) 60%,
+          transparent
+        );
+      }
+      .fi input {
+        all: unset;
+        width: 100%;
+        height: 100%;
+        padding: 0 12px;
+        color: #fff;
+        font-size: 13px;
+        font-family: inherit;
+        caret-color: var(--accent, #a855f7);
+      }
+      .fi input::placeholder {
+        color: rgba(255, 255, 255, 0.28);
+      }
+      .auth-err {
+        font-size: 11px;
+        color: #f87171;
+        text-align: center;
+        min-height: 14px;
+      }
+      .abtn {
+        height: 38px;
+        border-radius: 9px;
+        border: none;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 700;
+        font-family: inherit;
+        background: linear-gradient(
+          135deg,
+          color-mix(in srgb, var(--accent, #a855f7) 80%, #000),
+          var(--accent, #a855f7)
+        );
+        color: #fff;
+        transition: opacity 0.15s;
+      }
+      .abtn:hover {
+        opacity: 0.85;
+      }
+
+      /* ── APP SHELL ────────────────────────────── */
+      #app {
+        display: none;
+        width: 100%;
+        height: 100%;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      /* header */
+      .mc-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 12px;
+        flex-shrink: 0;
+        background: color-mix(in srgb, var(--navbar, #10041e) 70%, transparent);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      .mc-head-title {
+        flex: 1;
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .mc-head-sub {
+        font-size: 10px;
+        color: rgba(255, 255, 255, 0.38);
+      }
+      .ib {
+        width: 28px;
+        height: 28px;
+        border-radius: 7px;
+        border: none;
+        background: transparent;
+        color: rgba(255, 255, 255, 0.45);
+        font-size: 13px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition:
+          background 0.13s,
+          color 0.13s;
+        font-family: inherit;
+      }
+      .ib:hover {
+        background: color-mix(in srgb, var(--accent, #a855f7) 18%, transparent);
+        color: var(--accent, #c084fc);
+      }
+      .av {
+        border-radius: 50%;
+        background: linear-gradient(
+          135deg,
+          color-mix(in srgb, var(--accent, #a855f7) 70%, #000),
+          var(--accent, #a855f7)
+        );
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        color: #fff;
+        flex-shrink: 0;
+        text-transform: uppercase;
+        width: 28px;
+        height: 28px;
+        font-size: 11px;
+      }
+      .back-btn {
+        background: none;
+        border: none;
+        color: var(--accent, #a855f7);
+        font-size: 16px;
+        cursor: pointer;
+        padding: 0 4px 0 0;
+        line-height: 1;
+      }
+
+      /* ── INBOX VIEW ───────────────────────────── */
+      #view-inbox {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        overflow: hidden;
+      }
+      .mc-new {
+        margin: 6px 10px;
+        height: 30px;
+        border-radius: 8px;
+        border: 1.5px dashed
+          color-mix(in srgb, var(--accent, #a855f7) 30%, transparent);
+        background: color-mix(in srgb, var(--accent, #a855f7) 7%, transparent);
+        color: var(--accent, #a855f7);
+        font-size: 11px;
+        font-weight: 600;
+        cursor: pointer;
+        font-family: inherit;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        transition: background 0.14s;
+      }
+      .mc-new:hover {
+        background: color-mix(in srgb, var(--accent, #a855f7) 14%, transparent);
+      }
+      .mc-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 4px 6px;
+      }
+      .mc-list::-webkit-scrollbar {
+        width: 3px;
+      }
+      .mc-list::-webkit-scrollbar-thumb {
+        background: color-mix(in srgb, var(--accent, #a855f7) 20%, transparent);
+        border-radius: 99px;
+      }
+      .mc-item {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 8px 8px;
+        border-radius: 9px;
+        cursor: pointer;
+        transition: background 0.12s;
+      }
+      .mc-item:hover {
+        background: rgba(255, 255, 255, 0.05);
+      }
+      .mc-item-body {
+        flex: 1;
+        min-width: 0;
+      }
+      .mc-item-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+      }
+      .mc-item-name {
+        font-size: 12px;
+        font-weight: 700;
+        color: #fff;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .mc-item-time {
+        font-size: 9px;
+        color: rgba(255, 255, 255, 0.3);
+        flex-shrink: 0;
+        margin-left: 4px;
+      }
+      .mc-item-prev {
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.38);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .mc-badge {
+        min-width: 17px;
+        height: 17px;
+        border-radius: 999px;
+        background: #ef4444;
+        color: #fff;
+        font-size: 9px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 4px;
+        flex-shrink: 0;
+      }
+      .mc-empty {
+        padding: 28px 14px;
+        text-align: center;
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.28);
+        line-height: 1.7;
+      }
+
+      /* ── CHAT VIEW ────────────────────────────── */
+      #view-chat {
+        display: none;
+        flex-direction: column;
+        flex: 1;
+        overflow: hidden;
+      }
+      #mc-msgs {
+        flex: 1;
+        overflow-y: auto;
+        padding: 10px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      #mc-msgs::-webkit-scrollbar {
+        width: 3px;
+      }
+      #mc-msgs::-webkit-scrollbar-thumb {
+        background: color-mix(in srgb, var(--accent, #a855f7) 18%, transparent);
+        border-radius: 99px;
+      }
+      .mc-datesep {
+        text-align: center;
+        margin: 8px 0 4px;
+        font-size: 10px;
+      }
+      .mc-datesep span {
+        background: color-mix(in srgb, var(--accent, #a855f7) 12%, transparent);
+        border: 1px solid
+          color-mix(in srgb, var(--accent, #a855f7) 16%, transparent);
+        padding: 2px 10px;
+        border-radius: 99px;
+        color: rgba(255, 255, 255, 0.4);
+      }
+      .mc-msg {
+        display: flex;
+        flex-direction: column;
+        max-width: 78%;
+        animation: msgIn 0.12s ease;
+      }
+      .mc-msg.mine {
+        align-self: flex-end;
+        align-items: flex-end;
+      }
+      .mc-msg.theirs {
+        align-self: flex-start;
+        align-items: flex-start;
+      }
+      .mc-msg.theirs + .mc-msg.mine,
+      .mc-msg.mine + .mc-msg.theirs {
+        margin-top: 6px;
+      }
+      .mc-bub {
+        padding: 6px 10px 4px;
+        border-radius: 13px;
+        font-size: 13px;
+        line-height: 1.45;
+        word-break: break-word;
+      }
+      .mc-msg.mine .mc-bub {
+        background: linear-gradient(
+          135deg,
+          color-mix(in srgb, var(--accent, #a855f7) 70%, #000),
+          color-mix(in srgb, var(--accent, #a855f7) 90%, #000)
+        );
+        color: #fff;
+        border-bottom-right-radius: 3px;
+      }
+      .mc-msg.theirs .mc-bub {
+        background: rgba(255, 255, 255, 0.09);
+        color: #e2e8f0;
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        border-bottom-left-radius: 3px;
+      }
+      .mc-who {
+        font-size: 9px;
+        font-weight: 700;
+        color: var(--accent, #a78bfa);
+        margin-bottom: 1px;
+      }
+      .mc-meta {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        margin-top: 2px;
+      }
+      .mc-ts {
+        font-size: 9px;
+        color: rgba(255, 255, 255, 0.35);
+      }
+      .mc-msg.mine .mc-ts {
+        color: rgba(255, 255, 255, 0.5);
+      }
+      .mc-tick {
+        font-size: 9px;
+        color: rgba(255, 255, 255, 0.5);
+      }
+      @keyframes msgIn {
+        from {
+          opacity: 0;
+          transform: translateY(4px) scale(0.97);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      .mc-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 10px 9px;
+        flex-shrink: 0;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        background: color-mix(in srgb, var(--navbar, #10041e) 55%, transparent);
+      }
+      .mc-iw {
+        flex: 1;
+        height: 36px;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.07);
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        display: flex;
+        align-items: center;
+        overflow: hidden;
+        transition: border-color 0.18s;
+      }
+      .mc-iw:focus-within {
+        border-color: color-mix(
+          in srgb,
+          var(--accent, #a855f7) 45%,
+          transparent
+        );
+      }
+      .mc-iw input {
+        all: unset;
+        width: 100%;
+        height: 100%;
+        padding: 0 12px;
+        color: #fff;
+        font-size: 13px;
+        font-family: inherit;
+        caret-color: var(--accent, #a855f7);
+      }
+      .mc-iw input::placeholder {
+        color: rgba(255, 255, 255, 0.28);
+      }
+      .mc-send {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        border: none;
+        background: linear-gradient(
+          135deg,
+          color-mix(in srgb, var(--accent, #a855f7) 80%, #000),
+          var(--accent, #a855f7)
+        );
+        color: #fff;
+        font-size: 15px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        padding: 0;
+        transition:
+          opacity 0.15s,
+          transform 0.15s;
+        box-shadow: 0 2px 10px
+          color-mix(in srgb, var(--accent, #a855f7) 38%, transparent);
+      }
+      .mc-send:hover {
+        opacity: 0.84;
+        transform: scale(1.07);
+      }
+
+      /* ── NEW DM MODAL ─────────────────────────── */
+      .mbg {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 200;
+        backdrop-filter: blur(6px);
+      }
+      .modal {
+        background: color-mix(in srgb, var(--navbar, #0a0a0a) 95%, transparent);
+        border: 1px solid
+          color-mix(in srgb, var(--accent, #a855f7) 22%, transparent);
+        border-radius: 14px;
+        padding: 18px 16px;
+        width: min(300px, calc(100vw - 24px));
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+      }
+      .modal h3 {
+        font-size: 14px;
+        font-weight: 700;
+        color: #fff;
+        margin: 0;
+      }
+      .msrch {
+        height: 34px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.07);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        overflow: hidden;
+        transition: border-color 0.18s;
+      }
+      .msrch:focus-within {
+        border-color: color-mix(
+          in srgb,
+          var(--accent, #a855f7) 50%,
+          transparent
+        );
+      }
+      .msrch input {
+        all: unset;
+        width: 100%;
+        height: 100%;
+        padding: 0 12px;
+        color: #fff;
+        font-size: 13px;
+        font-family: inherit;
+      }
+      .msrch input::placeholder {
+        color: rgba(255, 255, 255, 0.28);
+      }
+      .ulist {
+        max-height: 160px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        padding: 4px;
+      }
+      .ulist:empty::after {
+        content: "No users found";
+        display: block;
+        text-align: center;
+        font-size: 11px;
+        padding: 12px;
+        color: rgba(255, 255, 255, 0.28);
+      }
+      .uitem {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 8px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+        color: #e2e8f0;
+        transition: background 0.12s;
+      }
+      .uitem:hover {
+        background: color-mix(in srgb, var(--accent, #a855f7) 20%, transparent);
+        color: var(--accent, #c084fc);
+      }
+      .uav {
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        background: linear-gradient(
+          135deg,
+          color-mix(in srgb, var(--accent, #a855f7) 70%, #000),
+          var(--accent, #a855f7)
+        );
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 9px;
+        font-weight: 700;
+        color: #fff;
+        text-transform: uppercase;
+      }
+      .mbtn {
+        height: 34px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 700;
+        font-family: inherit;
+        background: linear-gradient(
+          135deg,
+          color-mix(in srgb, var(--accent, #a855f7) 80%, #000),
+          var(--accent, #a855f7)
+        );
+        color: #fff;
+        transition: opacity 0.15s;
+      }
+      .mbtn:hover {
+        opacity: 0.86;
+      }
+      .mbtn.ghost {
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.6);
+      }
+    </style>
+    <link rel="stylesheet" href="./css/usability.css?v=20261103.3" />
+  </head>
+  <body>
+    <div id="auth">
+      <div class="auth-title">Aetheris <em>DMs</em></div>
+      <div class="tabs" role="tablist" aria-label="Account">
+        <button
+          id="tab-login"
+          role="tab"
+          aria-selected="true"
+          class="active"
+          onclick="switchtab('login')"
+        >
+          Log in
+        </button>
+        <button
+          id="tab-reg"
+          role="tab"
+          aria-selected="false"
+          onclick="switchtab('register')"
+        >
+          Create account
+        </button>
+      </div>
+      <div class="fi">
+        <input
+          id="f-user"
+          type="text"
+          placeholder="Username"
+          aria-label="Username"
+          maxlength="32"
+          autocomplete="username"
+          autocapitalize="none"
+          spellcheck="false"
+        />
+      </div>
+      <div class="fi">
+        <input
+          id="f-pass"
+          type="password"
+          placeholder="Password"
+          aria-label="Password"
+          maxlength="128"
+          autocomplete="current-password"
+        />
+      </div>
+      <div id="confirm-password-wrap" hidden><div class="fi"><input id="f-confirm" type="password" aria-label="Confirm password" placeholder="Confirm password" autocomplete="new-password" maxlength="128" /></div></div>
+      <div id="auth-err" class="auth-err" role="alert"></div>
+      <button class="abtn" id="auth-submit" onclick="submitauth()">
+        Log in
+      </button>
+    </div>
+
+    <div id="app">
+      <div id="view-inbox">
+        <div class="mc-head">
+          <span class="mc-head-title">DMs</span>
+          <a class="ib" href="/index.html#chat?account=1" target="_top" aria-label="Chat account settings" title="Account settings">⚙</a>
+          <button class="ib" onclick="logout()" title="Log out" aria-label="Log out">
+            ↩
+          </button>
+          <button
+            class="ib"
+            onclick="opennewdm()"
+            title="New message"
+            aria-label="New message"
+          >
+            ✏️
+          </button>
+        </div>
+        <div class="dm-newrow">
+          <button class="mc-new" onclick="opennewdm()">New message</button>
+          <button class="mc-new" onclick="opennewgroup()">New group</button>
+        </div>
+        <div class="mc-list" id="mc-list">
+          <div class="mc-empty">No conversations yet.<br />Start one above.</div>
+        </div>
+      </div>
+
+      <div id="view-chat">
+        <div class="mc-head">
+          <button class="back-btn" onclick="showinbox()" aria-label="Back to inbox">
+            ‹
+          </button>
+          <div class="av" id="chat-av">?</div>
+          <div class="dm-head-info">
+            <div class="mc-head-title" id="chat-name">—</div>
+            <div class="mc-head-sub" id="chat-sub"></div>
+          </div>
+          <button
+            class="ib"
+            id="chat-members-btn"
+            style="display: none"
+            onclick="openmembers()"
+            title="Group members"
+            aria-label="Group members"
+          >
+            &#x1F465;
+          </button>
+        </div>
+        <div id="mc-msgs"></div>
+        <div class="mc-bar">
+          <div class="mc-iw">
+            <input
+              id="mc-inp"
+              type="text"
+              maxlength="3000"
+              aria-label="Message"
+              placeholder="Message"
+              autocomplete="off"
+            />
+          </div>
+          <button class="mc-send" onclick="senddm()" aria-label="Send message">
+            ➤
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="modal-newdm"
+      class="mbg"
+      style="display: none"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="newdm-title"
+      onclick="if (event.target === this) closemodal('modal-newdm');"
+    >
+      <div class="modal">
+        <h3 id="newdm-title">New message</h3>
+        <div class="msrch">
+          <input
+            id="user-search"
+            type="text"
+            placeholder="Search users"
+            aria-label="Search users"
+            autocomplete="off"
+          />
+        </div>
+        <div class="ulist" id="user-list"></div>
+        <button class="mbtn ghost" onclick="closemodal('modal-newdm')">
+          Cancel
+        </button>
+      </div>
+    </div>
+
+    <script src="./js/dm-shared.js?v=20261106.3"></script>
+    <script src="./js/dm-ui.js?v=20261011.3"></script>
+    <script>
+      function showview(chat) {
+        document.getElementById("view-inbox").style.display = chat
+          ? "none"
+          : "flex";
+        document.getElementById("view-chat").style.display = chat
+          ? "flex"
+          : "none";
+      }
+
+      startdm({
+        ids: {
+          auth: "auth",
+          app: "app",
+          list: "mc-list",
+          msgs: "mc-msgs",
+          input: "mc-inp",
+        },
+        appDisplay: "flex",
+        prefix: "mc",
+        inbox: {
+          item: "mc-item",
+          av: "av",
+          body: "mc-item-body",
+          top: "mc-item-top",
+          name: "mc-item-name",
+          time: "mc-item-time",
+          prev: "mc-item-prev",
+          badge: "mc-badge",
+        },
+        emptyInbox:
+          '<div class="mc-empty">no convos yet.<br>start one above.</div>',
+        onShowAuth: function () {
+          showview(false);
+        },
+        onOpenConvo: function () {
+          showview(true);
+        },
+        onShowInbox: function () {
+          showview(false);
+          loadinbox();
+        },
+      });
+
+      document.addEventListener("keydown", function (e) {
+        if (e.key !== "Escape") return;
+        var modal = document.getElementById("modal-newdm");
+        if (modal && modal.style.display !== "none") closemodal("modal-newdm");
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,375 @@
+# Open on-demand TLS like most UBG sites: any hostname pointing here gets a
+# cert and serves the main app. No allowlist to maintain.
+{
+	on_demand_tls {
+		ask http://127.0.0.1:9999
+	}
+}
+
+http://127.0.0.1:9999 {
+	# A site address host is a matcher, not a bind address, so without this the
+	# internal TLS ask endpoint would listen on every interface.
+	bind 127.0.0.1
+	# Browsers never send an IP as SNI; scanners do. Let's Encrypt rejects IP
+	# identifiers, so denying these asks stops the every-minute retry spam.
+	# Query matcher values are exact (no `*` wildcards), so list literal forms.
+	@ipv4 query domain=144.91.64.65
+	@ipv6 query domain=2a02:c207:2313:5236::1 domain=[2a02:c207:2313:5236::1]
+	respond @ipv4 403
+	respond @ipv6 403
+	respond 200
+}
+
+# tls_insecure_skip_verify is deliberate: some game CDNs serve certs that
+# don't match the SNI. The upstream leg is unauthenticated, so don't reuse
+# this for anything sensitive.
+(region_proxy) {
+	handle_path {args[0]}/* {
+		reverse_proxy {args[1]}:443 {
+			header_up Host {args[1]}
+			header_up Origin https://{args[2]}
+			header_up Referer https://{args[2]}/
+			transport http {
+				tls
+				tls_insecure_skip_verify
+			}
+		}
+	}
+}
+(files_proxy) {
+	handle_path {args[0]}/* {
+		reverse_proxy {args[1]}:443 {
+			header_up Host {args[1]}
+			transport http {
+				tls
+				tls_insecure_skip_verify
+			}
+		}
+	}
+}
+(root_proxy) {
+	handle_path {args[0]}/* {
+		reverse_proxy {args[1]}:443 {
+			header_up Host {args[1]}
+			header_up X-Real-IP {remote_host}
+			transport http {
+				tls
+				tls_insecure_skip_verify
+			}
+		}
+	}
+}
+(veck_init) {
+	handle_path /proxy/{args[0]}/api/init {
+		header Content-Type application/json
+		respond `{"region":"{args[1]}"}` 200
+	}
+}
+(veck_join) {
+	@join_{args[0]} path_regexp join_{args[0]} "^/proxy/{args[1]}/matchmake/joinById/(.+)$"
+	handle @join_{args[0]} {
+		rewrite * /api/coly-matchmaker/join-by-id/{re.join_{args[0]}.1}
+		reverse_proxy {args[2]}:443 {
+			header_up Host {args[2]}
+			header_up Origin https://aetheris.win
+			header_up Referer https://aetheris.win/
+			transport http {
+				tls
+				tls_insecure_skip_verify
+			}
+		}
+	}
+}
+
+# Cloudflare's published edge ranges. Cf-Connecting-Ip is only trustworthy when
+# the request actually arrived from one of these; a request sent straight to the
+# origin can put any value in the header.
+(cf_edge_only) {
+	@not_cf_edge not remote_ip 173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22 2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32
+}
+
+https:// {
+	tls {
+		on_demand
+	}
+
+	# Baseline security headers. /game-assets drops nosniff below because raw
+	# game builds rely on sniffing. strict-origin-when-cross-origin keeps
+	# signed /movie-proxy queries from leaking while still sending a Referer.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "SAMEORIGIN"
+	}
+
+	# Wildcard CORS preflight, except for vhosts with their own OPTIONS
+	# handling and the authenticated /api/* routes.
+	@cors_preflight {
+		method OPTIONS
+		not host crax.lol hosting.crax.lol gpt.crax.lol
+		not path /api/*
+	}
+	handle @cors_preflight {
+		header Access-Control-Allow-Origin "*"
+		header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS, HEAD"
+		header Access-Control-Allow-Headers "Content-Type, Authorization, Origin, Accept, X-Requested-With"
+		header Access-Control-Max-Age "3600"
+		respond 204
+	}
+
+	# Movie relay origin. Requires a DNS record for m.aetheris.win and
+	# MOVIE_RELAY_HOST=m.aetheris.win in the app env. Only relay paths reach
+	# the app and everything else is a 404, so relayed third-party script
+	# shares its origin with nothing worth stealing. The movies page frames it
+	# cross-origin, so SAMEORIGIN is dropped; relayed pages send their own
+	# frame-ancestors.
+	@movierelay host m.aetheris.win
+	handle @movierelay {
+		header -X-Frame-Options
+		@relaypaths path /movie-proxy /movie-proxy/* /api.php /hls-resolve /movie-ping /js/movie-proxy-client.js /hls-player.html /js/vendor/hls.min.js
+		handle @relaypaths {
+			reverse_proxy http://127.0.0.1:8080
+		}
+		handle {
+			respond 404
+		}
+	}
+
+	# crax.lol profile site
+	@crax host crax.lol
+	handle @crax {
+		handle /api/* {
+			# server.js dedupes views by client IP, so the real address has to
+			# survive the Cloudflare hop. Only trust the header from a real edge.
+			import cf_edge_only
+			request_header @not_cf_edge -Cf-Connecting-Ip
+			reverse_proxy http://127.0.0.1:3001 {
+				header_up X-Real-IP {http.request.header.Cf-Connecting-Ip}
+			}
+		}
+		handle {
+			root * /var/www/profile
+			# Only the HTML has to be fresh; every asset URL carries a ?v= that
+			# deploy.ps1 bumps, so those can be cached for a year.
+			@html not path /assets/*
+			header @html Cache-Control "no-store"
+			@assets path /assets/*
+			header @assets Cache-Control "public, max-age=31536000, immutable"
+			file_server
+		}
+	}
+
+	# hosting.crax.lol file server
+	@hosting host hosting.crax.lol
+	handle @hosting {
+		root * /var/www/hosting
+		file_server browse
+	}
+
+	# gpt.crax.lol: crax-gpt (OpenAI-compatible proxy + chat UI)
+	@craxgpt host gpt.crax.lol
+	handle @craxgpt {
+		# The app's getClientIp() trusts Cf-Connecting-Ip whenever the direct peer
+		# is loopback, which is exactly Caddy. Cloudflare strips any client-supplied
+		# copy, but a request sent straight to the origin can set it to anything and
+		# be believed -- enough to walk a blocklisted IP back in or rotate per-IP
+		# limits. Drop the header from anything that is not a Cloudflare edge.
+		import cf_edge_only
+		request_header @not_cf_edge -Cf-Connecting-Ip
+		reverse_proxy http://127.0.0.1:3002
+	}
+
+	# WebSocket proxy. Subdomain labels are limited to hostname characters so
+	# the captured host can't smuggle in a port, userinfo or another host.
+	@wsproxy path_regexp wsproxy ^/(wsproxy|tsunamis/wsproxy)/(([a-zA-Z0-9-]+\.)*(veck\.io|growden\.io|tsunamis\.io|stealnow\.io|luckyblocks\.io|2v2\.io))(/.*)$
+	handle @wsproxy {
+		rewrite * {re.wsproxy.5}
+		reverse_proxy {re.wsproxy.2}:443 {
+			header_up Host {re.wsproxy.2}
+			header_up Origin https://{re.wsproxy.4}
+			transport http {
+				tls
+				tls_insecure_skip_verify
+			}
+		}
+	}
+
+	# 1games.io API
+	handle_path /api-proxy/* {
+		reverse_proxy api.1games.io:443 {
+			header_up Host api.1games.io
+			header_up Origin https://dashmetry.1games.io
+			header_up Referer https://dashmetry.1games.io/
+			transport http {
+				tls
+				tls_insecure_skip_verify
+			}
+		}
+	}
+
+	# 2v2.io
+	import files_proxy /proxy/2v2/files files.2v2.io
+	import region_proxy /proxy/2v2/asia-1 asia-1.2v2.io 2v2.io
+	import region_proxy /proxy/2v2/fra-1 fra-1.2v2.io 2v2.io
+	import region_proxy /proxy/2v2/fra-2 fra-2.2v2.io 2v2.io
+	import region_proxy /proxy/2v2/usa-1 usa-1.2v2.io 2v2.io
+	import region_proxy /proxy/2v2/usa-2 usa-2.2v2.io 2v2.io
+	import region_proxy /proxy/2v2/usa-3 usa-3.2v2.io 2v2.io
+	import region_proxy /proxy/2v2/usa-4 usa-4.2v2.io 2v2.io
+	import root_proxy /proxy/2v2 2v2.io
+
+	# luckyblocks.io
+	import files_proxy /proxy/luckyblocks/files files.luckyblocks.io
+	import region_proxy /proxy/luckyblocks/usa-1 usa-1.luckyblocks.io luckyblocks.io
+	import region_proxy /proxy/luckyblocks/usa-2 usa-2.luckyblocks.io luckyblocks.io
+	import root_proxy /proxy/luckyblocks luckyblocks.io
+
+	# StealNow
+	handle_path /proxy/stealnow-auth/* {
+		rewrite * /api/accounts/login/legion
+		reverse_proxy usa-1.stealnow.io:443 {
+			header_up Host usa-1.stealnow.io
+			header_up Origin https://stealnow.io
+			header_up Referer https://stealnow.io/
+			transport http {
+				tls
+				tls_insecure_skip_verify
+			}
+		}
+	}
+
+	import files_proxy /proxy/stealnow-files files.stealnow.io
+	import region_proxy /proxy/stealnow-usa-1 usa-1.stealnow.io stealnow.io
+	import root_proxy /proxy/stealnow stealnow.io
+
+	# Legion SDK
+	handle_path /proxy/legion-sdk/* {
+		rewrite * /v1/legion-sdk.min.js
+		reverse_proxy sdk.legionsdk.com:443 {
+			header_up Host sdk.legionsdk.com
+			header_down Cache-Control "public, max-age=3600"
+			header_down Content-Type "application/javascript"
+			transport http {
+				tls
+				tls_insecure_skip_verify
+			}
+		}
+	}
+
+	# Growden
+	import files_proxy /proxy/files files.growden.io
+	import region_proxy /proxy/fra-1 fra-1.growden.io growden.io
+	import region_proxy /proxy/fra-2 fra-2.growden.io growden.io
+	import region_proxy /proxy/usa-1 usa-1.growden.io growden.io
+	import region_proxy /proxy/usa-2 usa-2.growden.io growden.io
+	import region_proxy /proxy/usa-3 usa-3.growden.io growden.io
+	import region_proxy /proxy/asia-1 asia-1.growden.io growden.io
+	import region_proxy /proxy/asia-2 asia-2.growden.io growden.io
+	import region_proxy /proxy/fra-3 fra-3.growden.io growden.io
+	import region_proxy /proxy/fra-4 fra-4.growden.io growden.io
+	import region_proxy /proxy/fra-5 fra-5.growden.io growden.io
+	import region_proxy /proxy/usa-4 usa-4.growden.io growden.io
+	import region_proxy /proxy/usa-5 usa-5.growden.io growden.io
+	import region_proxy /proxy/asia-3 asia-3.growden.io growden.io
+	import region_proxy /proxy/asia-4 asia-4.growden.io growden.io
+	import region_proxy /proxy/asia-5 asia-5.growden.io growden.io
+	import region_proxy /proxy/dev-usa-1 dev-usa-1.growden.io growden.io
+	import root_proxy /proxy/growden growden.io
+
+	# Tsunamis
+	import files_proxy /tsunamis/files files.tsunamis.io
+
+	handle_path /tsunamis/api/* {
+		rewrite * /api{http.request.uri.path}
+		reverse_proxy usa-1.tsunamis.io:443 {
+			header_up Host usa-1.tsunamis.io
+			header_up Origin https://tsunamis.io
+			header_up Referer https://tsunamis.io/
+			transport http {
+				tls
+				tls_insecure_skip_verify
+			}
+		}
+	}
+
+	import region_proxy /tsunamis/usa-1 usa-1.tsunamis.io tsunamis.io
+	import region_proxy /tsunamis/usa-2 usa-2.tsunamis.io tsunamis.io
+	import region_proxy /tsunamis/usa-3 usa-3.tsunamis.io tsunamis.io
+
+	# Veck init endpoints
+	import veck_init veck-usa-1 USA
+	import veck_init veck-usa-2 USA
+	import veck_init veck-usa-3 USA
+	import veck_init veck-usa-4 USA
+	import veck_init veck-usa-5 USA
+	import veck_init veck-fra-1 EU
+	import veck_init veck-fra-2 EU
+	import veck_init veck-fra-3 EU
+	import veck_init veck-asia-1 ASIA
+	import veck_init veck-asia-2 ASIA
+
+	# Veck joinById (must come before the veck-* region blocks)
+	import veck_join veck_usa_1 veck-usa-1 usa-1.veck.io
+	import veck_join veck_usa_2 veck-usa-2 usa-2.veck.io
+	import veck_join veck_usa_3 veck-usa-3 usa-3.veck.io
+	import veck_join veck_usa_4 veck-usa-4 usa-4.veck.io
+	import veck_join veck_usa_5 veck-usa-5 usa-5.veck.io
+	import veck_join veck_fra_1 veck-fra-1 fra-1.veck.io
+	import veck_join veck_fra_2 veck-fra-2 fra-2.veck.io
+	import veck_join veck_fra_3 veck-fra-3 fra-3.veck.io
+	import veck_join veck_asia_1 veck-asia-1 asia-1.veck.io
+	import veck_join veck_asia_2 veck-asia-2 asia-2.veck.io
+
+	# Veck regions
+	import region_proxy /proxy/veck-usa-1 usa-1.veck.io aetheris.win
+	import region_proxy /proxy/veck-usa-2 usa-2.veck.io aetheris.win
+	import region_proxy /proxy/veck-usa-3 usa-3.veck.io aetheris.win
+	import region_proxy /proxy/veck-usa-4 usa-4.veck.io aetheris.win
+	import region_proxy /proxy/veck-usa-5 usa-5.veck.io aetheris.win
+	import region_proxy /proxy/veck-fra-1 fra-1.veck.io aetheris.win
+	import region_proxy /proxy/veck-fra-2 fra-2.veck.io aetheris.win
+	import region_proxy /proxy/veck-fra-3 fra-3.veck.io aetheris.win
+	import region_proxy /proxy/veck-asia-1 asia-1.veck.io aetheris.win
+	import region_proxy /proxy/veck-asia-2 asia-2.veck.io aetheris.win
+	import files_proxy /proxy/veck-files files.veck.io
+	import root_proxy /proxy/veck veck.io
+
+	# GitHub-hosted game builds, served from our origin to avoid CORS issues.
+	@game_javascript path_regexp game_javascript ^/(game-assets|s)/.*\.js$
+	header @game_javascript >Content-Type "application/javascript; charset=utf-8"
+
+	@game_stylesheet path_regexp game_stylesheet ^/(game-assets|s)/.*\.css$
+	header @game_stylesheet >Content-Type "text/css; charset=utf-8"
+
+	# Every game asset goes through the app's mirror relay (see MIRRORS in
+	# lib/game-assets.js): one rule serves any allowlisted static CDN, so a
+	# new game needs no config change here. The path picks the file, never the
+	# host, and the app validates every body before it is served. /s/ is the
+	# opaque form of the same relay.
+	@game_assets path /game-assets/* /s/*
+	handle @game_assets {
+		reverse_proxy http://127.0.0.1:8080
+	}
+
+	# Online counter
+	@sse path /online
+	handle @sse {
+		reverse_proxy http://127.0.0.1:8080 {
+			flush_interval -1
+		}
+	}
+
+	@online-count path /online-count
+	handle @online-count {
+		reverse_proxy http://127.0.0.1:8080
+	}
+
+	# Main app. Compression is scoped to this handler instead of the whole site:
+	# the game asset relay above serves already-compressed builds (tens of MB of
+	# wasm/data per install), and re-encoding those only burns origin CPU.
+	handle {
+		encode zstd gzip
+		reverse_proxy http://127.0.0.1:8080
+	}
+}

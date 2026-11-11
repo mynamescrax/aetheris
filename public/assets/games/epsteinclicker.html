@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <base href="https://cdn.jsdelivr.net/gh/67-Factory/web-ports@main/notawebportbutepsteinclicker/">
+  <title>Epstein Clicker - Play</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="729f79f77c1e8f76b425dd14e9952eac5d86913b" content="729f79f77c1e8f76b425dd14e9952eac5d86913b" />
+  <meta name="referrer" content="no-referrer-when-downgrade" />
+  <script type="text/javascript" nonce="cd7ab9bc2dea48488edb9db7268" src="//local.adguard.org?ts=1774235479722&amp;type=content-script&amp;dmn=cdn.discordapp.com&amp;url=https%3A%2F%2Fcdn.discordapp.com%2Fattachments%2F1439152400119103548%2F1485354350049099906%2Fplay.html%3Fex%3D69c23849%26is%3D69c0e6c9%26hm%3D7d0e939f14125753be7759a1e30331e72544c30f4d6712caf65d33ea27b7844d%26&amp;app=com.android.chrome&amp;css=3&amp;js=1&amp;rel=1&amp;rji=1&amp;sbe=0"></script><link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  
+</head>
+<body class="scanlines page">
+  <canvas id="neon-dots-bg" aria-hidden="true"></canvas>
+
+  <div id="headerFixed">
+    <div id="tickerWrap" aria-label="stock ticker">
+      <div id="ticker">
+        <span class="tickerItem">&nbsp;|&nbsp;epsteinclicker.com&nbsp;|&nbsp;Your&nbsp;Score&nbsp;:&nbsp;<span class="tickerScore">0</span>&nbsp;|&nbsp;</span>
+        <span class="tickerItem">&nbsp;|&nbsp;epsteinclicker.com&nbsp;|&nbsp;Your&nbsp;Score&nbsp;:&nbsp;<span class="tickerScore">0</span>&nbsp;|&nbsp;</span>
+        <span class="tickerItem">&nbsp;|&nbsp;epsteinclicker.com&nbsp;|&nbsp;Your&nbsp;Score&nbsp;:&nbsp;<span class="tickerScore">0</span>&nbsp;|&nbsp;</span>
+        <span class="tickerItem">&nbsp;|&nbsp;epsteinclicker.com&nbsp;|&nbsp;Your&nbsp;Score&nbsp;:&nbsp;<span class="tickerScore">0</span>&nbsp;|&nbsp;</span>
+        <span class="tickerItem">&nbsp;|&nbsp;epsteinclicker.com&nbsp;|&nbsp;Your&nbsp;Score&nbsp;:&nbsp;<span class="tickerScore">0</span>&nbsp;|&nbsp;</span>
+        <span class="tickerItem">&nbsp;|&nbsp;epsteinclicker.com&nbsp;|&nbsp;Your&nbsp;Score&nbsp;:&nbsp;<span class="tickerScore">0</span>&nbsp;|&nbsp;</span>
+        <span class="tickerItem">&nbsp;|&nbsp;epsteinclicker.com&nbsp;|&nbsp;Your&nbsp;Score&nbsp;:&nbsp;<span class="tickerScore">0</span>&nbsp;|&nbsp;</span>
+        <span class="tickerItem">&nbsp;|&nbsp;epsteinclicker.com&nbsp;|&nbsp;Your&nbsp;Score&nbsp;:&nbsp;<span class="tickerScore">0</span>&nbsp;|&nbsp;</span>
+      </div>
+    </div>
+    <div class="topNav" role="navigation" aria-label="site navigation">
+      <a href="https://epsteinclicker.com" target="_blank" rel="noopener noreferrer" class="navItem">epsteinclicker.com</a>
+      <a href="index.html" class="navItem">HOME</a>
+      <a href="play.html" class="navItem navCurrent">PLAY</a>
+      <a href="social.html" class="navItem">SOCIAL</a>
+      <a href="stats.html" class="navItem">YOUR STATS</a>
+      <a href="leaderboard.html" class="navItem">LEADERBOARD</a>
+      <a href="privacy.html" class="navItem">PRIVACY</a>
+      <a href="terms.html" class="navItem">TERMS</a>
+    </div>
+  </div>
+
+  <!-- Idle / AFK overlay (pauses earning after 20 min of no interaction) -->
+  <div id="idleOverlay" role="dialog" aria-modal="true" aria-label="Are you still there?">
+    <div id="idleBox">
+      <h3>PAUSED — YOU STILL THERE?</h3>
+      <p>You were inactive for 20 minutes. The game is paused so auto-earning can't run in the background.</p>
+      <p>Click the button to resume.</p>
+      <div class="idleRow">
+        <button id="idleResumeBtn">I'M BACK</button>
+      </div>
+      <div class="footer" style="margin-top:10px; opacity:.75;">Tip: Leaving the tab or using scripts can trigger anti-cheat.</div>
+    </div>
+  </div>
+
+  <!-- Cheat Detection Popup -->
+  <div id="cheatOverlay" role="dialog" aria-modal="true" aria-label="Cheating Detected">
+    <div id="cheatBox">
+      <h3>⚠️ CHEATING DETECTED ⚠️</h3>
+      <div class="cheatMessage">YOU HAVE BEEN CAUGHT CHEATING!</div>
+      <p>Your score, leaderboard position, and all upgrades have been reset to ZERO.</p>
+      <p>Play fair or face the consequences!</p>
+      <button id="cheatAcknowledgeBtn">I UNDERSTAND</button>
+    </div>
+  </div>
+
+  <div class="game-container">
+    <div class="pageWrap">
+      <div class="wrap">
+        <div class="title">EPSTEIN CLICKER</div>
+        <div class="score">SCORE: <span id="score">0.0</span></div>
+        <div class="sub">
+          PER CLICK: <span id="perClick">1</span>
+          &nbsp;|&nbsp;
+          AUTO / SEC: <span id="perSec">0.1</span>
+          &nbsp;|&nbsp;
+          UPGRADES: <span id="upgradeCount">0</span>
+        </div>
+        <div class="click-btn-wrap">
+          <img id="clickBtn" alt="Click" src="click.png" />
+        </div>
+        <div class="panel">
+          <h2>UPGRADES</h2>
+          <div id="shop"></div>
+          <button id="resetBtn" class="danger">RESET</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="hiddenStubs" aria-hidden="true">
+      <span id="currentLevel">1</span>
+      <span id="nextLevel">0</span>
+      <span id="levelProgress">0%</span>
+      <div id="progressBar"></div>
+      <span id="rawClicks">0</span>
+      <span id="statPerClick">1</span>
+      <span id="statPerSec">0</span>
+      <span id="hoursPlayed">0</span>
+      <span id="sessionTime">00:00:00</span>
+    </div>
+  </div>
+
+  <script src="neon-dots-bg.js"></script>
+  <script src="game.js"></script>
+  <script src="ticker-lite.js"></script>
+</body>
+</html>

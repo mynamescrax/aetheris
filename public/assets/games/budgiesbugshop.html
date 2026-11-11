@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en-us">
+
+<head>
+	<meta charset="utf-8">
+    <base href="https://cdn.jsdelivr.net/gh/mynamescrax/gamesforaetheris@main/budgiesbugshop/">
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	<title>Budgie's Bug Shop</title>
+	<style>
+		html,
+		body {
+			background: #1A1A1A;
+			width: 100%;
+			height: 100%;
+			overflow: visible;
+			padding: 0;
+			margin: 0;
+		}
+
+		div#gameContainer {
+			background: transparent !important;
+			position: absolute;
+		}
+
+		div#gameContainer canvas {
+			position: absolute;
+			-webkit-user-select: none;
+			user-select: none;
+		}
+
+		div#gameContainer canvas[data-pixel-art="true"] {
+			position: absolute;
+			image-rendering: optimizeSpeed;
+			image-rendering: -webkit-crisp-edges;
+			image-rendering: -moz-crisp-edges;
+			image-rendering: -o-crisp-edges;
+			image-rendering: crisp-edges;
+			image-rendering: -webkit-optimize-contrast;
+			image-rendering: optimize-contrast;
+			image-rendering: pixelated;
+			-ms-interpolation-mode: nearest-neighbor;
+		}
+
+		#progressWrapper {
+		    position: absolute;
+		    bottom: 60px;
+		    left: 10%;
+		    width: 80%;
+		    text-align: center;
+		    z-index: 1000;
+		}
+
+		#loadingText {
+		    color: white;
+		    font-family: sans-serif;
+		    font-size: 18px;
+		    margin-bottom: 10px;
+		}
+
+		#progressContainer {
+		    width: 100%;
+		    height: 20px;
+		    border: 2px solid white;
+		    background-color: rgba(255,255,255,0.1);
+		    border-radius: 5px;
+		    overflow: hidden;
+		}
+
+		#progressBar {
+		    height: 100%;
+		    width: 0%;
+		    background-color: white;
+		}
+	</style>
+</head>
+
+<body>
+	<div id="progressWrapper">
+	    <div id="loadingText">Loading...</div>
+	    <div id="progressContainer">
+	        <div id="progressBar"></div>
+	    </div>
+	</div>
+
+	<div id="gameContainer">
+		<canvas id="unity-canvas" width="1024" height="576" data-pixel-art=""></canvas>
+		<!-- Patch fetch and XHR to redirect StreamingAssets requests to CDN -->
+		<script>
+		(function() {
+		    const CDN_BASE = 'https://cdn.jsdelivr.net/gh/mynamescrax/gamesforaetheris@main/budgiesbugshop/StreamingAssets/';
+
+		    function patchUrl(url) {
+		        if (typeof url === 'string' && url.includes('StreamingAssets') && !url.startsWith('https://')) {
+		            const filename = url.split('StreamingAssets/')[1];
+		            return CDN_BASE + filename;
+		        }
+		        return url;
+		    }
+
+		    const originalFetch = window.fetch;
+		    window.fetch = async function(input, init) {
+		        if (typeof input === 'string') {
+		            input = patchUrl(input);
+		        } else if (input && input.url) {
+		            const patched = patchUrl(input.url);
+		            if (patched !== input.url) input = new Request(patched, input);
+		        }
+		        return originalFetch(input, init);
+		    };
+
+		    const originalXHR = window.XMLHttpRequest;
+		    function PatchedXHR() {
+		        const xhr = new originalXHR();
+		        const originalOpen = xhr.open.bind(xhr);
+		        xhr.open = function(method, url, ...rest) {
+		            return originalOpen(method, patchUrl(url), ...rest);
+		        };
+		        return xhr;
+		    }
+		    PatchedXHR.prototype = originalXHR.prototype;
+		    window.XMLHttpRequest = PatchedXHR;
+		})();
+		</script>
+
+		<!-- File merger config for split .br files -->
+		<script>
+		window.fileMergerConfig = {
+		    files: [
+		        { name: 'budgies-bug-shop-demo-web.data.br', parts: 2 },
+		        { name: 'budgies-bug-shop-demo-web.wasm.br', parts: 3 },
+		    ],
+		    basePath: 'https://cdn.jsdelivr.net/gh/mynamescrax/gamesforaetheris@main/budgiesbugshop/Build/',
+		    debug: true
+		};
+		</script>
+		<script src="https://cdn.jsdelivr.net/gh/bubbls/UGS-Assets@ac5cdfc0042aca584e72619375b4aca948a9243c/merge.js"></script>
+		<script src="Build/budgies-bug-shop-demo-web.loader.js"></script>
+		<script>
+			var canvas = document.querySelector("#unity-canvas");
+var config = {
+    dataUrl: "Build/budgies-bug-shop-demo-web.data.br",
+    frameworkUrl: "Build/budgies-bug-shop-demo-web.framework.js",
+    codeUrl: "Build/budgies-bug-shop-demo-web.wasm.br",
+    streamingAssetsUrl: "https://cdn.jsdelivr.net/gh/mynamescrax/gamesforaetheris@main/budgiesbugshop/StreamingAssets",
+    companyName: "Moon Lagoon",
+    productName: "Budgie's Bug Shop",
+    productVersion: "0.1.0",
+    autoSyncPersistentDataPath: true,
+};
+			var scaleToFit;
+			var unityInstance = null;
+			try {
+				scaleToFit = !!JSON.parse("true");
+			} catch (e) {
+				scaleToFit = true;
+			}
+			function progressHandler(progress) {
+			    var percent = Math.floor(progress * 100) + '%';
+			    var progressBar = document.getElementById('progressBar');
+			    if (progressBar) {
+			        progressBar.style.width = percent;
+			    }
+			}
+			function onResize() {
+				var container = canvas.parentElement;
+				var w;
+				var h;
+
+				if (scaleToFit) {
+					w = window.innerWidth;
+					h = window.innerHeight;
+
+					var r = 576 / 1024;
+
+					if (w * r > window.innerHeight) {
+						w = Math.min(w, Math.ceil(h / r));
+					}
+					h = Math.floor(w * r);
+				} else {
+					w = 1024;
+					h = 576;
+				}
+
+				container.style.width = canvas.style.width = w + "px";
+				container.style.height = canvas.style.height = h + "px";
+				container.style.top = Math.floor((window.innerHeight - h) / 2) + "px";
+				container.style.left = Math.floor((window.innerWidth - w) / 2) + "px";
+				window.focus();
+			}
+			createUnityInstance(canvas, config, progressHandler).then(function (instance) {
+			    unityInstance = instance;
+				canvas = instance.Module.canvas;
+				onResize();
+
+			    var wrapper = document.getElementById('progressWrapper');
+			    if (wrapper) {
+			        wrapper.style.display = "none";
+			    }
+
+		        document.addEventListener('visibilitychange', function() {
+		        	if (!unityInstance) return;
+		            if (document.hidden) {
+		                unityInstance.SendMessage('GameManager', 'OnTabHidden');
+		            } else {
+		                unityInstance.SendMessage('GameManager', 'OnTabVisible');
+		            }
+		        });
+			});
+			window.addEventListener('resize', onResize);
+			onResize();
+
+			if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+				const meta = document.createElement('meta');
+				meta.name = 'viewport';
+				meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
+				document.getElementsByTagName('head')[0].appendChild(meta);
+			}
+		</script>
+	</div>
+</body>
+
+</html>

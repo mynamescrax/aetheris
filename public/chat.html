@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <script src="./js/site.js?v=20261110.1"></script>
+    <link
+      rel="shortcut icon"
+      href="./assets/images/icon.png"
+      type="image/png"
+    />
+    <title>Aetheris DMs</title>
+    <link rel="stylesheet" href="./css/main.css?v=20261011.2" />
+    <link rel="stylesheet" href="./css/cards.css?v=20260907.1" />
+    <link rel="stylesheet" href="./css/themes.css?v=20261101.1" />
+    <link rel="stylesheet" href="./css/nav.css?v=20261102.1" />
+    <link rel="stylesheet" href="./css/chat.css?v=20260907.1" />
+    <link rel="stylesheet" href="./css/chat-extras.css?v=20261106.1" />
+    <link rel="stylesheet" href="./css/chat-account.css?v=20261106.1" />
+    <script src="./js/theme.js?v=20261101.1"></script>
+    <script src="register-sw.js?v=20260907.1" defer></script>
+    <script defer src="./js/preload.js?v=20261008.1"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="./css/usability.css?v=20261103.3" />
+  </head>
+
+  <body>
+    <div id="auth-page">
+      <div class="auth-card">
+        <div class="auth-logo">Aetheris <em>Chat</em></div>
+        <h1 id="auth-heading">Welcome back.</h1>
+        <p id="auth-description">Sign in to pick up your conversations.</p>
+        <div class="auth-tabs" role="tablist" aria-label="Account">
+          <button
+            id="tab-login"
+            role="tab"
+            aria-selected="true"
+            class="active"
+            onclick="switchtab('login')"
+          >
+            Log in
+          </button>
+          <button
+            id="tab-reg"
+            role="tab"
+            aria-selected="false"
+            onclick="switchtab('register')"
+          >
+            Create account
+          </button>
+        </div>
+        <label class="auth-label" for="f-user">Username</label>
+        <div class="fi">
+          <input
+            id="f-user"
+            type="text"
+            placeholder="Username"
+            aria-label="Username"
+            maxlength="32"
+            autocomplete="username"
+            autocapitalize="none"
+            spellcheck="false"
+          />
+        </div>
+        <label class="auth-label" for="f-pass">Password</label>
+        <div class="fi">
+          <input
+            id="f-pass"
+            type="password"
+            placeholder="Password"
+            aria-label="Password"
+            maxlength="128"
+            autocomplete="current-password"
+          />
+          <button
+            type="button"
+            class="eye"
+            aria-label="Show password"
+            aria-pressed="false"
+            onclick="togglePassword(this)"
+          >
+            👁
+          </button>
+        </div>
+        <div id="confirm-password-wrap" hidden>
+          <label class="auth-label" for="f-confirm">Confirm password</label>
+          <div class="fi"><input id="f-confirm" type="password" aria-label="Confirm password" autocomplete="new-password" maxlength="128" placeholder="Enter your password again" /></div>
+        </div>
+        <p class="auth-help" id="auth-help">Use the username you registered with.</p>
+        <label class="keep-row">
+          <input type="checkbox" id="keep-chk" /> Keep me logged in</label
+        >
+        <div id="auth-err" class="auth-err" role="alert"></div>
+        <button class="abtn" id="auth-submit" onclick="submitauth()">
+          Log in
+        </button>
+        <p class="auth-help">No email required. Keep your password safe; email recovery isn’t available.</p>
+      </div>
+    </div>
+
+    <div id="app">
+      <div class="tg-wrap">
+        <div class="tg-left">
+          <div class="tg-left-head">
+            <div class="tg-me">
+              <div class="tg-me-l">
+                <div class="av sm" id="my-av">?</div>
+                <div class="tg-me-name" id="my-name">—</div>
+              </div>
+              <div class="tg-me-acts">
+                <button
+                  class="ib"
+                  id="account-btn"
+                  onclick="openchataccount()"
+                  title="Account settings"
+                  aria-label="Account settings"
+                >
+                  ⚙
+                </button>
+                <button
+                  class="ib"
+                  onclick="logout()"
+                  title="Log out"
+                  aria-label="Log out"
+                >
+                  ↩
+                </button>
+              </div>
+            </div>
+            <div class="tg-srch">
+              <span class="tg-srch-ico" aria-hidden="true">🔍</span>
+              <input
+                id="srch"
+                type="text"
+                placeholder="Search"
+                aria-label="Search conversations"
+                oninput="filterinbox()"
+                autocomplete="off"
+              />
+            </div>
+          </div>
+          <div class="dm-newrow">
+            <button class="tg-new" onclick="opennewdm()">New message</button>
+            <button class="tg-new" onclick="opennewgroup()">New group</button>
+          </div>
+          <div class="tg-list" id="tg-list">
+            <div class="tg-empty-l">No conversations yet.<br />Start one above.</div>
+          </div>
+        </div>
+
+        <div class="tg-right">
+          <div class="tg-empty-r" id="tg-empty">
+            <div class="big" aria-hidden="true">💬</div>
+            <div>Select a conversation or start one</div>
+          </div>
+          <div
+            id="tg-active"
+            style="
+              display: none;
+              flex-direction: column;
+              height: 100%;
+              overflow: hidden;
+            "
+          >
+            <div class="tg-chat-head">
+              <button
+                type="button"
+                class="ib chat-back"
+                onclick="showinbox()"
+                aria-label="Back to conversations"
+              >
+                ←
+              </button>
+              <div class="av md" id="chat-av">?</div>
+              <div class="tg-chat-info">
+                <div class="tg-chat-name" id="chat-name">—</div>
+                <div class="tg-chat-sub" id="chat-sub"></div>
+              </div>
+              <button
+                type="button"
+                class="ib"
+                id="chat-members-btn"
+                style="display: none"
+                onclick="openmembers()"
+                title="Group members"
+                aria-label="Group members"
+              >
+                &#x1F465;
+              </button>
+            </div>
+            <div id="tg-msgs"></div>
+            <div class="tg-bar">
+              <div class="tg-iw">
+                <input
+                  id="tg-inp"
+                  type="text"
+                  aria-label="Message"
+                  placeholder="Write a message"
+                  maxlength="3000"
+                  autocomplete="off"
+                />
+              </div>
+              <button
+                class="tg-send"
+                onclick="senddm()"
+                aria-label="Send message"
+              >
+                ➤
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="modal-newdm"
+      class="mbg"
+      style="display: none"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="newdm-title"
+      onclick="bgclose(event, 'modal-newdm')"
+    >
+      <div class="modal">
+        <h3 id="newdm-title">New message</h3>
+        <div class="msrch">
+          <input
+            id="user-search"
+            type="text"
+            placeholder="Search users"
+            aria-label="Search users"
+            autocomplete="off"
+          />
+        </div>
+        <div class="ulist" id="user-list"></div>
+        <button class="mbtn ghost" onclick="closemodal('modal-newdm')">
+          Cancel
+        </button>
+      </div>
+    </div>
+
+    <div
+      id="modal-del"
+      class="mbg"
+      style="display: none"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="del-title"
+      onclick="bgclose(event, 'modal-del')"
+    >
+      <div class="modal">
+        <h3 id="del-title">Delete account?</h3>
+        <p>
+          This deletes your account and all your DMs, and frees up this device so you can register again.
+        </p>
+        <div class="mrow">
+          <button class="mbtn danger" onclick="confirmdelete()">Delete</button>
+          <button class="mbtn ghost" onclick="closemodal('modal-del')">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <dialog id="chat-account" class="chat-account-dialog" aria-labelledby="account-title">
+      <header class="chat-account-head"><div><p class="account-eyebrow">Aetheris Chat</p><h2 id="account-title">Your account</h2></div><button type="button" class="ib" onclick="closechataccount()" aria-label="Close account settings">✕</button></header>
+      <div class="chat-account-body">
+        <section class="chat-account-identity"><div class="av md" id="account-avatar" aria-hidden="true"></div><div><strong id="account-username"></strong><p id="account-created"></p></div></section>
+        <label class="keep-row"><input type="checkbox" id="account-keep" /> Keep me signed in on this browser</label>
+        <section class="chat-account-section"><h3>Signed-in devices</h3><p id="account-sessions">Loading sessions…</p><button type="button" class="mbtn ghost" id="logout-others" onclick="logoutothers()" disabled>Sign out other devices</button><p class="account-feedback" id="sessions-feedback" role="status"></p></section>
+        <form class="chat-account-section" id="password-form" onsubmit="changepassword(event)"><h3>Change password</h3><label for="current-password">Current password</label><input id="current-password" type="password" autocomplete="current-password" maxlength="128" required /><label for="new-password">New password</label><input id="new-password" type="password" autocomplete="new-password" minlength="6" maxlength="128" required aria-describedby="password-help" /><p id="password-help">6–128 characters. Changing your password signs out other devices.</p><label for="new-password-confirm">Confirm new password</label><input id="new-password-confirm" type="password" autocomplete="new-password" maxlength="128" required /><p class="account-feedback" id="password-feedback" role="status"></p><button class="mbtn" id="password-save" type="submit">Update password</button></form>
+        <footer class="chat-account-footer"><button type="button" class="mbtn ghost" onclick="closechataccount(); logout()">Sign out</button><button type="button" class="account-delete" onclick="closechataccount(); openmodal('modal-del')">Delete account</button></footer>
+      </div>
+    </dialog>
+
+    <script src="./js/dm-shared.js?v=20261106.3"></script>
+    <script src="./js/dm-ui.js?v=20261011.3"></script>
+    <script src="./js/chat.js?v=20261106.1"></script>
+  </body>
+</html>

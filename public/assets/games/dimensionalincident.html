@@ -1,0 +1,134 @@
+<!-- shxyder -->
+<!-- ultimate game stash file -->
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Unity Web Player | Dimension incident</title>
+    <link rel="shortcut icon" href="https://cdn.jsdelivr.net/gh/shayderrr/portsv4@1198e4f0a43bc83d95e0383106a2a232df9e227f/15950502/TemplateData/favicon.ico">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/shayderrr/portsv4@1198e4f0a43bc83d95e0383106a2a232df9e227f/15950502/TemplateData/style.css">
+    <style>
+      #unity-loading-bar { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: block; }
+      #custom-loader-text { color: white; text-align: center; font-family: sans-serif; margin-bottom: 10px; font-weight: bold; text-shadow: 1px 1px 2px black; }
+    </style>
+  </head>
+  <body>
+    <div id="unity-container" class="unity-desktop">
+      <canvas id="unity-canvas" width=960 height=600 tabindex="-1"></canvas>
+      <div id="unity-loading-bar">
+        <div id="custom-loader-text">Fetching game parts...</div>
+        <div id="unity-logo"></div>
+        <div id="unity-progress-bar-empty">
+          <div id="unity-progress-bar-full"></div>
+        </div>
+      </div>
+      <div id="unity-warning"> </div>
+      <div id="unity-footer">
+        <div id="unity-logo-title-footer"></div>
+        <div id="unity-fullscreen-button"></div>
+        <div id="unity-build-title">Dimension incident</div>
+      </div>
+    </div>
+
+    <script>
+      const canvas = document.querySelector("#unity-canvas");
+      const loadingText = document.querySelector("#custom-loader-text");
+      const progressBarFull = document.querySelector("#unity-progress-bar-full");
+
+      const HASH = "1198e4f0a43bc83d95e0383106a2a232df9e227f";
+      const BASE_URL = `https://cdn.jsdelivr.net/gh/shayderrr/portsv4@${HASH}/15950502/Build/`;
+
+      async function fetchAndMerge(fileBase, partCount, mimeType) {
+        const parts = [];
+        for (let i = 1; i <= partCount; i++) {
+          const url = `${BASE_URL}${fileBase}.part${i}`;
+          loadingText.innerText = `Downloading ${fileBase} (${i}/${partCount})...`;
+          
+          const response = await fetch(url);
+          if (!response.ok) throw new Error(`HTTP ${response.status}: Failed to load ${url}`);
+          
+          parts.push(await response.arrayBuffer());
+        }
+        loadingText.innerText = `Merging ${fileBase}...`;
+        return URL.createObjectURL(new Blob(parts, { type: mimeType }));
+      }
+
+      function unityShowBanner(msg, type) {
+        var warningBanner = document.querySelector("#unity-warning");
+        function updateBannerVisibility() {
+          warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
+        }
+        var div = document.createElement('div');
+        div.innerHTML = msg;
+        warningBanner.appendChild(div);
+        if (type == 'error') div.style = 'background: red; padding: 10px; color: white;';
+        else {
+          if (type == 'warning') div.style = 'background: yellow; padding: 10px;';
+          setTimeout(function() {
+            warningBanner.removeChild(div);
+            updateBannerVisibility();
+          }, 5000);
+        }
+        updateBannerVisibility();
+      }
+
+      async function init() {
+        try {
+         
+          const dataUrl = await fetchAndMerge("Web.data.br", 3, "application/octet-stream");
+          const wasmUrl = await fetchAndMerge("Web.wasm.br", 3, "application/wasm");
+
+          const config = {
+            arguments: [],
+            dataUrl: dataUrl,
+          
+            frameworkUrl: BASE_URL + "Web.framework.js", 
+            codeUrl: wasmUrl,
+            streamingAssetsUrl: "StreamingAssets",
+            companyName: "BiznesBear",
+            productName: "Dimension incident",
+            productVersion: "Release 1.2",
+            showBanner: unityShowBanner,
+          };
+
+          if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+            var meta = document.createElement('meta');
+            meta.name = 'viewport';
+            meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
+            document.getElementsByTagName('head')[0].appendChild(meta);
+            document.querySelector("#unity-container").className = "unity-mobile";
+            canvas.className = "unity-mobile";
+          } else {
+            canvas.style.width = "960px";
+            canvas.style.height = "600px";
+          }
+
+          loadingText.innerText = "Loading Unity Loader...";
+          const script = document.createElement("script");
+          script.src = BASE_URL + "Web.loader.js";
+          script.onload = () => {
+            createUnityInstance(canvas, config, (progress) => {
+              progressBarFull.style.width = 100 * progress + "%";
+              loadingText.innerText = "Starting Engine: " + Math.round(progress * 100) + "%";
+            }).then((unityInstance) => {
+              document.querySelector("#unity-loading-bar").style.display = "none";
+              document.querySelector("#unity-fullscreen-button").onclick = () => {
+                unityInstance.SetFullscreen(1);
+              };
+            }).catch((err) => {
+              alert("Unity Instance Error: " + err);
+            });
+          };
+          document.body.appendChild(script);
+
+        } catch (e) {
+          loadingText.innerText = "Critical Failure";
+          unityShowBanner("Error: " + e.message, 'error');
+        }
+      }
+
+      init();
+    </script>
+  </body>
+</html>

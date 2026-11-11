@@ -1,0 +1,139 @@
+* {
+    padding: 0;
+    margin: 0;
+  }
+
+  html {
+    /* fix mobile viewport menu bar on iOS */
+    height: -webkit-fill-available;
+  }
+
+  body {
+    height: auto; /* allow root scroll on iOS */
+    /* fix mobile viewport menu bar on iOS */
+    min-height: -webkit-fill-available;
+    width: 100%;
+    text-align: center;
+  }
+
+  /* Use dynamic viewport height on mobile browsers that hide URL bar */
+  :root {
+    /* set via JS: --vh = 1% of innerHeight */
+  }
+
+  #unity-container,
+  #unity-canvas {
+      width: 100% !important;
+      height: 100% !important;
+  }
+
+  #unity-canvas:focus,
+  #unity-canvas:focus-visible {
+      outline: none !important;
+  }
+
+
+  #unity-container {
+    position: fixed; /* fixed so root can scroll under it on iOS */
+    left: 0px;
+    top: 0px;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #29404d;
+    touch-action: pan-y; /* allow vertical pan so Safari can collapse bars */
+  }
+
+  #unity-loading-container {
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    width: 100%;
+    height: 100%;
+    background-color: #292c2f;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 40px;
+
+    opacity: 1;
+    visibility: visible;
+
+    background-image: url('bg.webp');
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center center;
+  }
+
+  #unity-loading-container.finished {
+    opacity: 0;
+    visibility: collapse;
+  }
+  
+  /*
+  #unity-loading-container .logo {
+    width: 15%;
+  }
+  */
+  
+  .logo {
+    user-select: none;
+    width: 18%;
+    top: 3%;
+    position: absolute;
+    transform-origin: top;
+  }
+
+  #unity-loading-bar {
+    position: absolute;
+    height: 36px;
+    /*background: linear-gradient(90deg, #2a2d34, #3a3d44, #2a2d34);*/
+    background: #00000014;
+    background-size: 200% 100%;
+    border: 5px solid #ffffff24;
+    border-radius: 14px;
+    overflow: hidden;
+    animation: shimmer 2s infinite linear;
+    bottom: 20px;
+    right: 120px;
+    left: 20px;
+  }
+  
+  #loading-percentage {
+    position: absolute;
+    right: 16px;
+    bottom: 18px;
+    z-index: 20;
+    font-family: system-ui, sans-serif;
+    font-size: 40px;
+    font-weight: 900;
+    color: #fff;
+    user-select: none;
+  }
+  
+
+  #unity-loading-bar-inner {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 1%;
+    height: 100%;
+    background: linear-gradient(226deg, #ffd600, #ff9400);
+    box-shadow: 0 0 27px #ffc800;
+    /* transition: width 3.9s cubic-bezier(0.25, 1, 0.5, 1); */
+  }
+  
+  @keyframes shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+  
+  
+  

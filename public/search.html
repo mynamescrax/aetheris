@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <script src="./js/site.js?v=20261110.1"></script>
+
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Aetheris • Search</title>
+
+    <link
+      rel="shortcut icon"
+      href="./assets/images/icon.png"
+      type="image/png"
+    />
+    <link rel="stylesheet" href="./css/main.css?v=20261011.2" />
+    <link rel="stylesheet" href="./css/cards.css?v=20260907.1" />
+    <link rel="stylesheet" href="./css/themes.css?v=20261101.1" />
+    <link rel="stylesheet" href="./css/nav.css?v=20261102.1" />
+
+    <script src="./js/theme.js?v=20261101.1"></script>
+
+    <script src="/scramjet/scramjet.js" defer></script>
+    <script src="/controller/controller.api.js" defer></script>
+    <script src="/js/scramjet-init.js?v=20261108.3"></script>
+    <script src="register-sw.js?v=20260907.1" defer></script>
+    <script defer src="./js/preload.js?v=20261008.1"></script>
+
+    <style>
+      .centered {
+        min-height: 100vh;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 24px;
+        padding: 40px 20px;
+        transition: all 0.4s ease;
+      }
+
+      .centered h1 {
+        font-family: var(--font-sans);
+        font-size: clamp(2.5rem, 8vw, 4rem);
+        font-weight: 900;
+        color: var(--text-color);
+        letter-spacing: -2px;
+        margin: 0;
+        text-align: center;
+      }
+
+      #sj-form {
+        width: 100%;
+        max-width: 720px;
+      }
+
+      #sj-address {
+        width: 100%;
+        height: 58px;
+        border: none;
+        outline: none;
+        border-radius: 9999px;
+        background: #05070c;
+        color: white;
+        font-size: 1.1rem;
+        padding: 0 28px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        transition: all 0.3s ease;
+      }
+
+      #sj-address:focus {
+        box-shadow:
+          0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent),
+          0 4px 20px rgba(0, 0, 0, 0.3);
+        transform: scale(1.02);
+      }
+
+      #error-area {
+        min-height: 28px;
+        text-align: center;
+      }
+      #sj-error {
+        color: #ff6b6b;
+        margin: 0;
+        font-weight: 500;
+      }
+      #sj-error-code {
+        color: #ffd2d2;
+        white-space: pre-wrap;
+        word-break: break-word;
+        margin-top: 8px;
+        font-size: 0.9rem;
+        max-width: 90vw;
+      }
+
+      #result-area {
+        width: min(1520px, 96vw);
+        height: calc(100vh - 260px);
+        min-height: 540px;
+        border-radius: 20px;
+        overflow: hidden;
+        background: #fff;
+        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.35);
+        display: none;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        position: relative;
+      }
+
+      #result-area iframe {
+        width: 100% !important;
+        height: 100% !important;
+        border: 0 !important;
+        background: #fff;
+        display: block;
+      }
+
+      #loading-indicator {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--navbar);
+        color: var(--text-color);
+        font-family: var(--font-sans, system-ui, sans-serif);
+        font-size: 0.95rem;
+        z-index: 2;
+      }
+
+      #loading-indicator.hidden {
+        display: none;
+      }
+
+      #frame-toolbar {
+        display: none;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 12px;
+      }
+
+      #frame-toolbar button {
+        width: 46px;
+        height: 46px;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--text-color);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.15rem;
+        transition: all 0.2s ease;
+      }
+
+      #frame-toolbar button:hover {
+        background: rgba(255, 255, 255, 0.15);
+        transform: translateY(-2px);
+      }
+
+      .results-open {
+        justify-content: flex-start;
+        padding-top: 30px;
+      }
+      .results-open h1 {
+        font-size: clamp(2.2rem, 6vw, 3.2rem);
+        margin-top: 0;
+      }
+      .results-open #result-area {
+        display: block;
+      }
+      .results-open #frame-toolbar {
+        display: flex;
+      }
+
+      @media (max-width: 900px) {
+        .centered {
+          padding: 30px 15px;
+        }
+        #result-area {
+          height: calc(100vh - 210px);
+          min-height: 460px;
+        }
+      }
+    </style>
+    <link rel="stylesheet" href="./css/usability.css?v=20261103.3" />
+  </head>
+
+  <body>
+    <div class="centered" id="main-container">
+      <h1>Aetheris</h1>
+
+      <form id="sj-form">
+        <input
+          id="sj-search-engine"
+          type="hidden"
+          value="https://duckduckgo.com/?q=%s"
+        />
+        <input
+          id="sj-address"
+          class="pxyinput"
+          type="text"
+          aria-label="Search or enter a URL"
+          placeholder="Search or enter a URL"
+          autocomplete="off"
+          autocapitalize="none"
+          spellcheck="false"
+          enterkeyhint="go"
+        />
+      </form>
+
+      <div id="error-area" role="status" aria-live="polite">
+        <p id="sj-error"></p>
+        <pre id="sj-error-code"></pre>
+      </div>
+
+      <div id="frame-toolbar">
+        <button
+          onclick="toolbarfullscreen()"
+          title="Fullscreen"
+          aria-label="Fullscreen proxied page"
+        >
+          ⛶
+        </button>
+        <button
+          onclick="toolbarnewtab()"
+          title="Open in new tab"
+          aria-label="Open proxied page in new tab"
+        >
+          ↗
+        </button>
+        <button
+          onclick="toolbarrefresh()"
+          title="Refresh"
+          aria-label="Refresh proxied page"
+        >
+          ⟳
+        </button>
+      </div>
+
+      <div id="result-area">
+        <div id="loading-indicator" class="hidden" role="status">
+          Loading…
+        </div>
+      </div>
+    </div>
+
+    <script>
+      var backend = null;
+      var currentframe = null;
+      var lasturl = null;
+      var navigationVersion = 0;
+      var loadingTimer = null;
+
+      async function waitforbackend() {
+        if (window.aetherisProxy) return;
+        // the ?q= auto-search can run before the proxy helper loads, so poll
+        await new Promise(function (resolve, reject) {
+          var waited = 0;
+          var t = setInterval(function () {
+            waited += 100;
+            if (window.aetherisProxy) {
+              clearInterval(t);
+              resolve();
+            } else if (waited >= 10000) {
+              clearInterval(t);
+              reject(
+                new Error(
+                  "backend didn't load. check your connection and retry.",
+                ),
+              );
+            }
+          }, 100);
+        });
+      }
+
+      async function startbackend() {
+        // Always ask the shared helper: it caches the controller and returns
+        // a fresh one after a reset. Caching here would pin a transport that
+        // died while the tab was suspended (iPad Safari) and break retries.
+        await waitforbackend();
+        backend = await window.aetherisProxy.getController();
+        return backend;
+      }
+
+      function resolveurl(input) {
+        var raw = (input || "").trim();
+        if (!raw) return null;
+
+        var hasscheme = /^https?:\/\//i.test(raw);
+        // Require a dot with a real TLD (or an IPv4 address) so queries like
+        // "3.5mm jack fix" search instead of navigating to https://3.5mm.
+        var lookslikeurl =
+          /^([a-z0-9-]+\.)+[a-z]{2,}([/:?#][^\s]*)?$/i.test(raw) ||
+          /^\d{1,3}(\.\d{1,3}){3}(:\d+)?([/?#][^\s]*)?$/.test(raw);
+
+        if (!hasscheme && !lookslikeurl) {
+          var engine = document.getElementById("sj-search-engine").value;
+          return engine.replace("%s", encodeURIComponent(raw));
+        }
+        return hasscheme ? raw : "https://" + raw;
+      }
+
+      function mountframe(p, resultarea) {
+        if (currentframe && Array.isArray(p.frames)) {
+          var oldIndex = p.frames.indexOf(currentframe);
+          if (oldIndex !== -1) p.frames.splice(oldIndex, 1);
+        }
+        var el = document.createElement("iframe");
+        el.title = "Proxied website";
+        el.setAttribute("referrerpolicy", "no-referrer");
+        el.setAttribute(
+          "allow",
+          "autoplay; fullscreen; encrypted-media; picture-in-picture",
+        );
+        el.style.cssText =
+          "width:100%;height:100%;border:0;background:#fff;display:block;";
+
+        Array.from(resultarea.children).forEach(function (c) {
+          if (c.id !== "loading-indicator") resultarea.removeChild(c);
+        });
+        resultarea.appendChild(el);
+
+        return p.createFrame(el);
+      }
+
+      async function gourl(input, fromHistory) {
+        var version = ++navigationVersion;
+        clearTimeout(loadingTimer);
+        var errorel = document.getElementById("sj-error");
+        var errorcode = document.getElementById("sj-error-code");
+        var resultarea = document.getElementById("result-area");
+        var container = document.getElementById("main-container");
+        var loader = document.getElementById("loading-indicator");
+
+        errorel.textContent = "";
+        errorcode.textContent = "";
+
+        var finalurl = resolveurl(input);
+        if (!finalurl) {
+          errorel.textContent = "Enter a URL or search query.";
+          return;
+        }
+
+        if (!fromHistory) {
+          try {
+            var next =
+              "search.html?q=" + encodeURIComponent(String(input).trim());
+            if (
+              location.search !==
+              "?" + next.slice("search.html?".length)
+            ) {
+              history.pushState({ q: input }, "", next);
+            }
+          } catch (_) {}
+        }
+
+        container.classList.add("results-open");
+        loader.classList.remove("hidden");
+        loader.textContent = "Loading…";
+
+        try {
+          var p = await startbackend();
+          if (version !== navigationVersion) return;
+
+          currentframe = mountframe(p, resultarea);
+
+          lasturl = finalurl;
+
+          var frameel = currentframe.element;
+          var hidden = false;
+          var hide = function () {
+            if (hidden || version !== navigationVersion) return;
+            hidden = true;
+            clearTimeout(loadingTimer);
+            loader.classList.add("hidden");
+          };
+          frameel.addEventListener("load", hide, { once: true });
+          await window.aetherisProxy.go(currentframe, finalurl);
+          loadingTimer = setTimeout(function () {
+            if (version !== navigationVersion || hidden) return;
+            hide();
+            errorel.textContent =
+              "This page is taking longer than expected. Try refreshing or another URL.";
+          }, 20000);
+        } catch (err) {
+          if (version !== navigationVersion) return;
+          console.error("navigation error:", err);
+          // rebuild the transport next time, it may have died while suspended
+          try {
+            if (window.aetherisProxy) window.aetherisProxy.reset();
+          } catch (_) {}
+          errorel.textContent =
+            "failed to load: " +
+            (err && err.message ? err.message : String(err));
+          // Never print an engine stack trace into the visible error area.
+          errorcode.textContent = "";
+          loader.classList.add("hidden");
+        }
+      }
+
+      function getframeurl() {
+        if (currentframe) {
+          var el = currentframe.element;
+          try {
+            var href = el.contentWindow && el.contentWindow.location.href;
+            var prefix = new URL(currentframe.prefix, location.href).href;
+            if (href && href.indexOf(prefix) === 0)
+              return backend.config.codec.decode(href.slice(prefix.length));
+            if (
+              href &&
+              href !== "about:blank" &&
+              new URL(href).origin !== location.origin
+            )
+              return href;
+          } catch (_) {}
+        }
+        return lasturl;
+      }
+
+      function toolbarfullscreen() {
+        var area = document.getElementById("result-area");
+        if (area) Aetheris.fullscreen(area);
+      }
+
+      function eschtml(s) {
+        return String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      function toolbarnewtab() {
+        var target = getframeurl();
+        if (!target) {
+          alert("nothing to open yet. search or visit a site first.");
+          return;
+        }
+        var url =
+          location.origin +
+          "/index.html#search?q=" +
+          encodeURIComponent(target);
+
+        var newwin = window.open("about:blank", "_blank");
+        if (!newwin) {
+          alert("popup blocked. please allow popups for this site.");
+          return;
+        }
+
+        var tabtitle = localStorage.getItem("tabName") || "Google";
+        var tabicon =
+          localStorage.getItem("tabIcon") || "https://www.google.com/favicon.ico";
+
+        newwin.document.write(
+          "<!DOCTYPE html><html><head>" +
+            "<title>" +
+            eschtml(tabtitle) +
+            "</title>" +
+            '<link rel="icon" href="' +
+            eschtml(tabicon) +
+            '">' +
+            "<style>*{margin:0;padding:0}body{overflow:hidden;background:#000}" +
+            "iframe{position:fixed;inset:0;width:100%;height:100%;border:none}</style>" +
+            "</head><body>" +
+            '<iframe src="' +
+            eschtml(url) +
+            '" allowfullscreen referrerpolicy="no-referrer"></iframe>' +
+            "</body></html>",
+        );
+        newwin.document.close();
+      }
+
+      function toolbarrefresh() {
+        var errorel = document.getElementById("sj-error");
+        if (currentframe && lasturl) {
+          try {
+            currentframe.reload();
+          } catch (err) {
+            console.error("refresh failed:", err);
+            if (errorel)
+              errorel.textContent =
+                "Refresh failed. Check your connection and try again.";
+          }
+        } else if (errorel) {
+          errorel.textContent = "Nothing to refresh yet.";
+        }
+      }
+
+      document
+        .getElementById("sj-form")
+        .addEventListener("submit", function (e) {
+          e.preventDefault();
+          gourl(document.getElementById("sj-address").value);
+        });
+
+      var urlparams = new URLSearchParams(window.location.search);
+      var q = urlparams.get("q");
+      if (q) {
+        document.getElementById("sj-address").value = q;
+        gourl(q, true);
+      }
+
+      window.addEventListener("popstate", function (e) {
+        var params = new URLSearchParams(window.location.search);
+        var next = params.get("q") || (e.state && e.state.q) || "";
+        document.getElementById("sj-address").value = next;
+        if (next) {
+          gourl(next, true);
+          return;
+        }
+        // Back/forward to a URL without ?q must not leave the previous
+        // proxied site displayed under an empty search field.
+        navigationVersion++;
+        clearTimeout(loadingTimer);
+        if (
+          currentframe &&
+          currentframe.element &&
+          currentframe.element.parentNode
+        )
+          currentframe.element.parentNode.removeChild(currentframe.element);
+        currentframe = null;
+        lasturl = null;
+        document.getElementById("main-container").classList.remove("results-open");
+        document.getElementById("loading-indicator").classList.add("hidden");
+        document.getElementById("sj-error").textContent = "";
+        document.getElementById("sj-error-code").textContent = "";
+      });
+    </script>
+  </body>
+</html>

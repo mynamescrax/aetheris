@@ -1,0 +1,97 @@
+<html>
+
+<head>
+  
+  
+  
+  <base href="https://cdn.jsdelivr.net/gh/bubbls/youtube-playables@main/8-ball-classic/">
+  <meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+  <meta content="utf-8" http-equiv="encoding">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, minimal-ui" />
+
+  <title>8 Ball Billiards Classic</title>
+
+  <style>
+    html,
+    body {
+      background: #000000;
+    }
+  </style>
+
+  <script>
+    // Local stand-in for YouTube Playables' game_api. The upstream ytgame.js
+    // stub only completes its handshake inside YouTube's portal; anywhere
+    // else its loadData() promise never settles and boot stalls on a blank
+    // screen. Resolve everything locally instead.
+    window.ytgame = {
+      SDK_VERSION: "aetheris-shim-1",
+      game: {
+        firstFrameReady: function () {},
+        gameReady: function () {},
+        loadData: function () {
+          return Promise.resolve(null);
+        },
+        saveData: function () {
+          return Promise.resolve();
+        },
+      },
+      system: {
+        isAudioEnabled: function () {
+          return true;
+        },
+        onAudioEnabledChange: function () {},
+        onPause: function () {},
+        onResume: function () {},
+      },
+      ads: {
+        AdResult: { UNKNOWN: 0, SHOWED: 1, REJECTED: 2 },
+        requestAd: function () {
+          return Promise.resolve(2);
+        },
+      },
+      engagement: {
+        sendScore: function () {
+          return Promise.resolve();
+        },
+      },
+    };
+    ytgame.game.firstFrameReady();
+  </script>
+
+  <script nonce="2XFlLX0mBCyFgnEmy26FZg">
+    window.famobi_gameID = "8-ball-billiards-classic";
+    window.famobi_gameJS = [
+      "assets/src/01phaser.js",
+      "assets/src/02Ball.js",
+      "assets/src/03contactListener.js",
+      "assets/src/04billiardPhysics.js",
+      "assets/src/05levelData.js",
+      "assets/src/06maths.js",
+      "assets/src/07vector2d.js",
+      "assets/src/08render.js",
+      "assets/src/09sound.js",
+      "assets/src/10effects.js",
+      "assets/src/11timer.js",
+      "assets/src/12load.js",
+      "assets/src/13mainMenu.js",
+      "assets/src/14setup.js",
+      "assets/src/15gameController.js",
+      "assets/src/16boot.js",
+      function() {
+
+      }
+    ];
+    (function(document, url, fgJS, firstJS) {
+      fgJS = document.createElement('script');
+      firstJS = document.getElementsByTagName('script')[0];
+      fgJS.src = url + "";
+      firstJS.parentNode.insertBefore(fgJS, firstJS);
+    })(document, 'html5games/gameapi/v1.js');
+  </script>
+</head>
+
+<body>
+  <center>
+    <div id="mygame"></div>
+  </center>
+</html>

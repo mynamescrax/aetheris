@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>1 On 1 Tennis</title><style>html,body,#game{margin:0;width:100%;height:100%;background:#000;overflow:hidden}ruffle-player{width:100%;height:100%}</style>
+<script src="https://cdn.jsdelivr.net/npm/@ruffle-rs/ruffle@0.2.0-nightly.2025.10.2/ruffle.min.js"></script></head>
+<body><div id="game" role="status"></div><script>
+window.addEventListener("load", async function () {
+  var container = document.getElementById("game");
+  try {
+    var player = window.RufflePlayer.newest().createPlayer();
+    container.appendChild(player);
+    await player.load({url: "https://cdn.jsdelivr.net/gh/bubbls/UGS-file-encryption@8df6fdb8b7e18764b4d55a04c9af8afdc1e85a3a/1-on-1-tennis.swf", autoplay: "on", unmuteOverlay: "visible"});
+  } catch (error) { container.textContent = "The game could not load. " + error.message; }
+});
+</script></body></html>

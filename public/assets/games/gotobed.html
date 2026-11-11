@@ -1,0 +1,100 @@
+<!-- shxyder -->
+<!-- ultimate game stash file -->
+<!DOCTYPE html>
+<html lang="en-us">
+	<head>
+		<meta charset="utf-8" />
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+		<title>Go To Bed web port</title>
+		<meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, user-scalable=no" />
+		<style>
+			html, body {
+				margin: 0;
+				padding: 0;
+				overflow: hidden;
+				height: 100%;
+				width: 100%;
+				background: #26251e;
+			}
+			canvas {
+				display: block;
+				position: fixed;
+				top: 0;
+				left: 0;
+				width: 100vw;
+				height: 100vh;
+			}
+			#loading-overlay {
+				position: fixed;
+				top: 0; left: 0; width: 100%; height: 100%;
+				background: #26251e;
+				display: flex;
+				justify-content: center;
+				align-items: center;
+				color: white;
+				font-family: sans-serif;
+				z-index: 10;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="loading-overlay">Merging assets... please wait.</div>
+		<canvas id="unity-canvas" tabindex="-1"></canvas>
+
+		<!-- Load the loader via jsDelivr -->
+		<script src="https://cdn.jsdelivr.net/gh/shayderrr/portsv4@6352fa599299465a054122a28931228c59a31e89/go%20to%20bed/Build/GTBPort.loader.js"></script>
+		
+		<script>
+			const BASE_URL = "https://cdn.jsdelivr.net/gh/shayderrr/portsv4@6352fa599299465a054122a28931228c59a31e89/go%20to%20bed/Build/";
+
+			async function fetchAndMerge(fileParts) {
+				const downloadPromises = fileParts.map(part => 
+					fetch(BASE_URL + part).then(res => {
+						if (!res.ok) throw new Error(`Failed to load ${part}`);
+						return res.blob();
+					})
+				);
+				const blobs = await Promise.all(downloadPromises);
+				return URL.createObjectURL(new Blob(blobs));
+			}
+
+			async function initUnity() {
+				try {
+					const overlay = document.getElementById('loading-overlay');
+					
+					// Define the parts based on your file list
+					const dataParts = ["GTBPort.data.part1", "GTBPort.data.part2", "GTBPort.data.part3"];
+					const wasmParts = ["GTBPort.wasm.part1", "GTBPort.wasm.part2"];
+
+					console.log("Downloading and merging files...");
+					
+					// Merge files concurrently
+					const [mergedDataUrl, mergedWasmUrl] = await Promise.all([
+						fetchAndMerge(dataParts),
+						fetchAndMerge(wasmParts)
+					]);
+
+					overlay.innerText = "Starting Unity...";
+
+					createUnityInstance(document.querySelector("#unity-canvas"), {
+						dataUrl: mergedDataUrl,
+						frameworkUrl: BASE_URL + "GTBPort.framework.js",
+						codeUrl: mergedWasmUrl,
+						streamingAssetsUrl: "StreamingAssets",
+						companyName: "Joseph Mularczyk",
+						productName: "Go To Bed",
+						productVersion: "1.0",
+					}).then(() => {
+						overlay.style.display = "none";
+					});
+
+				} catch (err) {
+					console.error("Unity Loading Error:", err);
+					document.getElementById('loading-overlay').innerText = "Error loading game. Check console.";
+				}
+			}
+
+			initUnity();
+		</script>
+	</body>
+</html>

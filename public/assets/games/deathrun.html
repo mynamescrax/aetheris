@@ -1,0 +1,64 @@
+<!-- ultimate game stash file -->
+<!-- shxyder -->
+<html>
+  <head>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/amazing6ox/okimfine@main/TemplateData/style.css"
+    />
+    <style>
+      body {
+        overflow: hidden;
+        margin: 0;
+        padding: 0;
+      }
+      #gameContainer {
+        width: 100vw;
+        height: 100vh;
+        background: black;
+      }
+    </style>
+    <script src="https://cdn.jsdelivr.net/gh/amazing6ox/okimfine@main/TemplateData/UnityProgress.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/amazing6ox/okimfine@main/Build/UnityLoader.js"></script>
+    <script>
+      var gameInstance = UnityLoader.instantiate(
+        "gameContainer",
+        "https://cdn.jsdelivr.net/gh/amazing6ox/okimfine@main/Build/death_run_wasm_v1.json",
+        {
+          onProgress: UnityProgress,
+          Module: {
+            onRuntimeInitialized: function () {
+              UnityProgress(gameInstance, "complete");
+            },
+          },
+        }
+      );
+    </script>
+    <script src="https://cdn.jsdelivr.net/gh/amazing6ox/okimfine@main/api.js"></script>
+    <style type="text/css">
+      #button {
+        display: none;
+      }
+      .imgb_vis {
+        animation: imgb-animation 7s linear;
+      }
+      @keyframes imgb-animation {
+        10% {
+          transform: translateX(0);
+        }
+        20% {
+          transform: translateX(100px);
+        }
+        90% {
+          transform: translateX(100px);
+        }
+        100% {
+          transform: translateX(0);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="gameContainer"></div>
+  </body>
+</html>

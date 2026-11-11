@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Unity Web Player | TheManFromTheWindow2</title>
+    <link rel="shortcut icon" href="https://cdn.jsdelivr.net/gh/wasm-rip/the-man-from-the-window-2-web@main/man/TemplateData/favicon.ico">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/wasm-rip/the-man-from-the-window-2-web@main/man/TemplateData/style.css">
+    <link rel="manifest" href="https://cdn.jsdelivr.net/gh/wasm-rip/the-man-from-the-window-2-web@main/man/manifest.webmanifest">
+  </head>
+  <body>
+    <div id="unity-container">
+      <canvas id="unity-canvas" width=960 height=600 tabindex="-1"></canvas>
+      <div id="unity-loading-bar">
+        <div id="unity-logo"></div>
+        <div id="unity-progress-bar-empty">
+          <div id="unity-progress-bar-full"></div>
+        </div>
+      </div>
+      <div id="unity-warning"> </div>
+    </div>
+    <script>
+      const buildUrl = "https://cdn.jsdelivr.net/gh/wasm-rip/the-man-from-the-window-2-web@main/man/Build/";
+      const container = document.querySelector("#unity-container");
+      const canvas = document.querySelector("#unity-canvas");
+      const loadingBar = document.querySelector("#unity-loading-bar");
+      const progressBarFull = document.querySelector("#unity-progress-bar-full");
+      const warningBanner = document.querySelector("#unity-warning");
+
+      function unityShowBanner(msg, type) {
+        function updateBannerVisibility() {
+          warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
+        }
+        var div = document.createElement('div');
+        div.innerHTML = msg;
+        warningBanner.appendChild(div);
+        if (type == 'error') div.style = 'background: red; padding: 10px;';
+        else {
+          if (type == 'warning') div.style = 'background: yellow; padding: 10px;';
+          setTimeout(function() {
+            warningBanner.removeChild(div);
+            updateBannerVisibility();
+          }, 5000);
+        }
+        updateBannerVisibility();
+      }
+
+      async function fetchAndMerge(filename, partsCount) {
+        const parts = [];
+        for (let i = 1; i <= partsCount; i++) {
+          const response = await fetch(`${buildUrl}${filename}.part${i}`);
+          if (!response.ok) throw new Error(`Failed to fetch part ${i} of ${filename}`);
+          parts.push(await response.arrayBuffer());
+        }
+        return URL.createObjectURL(new Blob(parts));
+      }
+
+      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        var meta = document.createElement('meta');
+        meta.name = 'viewport';
+        meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
+        document.getElementsByTagName('head')[0].appendChild(meta);
+      }
+
+      loadingBar.style.display = "block";
+
+      (async () => {
+        try {
+          const [mergedData, mergedWasm] = await Promise.all([
+            fetchAndMerge("man.data", 7),
+            fetchAndMerge("man.wasm", 2)
+          ]);
+
+          const config = {
+            arguments: [],
+            dataUrl: mergedData,
+            frameworkUrl: buildUrl + "man.framework.js",
+            codeUrl: mergedWasm,
+            streamingAssetsUrl: "StreamingAssets",
+            companyName: "Zed_Technician",
+            productName: "TheManFromTheWindow2",
+            productVersion: "0.9991",
+            showBanner: unityShowBanner,
+          };
+
+          const script = document.createElement("script");
+          script.src = buildUrl + "man.loader.js";
+          script.onload = () => {
+            createUnityInstance(canvas, config, (progress) => {
+              progressBarFull.style.width = 100 * progress + "%";
+            }).then((unityInstance) => {
+              loadingBar.style.display = "none";
+            }).catch((message) => {
+              alert(message);
+            });
+          };
+          document.body.appendChild(script);
+        } catch (err) {
+          alert("Error loading merged assets: " + err.message);
+        }
+      })();
+    </script>
+  </body>
+</html>

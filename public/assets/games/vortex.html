@@ -1,0 +1,209 @@
+<!-- ultimate game stash file -->
+<!-- for regular updating go to https://docs.google.com/document/d/1_FmH3BlSBQI7FGgAQL59-ZPe8eCxs35wel6JUyVaG8Q/edit?tab=t.oimtgyujc8f -->
+<!-- shxyder -->
+
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <link rel="shortcut icon" href="https://cdn.jsdelivr.net/gh/shayderrr/portsv2@main/vortex/Build/TemplateData/favicon.ico">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #000;
+        }
+        #unity-container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            left: 0;
+            top: 0;
+        }
+        #unity-canvas {
+            width: 100%;
+            height: 100%;
+            background: #004965;
+            display: block;
+        }
+        #unity-loading-bar {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            display: none;
+        }
+        #unity-logo {
+            width: 154px;
+            height: 130px;
+            background: url('https://cdn.jsdelivr.net/gh/shayderrr/portsv2@main/vortex/Build/TemplateData/unity-logo-dark.png') no-repeat center;
+        }
+        #unity-progress-bar-empty {
+            width: 141px;
+            height: 18px;
+            margin-top: 10px;
+            margin-left: 6.5px;
+            background: url('https://cdn.jsdelivr.net/gh/shayderrr/portsv2@main/vortex/Build/TemplateData/progress-bar-empty-dark.png') no-repeat center;
+        }
+        #unity-progress-bar-full {
+            width: 0%;
+            height: 18px;
+            margin-top: 10px;
+            background: url('https://cdn.jsdelivr.net/gh/shayderrr/portsv2@main/vortex/Build/TemplateData/progress-bar-full-dark.png') no-repeat center;
+        }
+        #unity-warning {
+            position: absolute;
+            left: 50%;
+            top: 5%;
+            transform: translate(-50%);
+            background: white;
+            padding: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="unity-container">
+        <canvas id="unity-canvas" tabindex="0"></canvas>
+        <div id="unity-loading-bar">
+            <div id="unity-logo"></div>
+            <div id="unity-progress-bar-empty">
+                <div id="unity-progress-bar-full"></div>
+            </div>
+        </div>
+        <div id="unity-warning"></div>
+    </div>
+    <script>
+        const buildUrl = "https://cdn.jsdelivr.net/gh/shayderrr/portsv2@main/vortex/Build";
+        const loaderUrl = buildUrl + "/BV-WebGL4.loader.js";
+        const CDN_BASE = "https://cdn.jsdelivr.net/gh/shayderrr/portsv2@main/vortex/Build/";
+        const WASM_PARTS = 4;
+        const WASM_FILENAME = "BV-WebGL4.wasm.gz";
+        const config = {
+            dataUrl: buildUrl + "/BV-WebGL4.data.gz",
+            frameworkUrl: buildUrl + "/BV-WebGL4.framework.js",
+            codeUrl: null,
+            streamingAssetsUrl: "StreamingAssets",
+            companyName: "AlexisClay",
+            productName: "VR-Racing-Game",
+            productVersion: "0.1",
+            showBanner: unityShowBanner
+        };
+        const container = document.querySelector("#unity-container");
+        const canvas = document.querySelector("#unity-canvas");
+        const loadingBar = document.querySelector("#unity-loading-bar");
+        const progressBarFull = document.querySelector("#unity-progress-bar-full");
+        const warningBanner = document.querySelector("#unity-warning");
+        function unityShowBanner(msg, type) {
+            function updateBannerVisibility() {
+                warningBanner.style.display = warningBanner.children.length ? "block" : "none";
+            }
+            var div = document.createElement("div");
+            div.innerHTML = msg;
+            warningBanner.appendChild(div);
+            if (type == "error") div.style = "background: red; padding: 10px;";
+            else {
+                if (type == "warning") div.style = "background: yellow; padding: 10px;";
+                setTimeout(function() {
+                    warningBanner.removeChild(div);
+                    updateBannerVisibility();
+                }, 5000);
+            }
+            updateBannerVisibility();
+        }
+        function focusCanvas() {
+            window.focus();
+            canvas.focus();
+        }
+        async function loadWasmChunks() {
+            console.log("[WASM] Starting chunked download...");
+            const chunks = [];
+            let totalLoaded = 0;
+            let totalSize = 0;
+            for (let i = 1; i <= WASM_PARTS; i++) {
+                const url = CDN_BASE + WASM_FILENAME + ".part" + i;
+                try {
+                    const headResp = await fetch(url, { method: "HEAD" });
+                    const size = parseInt(headResp.headers.get("content-length") || "0");
+                    totalSize += size;
+                } catch (e) {
+                    totalSize += 7 * 1024 * 1024;
+                }
+            }
+            for (let i = 1; i <= WASM_PARTS; i++) {
+                const url = CDN_BASE + WASM_FILENAME + ".part" + i;
+                console.log(`[WASM] Downloading part ${i}/${WASM_PARTS}...`);
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch part ${i}: ${response.status}`);
+                }
+                const reader = response.body.getReader();
+                const partChunks = [];
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    partChunks.push(value);
+                    totalLoaded += value.length;
+                    const progress = (totalLoaded / totalSize) * 0.5;
+                    progressBarFull.style.width = `${Math.min(50, progress * 100)}%`;
+                }
+                const partSize = partChunks.reduce((acc, chunk) => acc + chunk.length, 0);
+                const partData = new Uint8Array(partSize);
+                let offset = 0;
+                for (const chunk of partChunks) {
+                    partData.set(chunk, offset);
+                    offset += chunk.length;
+                }
+                chunks.push(partData);
+                console.log(`[WASM] Part ${i} complete: ${(partData.length / 1024 / 1024).toFixed(2)} MB`);
+            }
+            const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+            const merged = new Uint8Array(totalLength);
+            let mergeOffset = 0;
+            for (const chunk of chunks) {
+                merged.set(chunk, mergeOffset);
+                mergeOffset += chunk.length;
+            }
+            console.log(`[WASM] All parts merged: ${(totalLength / 1024 / 1024).toFixed(2)} MB`);
+            return merged;
+        }
+        document.addEventListener("contextmenu", e => e.preventDefault());
+        window.addEventListener("pointerdown", focusCanvas);
+        window.addEventListener("touchstart", focusCanvas);
+        loadingBar.style.display = "block";
+        const script = document.createElement("script");
+        script.src = loaderUrl;
+        script.onload = async () => {
+            try {
+                const wasmData = await loadWasmChunks();
+                const wasmBlob = new Blob([wasmData], { type: "application/wasm" });
+                config.codeUrl = URL.createObjectURL(wasmBlob);
+                console.log("[Unity] Starting Unity instance...");
+                createUnityInstance(canvas, config, (progress) => {
+                    const combinedProgress = 0.5 + (progress * 0.5);
+                    progressBarFull.style.width = `${100 * combinedProgress}%`;
+                }).then((unityInstance) => {
+                    loadingBar.style.display = "none";
+                    console.log("[Unity] Game loaded successfully");
+                    focusCanvas();
+                }).catch((message) => {
+                    console.error("[Unity] Error:", message);
+                    alert(message);
+                });
+            } catch (error) {
+                console.error("[WASM] Loading error:", error);
+                alert("Failed to load game: " + error.message);
+            }
+        };
+        document.body.appendChild(script);
+    </script>
+</body>
+</html>
