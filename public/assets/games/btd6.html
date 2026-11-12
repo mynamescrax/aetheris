@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <base
+      href="https://cdn.jsdelivr.net/gh/SomeRandomFella/portsandrips@master/btd6/"
+    />
+<script src="split-loader.js?v=tutorial-all19mb-20261111"></script>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Unity Web Player | BloonsTD6</title>
+    <link rel="shortcut icon" href="TemplateData/favicon.ico">
+    <style>
+html, body { width: 100%; height: 100%; padding: 0; margin: 0; overflow: hidden }
+#unity-container { position: absolute }
+#unity-container.unity-desktop { left: 0; top: 0; width: 100%; height: 100%; transform: none; display: flex; justify-content: center; align-items: center }
+#unity-container.unity-mobile { position: fixed; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center }
+#unity-canvas { display: block; background: #000000 }
+.unity-mobile #unity-canvas { width: 100%; height: 100% }
+#unity-loading-bar { position: fixed; inset: 0; z-index: 20; display: none; flex-direction: column; align-items: center; justify-content: center; background: #000; font-family: Arial, sans-serif }
+#recovery-loading-head { width: min(104px, 22vw); height: min(104px, 22vw); object-fit: contain; animation: recovery-spin 2.4s linear infinite; }
+@keyframes recovery-spin { to { transform: rotate(360deg); } }
+#recovery-loading-status { color: #ffcf11; font-size: 21px; font-weight: 900; letter-spacing: 1px; text-shadow: 0 2px 0 #9a5000; margin-top: 10px }
+#unity-logo { display: none }
+#unity-progress-bar-empty { display: none; width: min(360px, 70vw); height: 20px; overflow: hidden; border: 4px solid #236722; border-radius: 18px; background: #f3f8da; box-shadow: 0 5px 0 #163f1b }
+#unity-progress-bar-full { width: 0%; height: 100%; background: linear-gradient(#89ff29, #39c600); transition: width .2s }
+#unity-footer { display: none }
+.unity-mobile #unity-footer { display: none }
+#unity-logo-title-footer { float:left; width: 102px; height: 38px; background: url('TemplateData/unity-logo-title-footer.png') no-repeat center }
+#unity-build-title { float: right; margin-right: 10px; line-height: 38px; font-family: arial; font-size: 18px }
+#unity-fullscreen-button { cursor:pointer; float: right; width: 38px; height: 38px; background: url('TemplateData/fullscreen-button.png') no-repeat center }
+#unity-warning { position: absolute; left: 50%; top: 5%; transform: translate(-50%); background: white; padding: 10px; display: none }
+
+</style>
+  <style id="recovery-display-controls">
+      #unity-footer, .unity-mobile #unity-footer { display: block; position: fixed; right: 8px; bottom: 8px; z-index: 15 }
+      #unity-logo-title-footer, #unity-build-title { display: none }
+      #unity-fullscreen-button { float: none; width: auto; height: 32px; padding: 4px 10px; border: 1px solid #ffffff88; border-radius: 5px; color: white; background: #142135dc; font: 14px Arial, sans-serif }
+      :fullscreen #unity-footer { display: none }
+    </style></head>
+  <body>
+    <div id="unity-container" class="unity-desktop">
+      <canvas id="unity-canvas" width=1280 height=720 tabindex="-1"></canvas>
+      <div id="unity-loading-bar">
+        <img id="recovery-loading-head" src="TemplateData/LoadingMonkeyHead-Recovered.png" alt="Loading">
+        <div id="unity-logo"></div>
+        <div id="unity-progress-bar-empty">
+          <div id="unity-progress-bar-full"></div>
+        </div>
+        <div id="recovery-loading-status">LOADING...</div>
+      </div>
+      <div id="unity-warning"> </div>
+      <div id="unity-footer">
+        <div id="unity-logo-title-footer"></div>
+        <button id="unity-fullscreen-button" type="button" aria-label="Enter fullscreen">Fullscreen</button>
+        <div id="unity-build-title">BloonsTD6</div>
+      </div>
+    </div>
+    <script>
+      var canvas = document.querySelector("#unity-canvas");
+      function fitUnityCanvas() {
+        canvas.setAttribute('data-recovery-viewport-v3', 'true');
+        var width = Math.max(1, window.innerWidth);
+        var height = Math.max(1, window.innerHeight);
+        canvas.style.width = width + 'px';
+        canvas.style.height = height + 'px';
+        canvas.style.flexShrink = '0';
+      }
+      window.addEventListener("resize", fitUnityCanvas);
+      fitUnityCanvas();
+
+      // Shows a temporary message banner/ribbon for a few seconds, or
+      // a permanent error message on top of the canvas if type=='error'.
+      // If type=='warning', a yellow highlight color is used.
+      // Modify or remove this function to customize the visually presented
+      // way that non-critical warnings and error messages are presented to the
+      // user.
+      function unityShowBanner(msg, type) {
+        var warningBanner = document.querySelector("#unity-warning");
+        function updateBannerVisibility() {
+          warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
+        }
+        var div = document.createElement('div');
+        div.innerHTML = msg;
+        warningBanner.appendChild(div);
+        if (type == 'error') div.style = 'background: red; padding: 10px;';
+        else {
+          if (type == 'warning') div.style = 'background: yellow; padding: 10px;';
+          setTimeout(function() {
+            warningBanner.removeChild(div);
+            updateBannerVisibility();
+          }, 5000);
+        }
+        updateBannerVisibility();
+      }
+
+      var buildUrl = "Build";
+      var loaderUrl = buildUrl + "/02cb7006f5636c95ded66b8dd5612e06.loader.js";
+      var config = {
+        autoSyncPersistentDataPath: true,
+        devicePixelRatio: window.devicePixelRatio || 1,
+        arguments: [],
+        dataUrl: buildUrl + "/d9c12d9b2d770bbc731835177d97fce3.data",
+        frameworkUrl: buildUrl + "/0016d840ae4602fbd8fad8aca92552f1.framework.js",
+        codeUrl: buildUrl + "/794c8a20019ab38dd0ef48bfcce00b64.wasm",
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "Ninja Kiwi",
+        productName: "BloonsTD6",
+        productVersion: "56.3",
+        showBanner: unityShowBanner,
+        // errorHandler: function(err, url, line) {
+        //    alert("error " + err + " occurred at line " + line);
+        //    // Return 'true' if you handled this error and don't want Unity
+        //    // to process it further, 'false' otherwise.
+        //    return true;
+        // },
+      };
+
+      // By default, Unity keeps WebGL canvas render target size matched with
+      // the DOM size of the canvas element (scaled by window.devicePixelRatio)
+      // Set this to false if you want to decouple this synchronization from
+      // happening inside the engine, and you would instead like to size up
+      // the canvas DOM size and WebGL render target sizes yourself.
+      // config.matchWebGLToCanvasSize = false;
+
+      // If you would like all file writes inside Unity Application.persistentDataPath
+      // directory to automatically persist so that the contents are remembered when
+      // the user revisits the site the next time, uncomment the following line:
+      // config.autoSyncPersistentDataPath = true;
+      // This autosyncing is currently not the default behavior to avoid regressing
+      // existing user projects that might rely on the earlier manual
+      // JS_FileSystem_Sync() behavior, but in future Unity version, this will be
+      // expected to change.
+
+      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        // Mobile device style: fill the whole browser client area with the game canvas:
+
+        var meta = document.createElement('meta');
+        meta.name = 'viewport';
+        meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
+        document.getElementsByTagName('head')[0].appendChild(meta);
+        document.querySelector("#unity-container").className = "unity-mobile";
+        canvas.className = "unity-mobile";
+
+        // To lower canvas resolution on mobile devices to gain some
+        // performance, uncomment the following line:
+        // config.devicePixelRatio = 1;
+
+
+      } else {
+        // Desktop style: Render the game canvas in a window that can be maximized to fullscreen:
+        fitUnityCanvas();
+      }
+
+      function finishRecoveryLoading() {
+        document.querySelector("#unity-loading-bar").style.display = "none";
+      }
+      window.recoveryTitleReady = function () {
+        finishRecoveryLoading();
+      };
+      document.querySelector("#unity-loading-bar").style.display = "flex";
+
+      var script = document.createElement("script");
+      script.src = loaderUrl;
+      script.onload = () => {
+        createUnityInstance(canvas, config, (progress) => {
+          document.querySelector("#unity-progress-bar-full").style.width = 100 * progress + "%";
+              }).then((unityInstance) => {
+                // The Unity scene owns its animated loading sequence. Reveal
+                // the canvas as soon as the runtime is ready to draw it.
+                finishRecoveryLoading();
+                document.querySelector("#unity-fullscreen-button").onclick = () => {
+                  var control = document.querySelector("#unity-fullscreen-button");
+                  if (!document.documentElement.requestFullscreen) {
+                    control.textContent = "Fullscreen unavailable";
+                    return;
+                  }
+                  document.documentElement.requestFullscreen().catch(function () {
+                    control.textContent = "Fullscreen unavailable";
+                  });
+                };
+
+              }).catch((message) => {
+                alert(message);
+              });
+            };
+
+      document.body.appendChild(script);
+
+    </script>
+  </body>
+</html>

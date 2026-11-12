@@ -8144,6 +8144,17 @@
     ]
   },
   {
+    "id": "btd6",
+    "title": "Bloons TD 6",
+    "html": "assets/games/btd6.html",
+    "image": "assets/images/btd6.webp",
+    "source": "aetheris",
+    "tags": [
+      "Strategy",
+      "WASM"
+    ]
+  },
+  {
     "id": "2048",
     "title": "2048",
     "html": "assets/games/2048.html",
