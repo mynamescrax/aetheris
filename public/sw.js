@@ -81,7 +81,7 @@ var spoofrestored = new Promise(function (resolve) {
 // page is a week old never sees the fix that was deployed since. A new
 // version is a new cache key and a new HTTP cache entry, so the first visit
 // after a change always gets the current page.
-var GAMEPAGE_VERSION = "8";
+var GAMEPAGE_VERSION = "9";
 var GAMEPAGE_CACHE = "aetheris-gamepages-v" + GAMEPAGE_VERSION;
 // A handful of games is plenty; the cache is dropped when it grows past this.
 var GAMEPAGE_MAX_ENTRIES = 16;
