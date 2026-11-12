@@ -102,7 +102,8 @@ html, body { width: 100%; height: 100%; padding: 0; margin: 0; overflow: hidden 
         dataUrl: buildUrl + "/d9c12d9b2d770bbc731835177d97fce3.data",
         frameworkUrl: buildUrl + "/0016d840ae4602fbd8fad8aca92552f1.framework.js",
         codeUrl: buildUrl + "/794c8a20019ab38dd0ef48bfcce00b64.wasm",
-        streamingAssetsUrl: "StreamingAssets",
+        // Unity resolves this against document.URL, so apply the CDN base first.
+        streamingAssetsUrl: new URL("StreamingAssets", document.baseURI).href,
         companyName: "Ninja Kiwi",
         productName: "BloonsTD6",
         productVersion: "56.3",
