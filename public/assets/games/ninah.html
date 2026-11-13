@@ -1,0 +1,674 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<script>
+const assetURL = new URL('https://cdn.jsdelivr.net/gh/mynamescrax/gamesforaetheris@fa24e546ede6fac5991d6c69df55f825c81b4e98/ninah/', location.href);
+if (!assetURL.pathname.endsWith('/')) assetURL.pathname += '/';
+const assetBase = document.createElement('base');
+assetBase.href = assetURL.href;
+document.head.append(assetBase);
+</script><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>No, I'm not a Human</title>
+<style>
+  :root { color-scheme: dark; --bg: #07080a; --panel: rgba(12, 14, 18, 0.86); --ink: #e8ecf1; --dim: #8b95a3; --accent: #5fbf3f; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+  #stage { position: fixed; inset: 0; display: grid; place-items: center; }
+  canvas { display: block; background: #000; width: min(100vw, calc(100vh * 16 / 9)); height: min(100vh, calc(100vw * 9 / 16)); outline: none; image-rendering: auto; grid-area: 1 / 1; }
+  #canvas { background: transparent; }
+  #overlay { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(ellipse at center, rgba(20, 24, 30, 0.75), rgba(0, 0, 0, 0.95)); transition: opacity .4s; }
+  #overlay.hidden { opacity: 0; pointer-events: none; }
+  .rxc-direct #overlay .resolution, .rxc-direct #overlay:not(.startup-error) #play { display: none; }
+  .card { width: min(520px, calc(100vw - 32px)); text-align: center; padding: 28px 24px; }
+  .card h1 { margin: 0 0 6px; font-size: 34px; letter-spacing: .02em; }
+  .card p { margin: 0 0 22px; color: var(--dim); }
+  .resolution { display: block; margin: 0 0 16px; color: var(--dim); }
+  select { font: inherit; color: var(--ink); background: #151820; border: 1px solid #404550; border-radius: 6px; padding: 5px 9px; margin-left: 6px; }
+  #resolution-hud { font-size: 12px; }
+  #play { font: inherit; font-size: 17px; font-weight: 600; color: #111; background: var(--accent); border: 0; border-radius: 10px; padding: 12px 34px; cursor: pointer; }
+  #play:disabled { opacity: .5; cursor: default; }
+  #status { margin-top: 18px; min-height: 1.4em; color: var(--dim); font-variant-numeric: tabular-nums; }
+  #startup-log { display: none; max-height: 180px; overflow: auto; margin: 14px 0 0; padding: 10px; text-align: left; white-space: pre-wrap; overflow-wrap: anywhere; background: #050607; border: 1px solid #30343b; border-radius: 6px; color: #b5c0ca; font: 11px/1.4 ui-monospace, monospace; }
+  #startup-log.show { display: block; }
+  #elapsed { order: 4; flex-basis: 100%; color: var(--dim); font-variant-numeric: tabular-nums; }
+  #bar { height: 4px; margin-top: 10px; background: rgba(255,255,255,.08); border-radius: 2px; overflow: hidden; }
+  #bar > div { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+  #bar.indeterminate > div { width: 35% !important; transition: none; animation: loading-sweep 1.4s ease-in-out infinite; }
+  @keyframes loading-sweep { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
+  #hud { position: fixed; top: 8px; right: 10px; display: flex; gap: 8px; align-items: center; opacity: .0; transition: opacity .3s; }
+  body:hover #hud, #hud.show { opacity: 1; }
+  #hud button { font: inherit; font-size: 12px; color: var(--ink); background: var(--panel); border: 1px solid rgba(255,255,255,.1); border-radius: 7px; padding: 4px 10px; cursor: pointer; }
+  #fps { font: 12px ui-monospace, monospace; color: var(--dim); background: var(--panel); padding: 4px 8px; border-radius: 7px; display: none; }
+  #log { position: fixed; left: 0; right: 0; bottom: 0; height: 38vh; margin: 0; padding: 8px 12px; overflow: auto; white-space: pre-wrap; font: 11px/1.35 ui-monospace, monospace; color: #9aa6b4; background: rgba(5, 6, 8, .92); border-top: 1px solid #222; display: none; }
+  #hint { position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%); font-size: 12px; color: var(--dim); background: var(--panel); padding: 5px 12px; border-radius: 8px; opacity: 0; transition: opacity .4s; pointer-events: none; }
+  #locked-cursor { position: fixed; pointer-events: none; z-index: 2; color: white; text-shadow: 0 1px 2px black; }
+  #canvas[style*="cursor: none"] + #locked-cursor { display: none; }
+  #port-credit { position: fixed; right: 10px; bottom: 8px; z-index: 3; color: rgba(255,255,255,.6); font-size: 11px; text-align: right; text-shadow: 0 1px 2px #000; }
+  #port-credit a { color: inherit; }
+  #hint.show { opacity: 1; }
+  #busy { position: fixed; right: 18px; bottom: 18px; display: flex; align-items: center; gap: 10px; font-size: 13px; color: #fff; background: rgba(0,0,0,.55); padding: 8px 14px; border-radius: 10px; opacity: 0; transition: opacity .3s; pointer-events: none; }
+  #busy.show { opacity: 1; }
+  #busy i { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .8s linear infinite; will-change: transform; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style><style id="rx-launch">
+  @font-face { font-family: 'Familjen Grotesk'; src: url(data:font/woff2;base64,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) format('woff2'); font-weight: 400 700; font-display: swap; }
+  :root { --rx-ground: #0d0e15; --rx-ink: #f4f3f8; --rx-soft: rgba(244, 243, 248, 0.8); --rx-line: rgba(244, 243, 248, 0.16); --rx-cap: rgba(244, 243, 248, 0.1); --rx-ease: cubic-bezier(0.16, 1, 0.3, 1); color-scheme: dark; }
+  html, body { background: var(--rx-ground); color: var(--rx-ink); font-family: 'Familjen Grotesk', system-ui, sans-serif; }
+  #overlay { display: block; background: var(--rx-ground); overflow: hidden; }
+  #overlay .rx-frame { position: absolute; inset: 0; background: radial-gradient(110% 80% at 50% 42%, #1c1f2e 0%, var(--rx-ground) 72%); }
+  #overlay .rx-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 450ms var(--rx-ease); }
+  #overlay.rx-has-art .rx-frame { inset: auto; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(100vw, calc(100vh * 16 / 9)); aspect-ratio: 16 / 9; background: #000; }
+  #overlay.rx-has-art .rx-art { opacity: 1; }
+  #overlay:has(.rx-clear) .rx-frame::after { display: none; }
+  #overlay.rx-has-art .rx-frame::after { content: ''; position: absolute; inset: auto 0 0 0; height: 36%; background: linear-gradient(to top, rgb(13 14 21 / 0.92), rgb(13 14 21 / 0.66) 45%, transparent); }
+  #overlay .card { position: absolute; left: 50%; top: 50%; bottom: auto; transform: translate(-50%, -50%); width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; margin: 0; padding: 0; text-align: center; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 14px 12px; z-index: 1; background: none; border: 0; box-shadow: none; font-size: 17px; line-height: 1.5; }
+  #overlay.rx-has-art .card { top: auto; transform: translateX(-50%); bottom: calc((100vh - min(100vh, 100vw * 9 / 16)) / 2 + clamp(20px, 3.2vw, 40px)); }
+  #overlay .card > * { margin: 0; }
+  #overlay .card h1 { order: 0; flex-basis: 100%; font: 650 clamp(44px, 6.6vw, 104px)/0.98 'Familjen Grotesk', system-ui, sans-serif; letter-spacing: -0.03em; text-wrap: balance; margin-bottom: clamp(12px, 3vh, 32px); color: var(--rx-ink); }
+  #overlay.rx-has-art .card h1 { position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  #overlay .card p { flex-basis: 100%; color: var(--rx-soft); font-size: 17px; }
+  #overlay #status, #overlay #rx-status { order: 1; flex-basis: 100%; min-height: 0; margin: 0; color: var(--rx-soft); font-size: 17px; font-variant-numeric: tabular-nums; }
+  #overlay #status:empty, #overlay #rx-status:empty { display: none; }
+  #overlay .start-row { order: 3; display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+  #overlay #play { order: 3; min-width: 176px; height: 56px; padding: 0 28px; border: 0; border-radius: 14px; background: var(--rx-ink); color: #14141c; font: 650 18px/1 'Familjen Grotesk', system-ui, sans-serif; letter-spacing: 0.005em; box-shadow: 0 8px 28px rgb(0 0 0 / 0.35); cursor: pointer; transition: transform 160ms var(--rx-ease), box-shadow 160ms var(--rx-ease); }
+  #overlay #play:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 12px 32px rgb(0 0 0 / 0.42); }
+  #overlay #play:active:not(:disabled) { transform: translateY(0) scale(0.98); }
+  #overlay #play:disabled { background: #8d8d99; color: #14141c; box-shadow: none; cursor: default; opacity: 1; }
+  #overlay #play:focus-visible, #overlay select:focus-visible, #overlay input:focus-visible, #hud button:focus-visible, #hud select:focus-visible { outline: 2px solid var(--rx-ink); outline-offset: 3px; }
+  #overlay .card label { order: 2; display: inline-flex; align-items: center; gap: 10px; height: 56px; margin: 0; padding: 0 16px 0 18px; border: 1px solid var(--rx-line); border-radius: 14px; background: rgb(13 14 21 / 0.45); color: var(--rx-ink); font-size: 16px; font-weight: 550; cursor: pointer; }
+  #overlay.rx-has-art .card label { background: rgb(13 14 21 / 0.74); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+  #overlay .card label:hover { border-color: rgba(244, 243, 248, 0.34); }
+  #overlay .card label input[type=checkbox] { accent-color: var(--rx-ink); width: 18px; height: 18px; margin: 0; }
+  #overlay select { font: 500 16px 'Familjen Grotesk', system-ui, sans-serif; color: var(--rx-ink); background: var(--rx-cap); border: 1px solid var(--rx-line); border-radius: 9px; padding: 6px 10px; margin: 0; }
+  #overlay select option, #hud select option { background: #1b1d29; color: var(--rx-ink); }
+  #overlay #bar { order: 4; flex-basis: 100%; box-sizing: border-box; height: 3px; margin-top: 4px; padding: 0 calc(50% - min(160px, 40%)); background: rgba(244, 243, 248, 0.12); background-clip: content-box; border-radius: 0; }
+  #overlay #bar:not(.indeterminate):not(:has(> div[style*="width"])) { visibility: hidden; }
+  #overlay #bar > div { background: var(--rx-ink); }
+  #overlay #startup-log { order: 5; flex-basis: 100%; text-align: left; background: rgb(13 14 21 / 0.92); border: 1px solid var(--rx-line); border-radius: 12px; color: var(--rx-soft); }
+  #hud button, #hud select, #fps { font: 500 13px 'Familjen Grotesk', system-ui, sans-serif; color: var(--rx-ink); background: rgb(13 14 21 / 0.74); border: 1px solid var(--rx-line); border-radius: 10px; padding: 6px 12px; }
+  #hud button:hover, #hud select:hover { border-color: rgba(244, 243, 248, 0.34); }
+  #hint, #busy { font-family: 'Familjen Grotesk', system-ui, sans-serif; color: var(--rx-ink); background: rgb(13 14 21 / 0.82); border: 1px solid var(--rx-line); border-radius: 12px; }
+  @media (max-width: 720px), (max-aspect-ratio: 1/1) {
+    #overlay.rx-has-art .rx-frame { top: 0; transform: translateX(-50%); width: 100vw; }
+    #overlay.rx-has-art .rx-frame::after { display: none; }
+    #overlay.rx-has-art .card { bottom: auto; top: calc(100vw * 9 / 16 + 24px); }
+    #overlay .card label { flex-basis: 100%; justify-content: center; }
+    #overlay #play { flex-basis: 100%; }
+    #overlay .start-row { flex-basis: 100%; }
+  }
+  @media (prefers-reduced-motion: reduce) { #overlay .rx-art, #overlay #play { transition: none; } }
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="view" width="1280" height="720"></canvas><canvas id="canvas" width="1280" height="720" tabindex="0"></canvas><span id="locked-cursor" aria-hidden="true" hidden>↖</span></div>
+<div id="hud"><select id="resolution-hud" aria-label="Resolution (restarts game)" title="Resolution (restarts game)"><option value="960x540">540p</option><option value="1280x720">720p</option><option value="1920x1080">1080p</option><option value="2560x1440">1440p</option></select><span id="fps"></span><button id="bsound" title="Sound on/off">Sound: on</button><button id="bfps" title="Frame rate (F8)">FPS</button><button id="bvsync" title="Frame pacing: a steady 60 fps, the screen refresh rate, or uncapped">Frame rate: 60 fps</button><button id="bmouse" title="Capture the mouse for camera control (F10). Esc releases it">Mouse: free</button><button id="blog" title="Engine log (F9)">Log</button><button id="bfull" title="Fullscreen (F11)">Fullscreen</button><button id="bclose" title="Ask before closing this tab">Confirm close: on</button></div>
+<div id="hint">Click the game to capture the mouse</div>
+<div id="port-credit" hidden>port by crax <a href="https://aetheris.win/" target="_blank" rel="noopener">https://aetheris.win/</a> <a href="https://crax.lol" target="_blank" rel="noopener">https://crax.lol</a></div>
+<div id="busy"><i></i><span>Loading…</span></div>
+<pre id="log"></pre>
+<div id="overlay"><div class="rx-frame"></div><div class="card">
+  <h1>No, I'm not a Human</h1>
+  <label class="resolution">Resolution <select id="resolution"><option value="960x540">540p</option><option value="1280x720">720p</option><option value="1920x1080">1080p</option><option value="2560x1440">1440p</option></select></label>
+  <button id="play">Play</button>
+  <pre id="startup-log" role="log" aria-live="polite"></pre>
+  <div id="status" role="status">Preparing download…</div>
+  <div id="elapsed"></div>
+  <div id="bar"><div></div></div>
+</div></div>
+<script>
+// ?mt=1 loads the threaded module (rexcomp_mt.js, built with build.py web --threads) instead of the cooperative one.
+// It is a separate wasm module, so switching back is just dropping the flag.
+(function () {
+  var RETRY = [0, 403, 429, 500, 502, 503, 504], original = globalThis.fetch.bind(globalThis), tried = new Set();
+  function mirrorsOf(url) {
+    var u; try { u = new URL(url); } catch (e) { return []; }
+    var m = /^\/gh\/([^/]+)\/([^@/]+)@([^/]+)\/(.+)$/.exec(u.pathname);
+    if (!m || !/(^|\.)jsdelivr\.net$/.test(u.host)) return [];
+    var user = m[1], repo = m[2], ref = m[3], rest = m[4];
+    return [
+      'https://gcore.jsdelivr.net/gh/' + user + '/' + repo + '@' + ref + '/' + rest + u.search,
+      'https://fastly.jsdelivr.net/gh/' + user + '/' + repo + '@' + ref + '/' + rest + u.search,
+      'https://raw.githubusercontent.com/' + user + '/' + repo + '/' + ref + '/' + rest,
+    ].filter(function (x) { return !tried.has(x); });
+  }
+  function attempt(url, init) {
+    tried.add(url);
+    return original(url, init).catch(function () { return { ok: false, status: 0 }; });
+  }
+  globalThis.fetch = function (input, init) {
+    var url = new URL(input instanceof Request ? input.url : String(input), document.baseURI).href;
+    return attempt(url, init).then(function (res) {
+      if (res.ok || RETRY.indexOf(res.status) < 0) return res;
+      return attempt(url, init).then(function (again) {
+        if (again.ok || RETRY.indexOf(again.status) < 0) return again;
+        var list = mirrorsOf(url);
+        function next(i) {
+          if (i >= list.length) return again;
+          return attempt(list[i], init).then(function (alt) {
+            if (alt.ok) return alt;
+            return RETRY.indexOf(alt.status) < 0 ? again : next(i + 1);
+          });
+        }
+        return next(0);
+      });
+    });
+  };
+}());
+(function () {
+  var SPLIT = {
+    'rexcomp.wasm': { type: 'application/wasm', pad: 2, size: 579928986, parts: 47 },
+    'image.bin': { type: 'application/octet-stream', pad: 2, size: 125829120, parts: 10 },
+  };
+  globalThis.RXC_CDN = document.baseURI;
+  if (typeof ReadableStream !== 'function' || typeof Response !== 'function') return;
+  const assetFetch = globalThis.fetch.bind(globalThis);
+  const downloaded = new Map();
+  const cachePromise = Promise.resolve().then(() => globalThis.caches?.open('ninah-download-v1')).catch(() => null);
+  const original = async (input, init) => {
+    const url = new URL(input instanceof Request ? input.url : input, document.baseURI).href;
+    if (!downloaded.has(url)) return assetFetch(input, init);
+    const blob = downloaded.get(url);
+    if (blob) return new Response(blob);
+    const response = await (await cachePromise).match(url);
+    if (!response) throw new Error('Downloaded asset was evicted. Reload to download it again.');
+    return response;
+  };
+  globalThis.rxcDownloadGame = async (gameBase, progress) => {
+    const base = new URL(gameBase, document.baseURI);
+    if (!base.pathname.endsWith('/')) base.pathname += '/';
+    const manifestUrl = new URL('manifest.json', base).href;
+    const manifest = await assetFetch(manifestUrl, { cache: 'no-cache' });
+    if (!manifest.ok) throw new Error('Cannot load game manifest (HTTP ' + manifest.status + ')');
+    const manifestBlob = await manifest.blob();
+    const { files, chunk, vers } = JSON.parse(await manifestBlob.text());
+    if (!files || !Number.isSafeInteger(chunk) || chunk <= 0) throw new Error('Invalid game manifest');
+    downloaded.set(manifestUrl, manifestBlob);
+    const items = [];
+    const partSize = 12 * 1024 * 1024;
+    for (const [name, cfg] of Object.entries(SPLIT)) {
+      for (let i = 0; i < cfg.parts; i++) {
+        const file = name + '.part' + String(i + 1).padStart(cfg.pad, '0');
+        items.push([new URL(file, document.baseURI).href, Math.min(partSize, cfg.size - i * partSize)]);
+      }
+    }
+    for (const [path, size] of Object.entries(files)) {
+      // The pack manifest includes these binaries for existence checks. Their code is already in the runtime.
+      if (/\.(dll|exe|rne)$/i.test(path)) continue;
+      // The bonus artbook is separate from the game runtime.
+      if (path === 'ninah_artbook_.pdf') continue;
+      const encoded = path.split('\\').map(encodeURIComponent).join('/');
+      const version = vers?.[path] ? '?v=' + vers[path] : '';
+      for (let offset = 0; offset < size; offset += chunk) {
+        items.push([new URL('game/' + encoded + '.' + (offset / chunk) + version, base).href, Math.min(chunk, size - offset)]);
+      }
+    }
+    const cache = await cachePromise;
+    const total = items.reduce((sum, [, size]) => sum + size, 0);
+    let next = 0, loaded = 0, failure;
+    progress(0, total);
+    const download = async () => {
+      while (!failure && next < items.length) {
+        const [url, size] = items[next++];
+        try {
+          const cached = await cache?.match(url);
+          let blob = await cached?.blob();
+          if (blob?.size !== size) {
+            for (let attempt = 0; ; attempt++) {
+              try {
+                const response = await assetFetch(url);
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                blob = await response.blob();
+                if (blob.size !== size) throw new Error('Incomplete download');
+                break;
+              } catch (error) {
+                if (attempt === 2) throw error;
+                await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
+              }
+            }
+            if (cache) await cache.put(url, new Response(blob));
+          }
+          downloaded.set(url, cache ? null : blob);
+          loaded += size;
+          progress(loaded, total);
+        } catch (error) {
+          failure = new Error(new URL(url).pathname.split('/').pop() + ': ' + error.message);
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: 16 }, download));
+    if (failure) throw failure;
+  };
+  function target(input) {
+    var url;
+    try { url = new URL(input instanceof Request ? input.url : String(input), document.baseURI); } catch (e) { return null; }
+    var name = Object.keys(SPLIT).filter(function (n) { return url.pathname.endsWith('/' + n); })[0];
+    return name ? { name: name, url: url, cfg: SPLIT[name] } : null;
+  }
+  globalThis.fetch = function (input, init) {
+    var hit = target(input);
+    if (!hit) return original(input, init);
+    var name = hit.name, url = hit.url, cfg = hit.cfg;
+    var local = url.origin + url.pathname.slice(0, -name.length);
+    var stream = new ReadableStream({
+      start: async function (controller) {
+        try {
+          for (var i = 1; i <= cfg.parts; i += 1) {
+            var file = name + '.part' + String(i).padStart(cfg.pad, '0');
+            var part = globalThis.RXC_CDN ? globalThis.RXC_CDN + file : local + file;
+            var res = await original(part, init);
+            if (!res.ok) throw new Error('missing ' + file + ' (HTTP ' + res.status + ')');
+            if (!res.body) { controller.enqueue(new Uint8Array(await res.arrayBuffer())); continue; }
+            var reader = res.body.getReader();
+            for (;;) {
+              var chunk = await reader.read();
+              if (chunk.done) break;
+              controller.enqueue(chunk.value);
+            }
+          }
+          controller.close();
+        } catch (err) {
+          controller.error(err);
+        }
+      },
+    });
+    return Promise.resolve(new Response(stream, { status: 200, statusText: 'OK', headers: { 'content-type': cfg.type } }));
+  };
+}());
+// gfx_worker.js can only be started as a classic worker from the page's own origin. When the page itself is served
+// from a CDN (jsDelivr and friends) its runtime is on that CDN too, so this rebuilds the worker from its source with
+// every relative URL made absolute and starts it from a blob: URL, which is allowed - the graphics stay on a worker
+// thread instead of falling back to WebGL on the engine thread. A same-origin page just gets the plain file.
+(() => {
+  const workerUrl = () => new URL('gfx_worker.js', document.baseURI);
+  const abs = path => new URL(path, workerUrl()).href;
+
+  globalThis.rxcMakeGfxWorker = async function () {
+    const url = workerUrl();
+    if (url.origin === location.origin) return new Worker(url.href);
+
+    const res = await fetch(url.href);
+    if (!res.ok) throw new Error('cannot load gfx_worker.js (HTTP ' + res.status + ')');
+    let src = await res.text();
+    const rewrite = (from, to) => {
+      if (!src.includes(from)) throw new Error('gfx_worker.js no longer contains ' + from);
+      src = src.split(from).join(to);
+    };
+    rewrite("importScripts('rexcomp_gfx.js')", "importScripts('" + abs('rexcomp_gfx.js') + "')");
+    rewrite("importScripts('shadow_store.js')", "importScripts('" + abs('shadow_store.js') + "')");
+    rewrite("fetch('programs.json')", "fetch('" + abs('programs.json') + "')");
+    // rexcomp_gfx.wasm is looked up next to the worker's own script, which is a blob: URL here
+    rewrite('G = await RexcompGfx({', "G = await RexcompGfx({ locateFile: p => new URL(p, '" + workerUrl().href + "').href,");
+    return new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+  };
+})();
+
+const rxcMt = new URLSearchParams(location.search).has('mt') ? '_mt' : '';
+async function loadStartupScripts() {
+  const scripts = await Promise.all(['launch.js', 'modules' + rxcMt + '.js', 'rexcomp' + rxcMt + '.js'].map(async name => {
+    const url = new URL(name, document.baseURI).href;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Cannot load ' + name + ' (HTTP ' + response.status + ')');
+    return (await response.text()) + '\n//# sourceURL=' + url;
+  }));
+  for (const source of scripts) {
+    const script = document.createElement('script');
+    script.textContent = source;
+    document.head.append(script);
+    script.remove();
+  }
+  if (window.REXCOMP_LAUNCH?.env?.REXCOMP_DIRECT_START === "1") document.documentElement.classList.add("rxc-direct");
+}
+</script>
+<script>
+const GAME_BASE = document.baseURI;
+const PORT_ENV = {};
+(async () => {
+  const $ = id => document.getElementById(id);
+  const canvas = $('canvas'), view = $('view'), statusEl = $('status');
+  const startupLog = $('startup-log'); let startupLogActive = false, startupLogStart = 0, startupPending = '', startupTimer = 0, lastStartupStatus = '';
+  const flushStartupLog = () => {
+    startupTimer = 0;
+    if (!startupPending) return;
+    startupLog.textContent = (startupLog.textContent + startupPending).slice(-24000);
+    startupPending = '';
+    startupLog.scrollTop = startupLog.scrollHeight;
+  };
+  const appendStartupLog = line => {
+    if (!startupLogActive) return;
+    startupPending += '[' + ((performance.now() - startupLogStart) / 1000).toFixed(1) + 's] ' + line.slice(0, 4000) + '\n';
+    if (startupPending.length > 48000) startupPending = startupPending.slice(-24000);
+    if (!startupTimer) startupTimer = setTimeout(flushStartupLog, 100);
+  };
+  for (const level of ['log', 'info', 'warn', 'error', 'debug']) {
+    const original = console[level].bind(console);
+    console[level] = (...args) => {
+      appendStartupLog('[' + level + '] ' + args.map(v => v instanceof Error ? v.stack || String(v) : String(v)).join(' '));
+      original(...args);
+    };
+  }
+  addEventListener('error', e => appendStartupLog('[error] ' + (e.message || e.error || e)));
+  addEventListener('unhandledrejection', e => appendStartupLog('[error] ' + (e.reason && e.reason.stack || e.reason)));
+  const status = s => { statusEl.textContent = s; if (s !== lastStartupStatus) { lastStartupStatus = s; appendStartupLog('[status] ' + s); } };
+  const startupError = () => { $('overlay').classList.add('startup-error'); $('overlay').classList.remove('hidden'); };
+  if (!('Suspending' in WebAssembly)) { startupError(); status('This browser lacks WebAssembly JavaScript Promise Integration — use Chrome or Edge 137 or newer.'); $('play').disabled = true; }
+
+  // physical key (KeyboardEvent.code) -> [virtual key, scan code, extended]
+  const K = {};
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach((ch, i) => { K['Key' + ch] = [65 + i, [0x1E,0x30,0x2E,0x20,0x12,0x21,0x22,0x23,0x17,0x24,0x25,0x26,0x32,0x31,0x18,0x19,0x10,0x13,0x1F,0x14,0x16,0x2F,0x11,0x2D,0x15,0x2C][i], 0]; });
+  for (let d = 0; d <= 9; d++) K['Digit' + d] = [48 + d, d === 0 ? 0x0B : d + 1, 0];
+  Object.assign(K, { Escape: [0x1B, 0x01, 0], Minus: [0xBD, 0x0C, 0], Equal: [0xBB, 0x0D, 0], Backspace: [0x08, 0x0E, 0], Tab: [0x09, 0x0F, 0], BracketLeft: [0xDB, 0x1A, 0], BracketRight: [0xDD, 0x1B, 0],
+    Enter: [0x0D, 0x1C, 0], ControlLeft: [0x11, 0x1D, 0], Semicolon: [0xBA, 0x27, 0], Quote: [0xDE, 0x28, 0], Backquote: [0xC0, 0x29, 0], ShiftLeft: [0x10, 0x2A, 0], Backslash: [0xDC, 0x2B, 0],
+    Comma: [0xBC, 0x33, 0], Period: [0xBE, 0x34, 0], Slash: [0xBF, 0x35, 0], ShiftRight: [0x10, 0x36, 0], NumpadMultiply: [0x6A, 0x37, 0], AltLeft: [0x12, 0x38, 0], Space: [0x20, 0x39, 0],
+    CapsLock: [0x14, 0x3A, 0], F1: [0x70, 0x3B, 0], F2: [0x71, 0x3C, 0], F3: [0x72, 0x3D, 0], F4: [0x73, 0x3E, 0], F5: [0x74, 0x3F, 0], F6: [0x75, 0x40, 0], F7: [0x76, 0x41, 0], F10: [0x79, 0x44, 0],
+    F12: [0x7B, 0x58, 0], Numpad7: [0x67, 0x47, 0], Numpad8: [0x68, 0x48, 0], Numpad9: [0x69, 0x49, 0], NumpadSubtract: [0x6D, 0x4A, 0], Numpad4: [0x64, 0x4B, 0], Numpad5: [0x65, 0x4C, 0],
+    Numpad6: [0x66, 0x4D, 0], NumpadAdd: [0x6B, 0x4E, 0], Numpad1: [0x61, 0x4F, 0], Numpad2: [0x62, 0x50, 0], Numpad3: [0x63, 0x51, 0], Numpad0: [0x60, 0x52, 0], NumpadDecimal: [0x6E, 0x53, 0],
+    NumpadEnter: [0x0D, 0x1C, 1], ControlRight: [0x11, 0x1D, 1], AltRight: [0x12, 0x38, 1], ArrowUp: [0x26, 0x48, 1], ArrowLeft: [0x25, 0x4B, 1], ArrowRight: [0x27, 0x4D, 1], ArrowDown: [0x28, 0x50, 1],
+    Insert: [0x2D, 0x52, 1], Delete: [0x2E, 0x53, 1], Home: [0x24, 0x47, 1], End: [0x23, 0x4F, 1], PageUp: [0x21, 0x49, 1], PageDown: [0x22, 0x51, 1] });
+
+  let M = null, started = false, skipClosePrompt = false, confirmClose = true;
+  addEventListener('beforeunload', e => { if (started && confirmClose && !skipClosePrompt) { e.preventDefault(); e.returnValue = ''; } });
+  $('bclose').onclick = () => { confirmClose = !confirmClose; $('bclose').textContent = 'Confirm close: ' + (confirmClose ? 'on' : 'off'); };
+  try {
+    await loadStartupScripts();
+  } catch (error) {
+    startupError();
+    status(error.message);
+    console.error('[rexcomp]', error);
+    return;
+  }
+  const q = new URLSearchParams(location.search), launch = window.REXCOMP_LAUNCH || {};
+  const env = Object.assign({}, launch.env || {}); for (const [k, v] of q) if (k.startsWith('REXCOMP_')) env[k] = v;
+  // Browser launch arguments and runtime settings.
+  let res = (() => {
+    let saved = ''; try { saved = localStorage.getItem('rexcomp.resolution') || ''; } catch (_) {}
+    const m = /^(\d+)x(\d+)$/.exec(q.get('res') || saved); if (m && +m[1] >= 320 && +m[1] <= 7680 && +m[2] >= 180 && +m[2] <= 4320) return [+m[1], +m[2]];
+    const dpr = Math.min(window.devicePixelRatio || 1, 2), cssW = Math.min(screen.width, screen.height * 16 / 9);
+    const w = Math.max(1280, Math.round(Math.min(cssW * dpr, +(q.get('maxw') || 1920)) / 16) * 16);
+    return [w, Math.round(w * 9 / 32) * 2];
+  })();
+  const resolutionSelects = [$('resolution'), $('resolution-hud')];
+  const selectedResolution = res.join('x');
+  for (const select of resolutionSelects) {
+    if (![...select.options].some(o => o.value === selectedResolution)) select.add(new Option(selectedResolution, selectedResolution));
+    select.value = selectedResolution;
+    select.onchange = () => {
+      const value = select.value;
+      try { localStorage.setItem('rexcomp.resolution', value); } catch (_) {}
+      q.set('res', value);
+      if (started) { q.set('autostart', '1'); skipClosePrompt = true; location.search = q.toString(); return; }
+      res = value.split('x').map(Number);
+      for (const other of resolutionSelects) other.value = value;
+      history.replaceState(null, '', location.pathname + '?' + q.toString() + location.hash);
+    };
+  }
+  const launchArgs = () => {
+    const base = q.has('args') ? q.get('args') : launch.args ?? `-force-d3d11 -screen-fullscreen 0 -popupwindow -screen-width ${res[0]} -screen-height ${res[1]} -disable-gpu-skinning -logFile -`;
+    let a = base.replace(/-screen-width\s+\d+/gi, `-screen-width ${res[0]}`).replace(/-screen-height\s+\d+/gi, `-screen-height ${res[1]}`).replace(/-ResX=\d+/gi, `-ResX=${res[0]}`).replace(/-ResY=\d+/gi, `-ResY=${res[1]}`);
+    if (/(^|\s)-dx11(\s|$)/.test(a) && !/(^|\s)-w\s/.test(a)) a += ` -w ${res[0]} -h ${res[1]}`;
+    return a;
+  };
+
+  const toggle = (el, on) => { el.style.display = (on ?? (el.style.display === 'none' || !el.style.display)) ? 'block' : 'none'; };
+  $('blog').onclick = () => toggle($('log'));
+  $('bfps').onclick = () => { const f = $('fps'); f.style.display = f.style.display === 'inline' ? 'none' : 'inline'; };
+  $('bfull').onclick = () => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => {}); };
+  // mouse capture (pointer lock): relative motion only, as WM_INPUT deltas - the camera. Menus need the free cursor, so it is a toggle
+  $('port-credit').hidden = env.REXCOMP_NINAH_WATERMARK !== '1';
+  const autoCapture = env.REXCOMP_CAPTURE_MOUSE === '1';
+  const grab = () => { if (autoCapture) { canvas.requestPointerLock?.()?.catch(() => {}); return; } if (canvas.requestPointerLock) canvas.requestPointerLock({ unadjustedMovement: true })?.catch(() => { try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }); };
+  $('bmouse').onclick = () => { if (document.pointerLockElement === canvas) document.exitPointerLock(); else grab(); };
+  document.addEventListener('pointerlockchange', () => { $('bmouse').textContent = document.pointerLockElement === canvas ? 'Mouse: captured' : 'Mouse: free'; });
+  const PACE = { cap: ['60 fps', 'cap'], vsync: ['Vsync', 'auto'], off: ['Uncapped', 'mc'] }, PACE_ORDER = ['cap', 'vsync', 'off'];
+  let pace = PACE[q.get('pace')] ? q.get('pace') : PACE[localStorage.getItem('rxcPace')] ? localStorage.getItem('rxcPace') : 'cap';
+  const setPace = p => { pace = p; if (window.rexcomp) window.rexcomp.yieldMode = PACE[p][1]; localStorage.setItem('rxcPace', p); $('bvsync').textContent = 'Frame rate: ' + PACE[p][0]; };
+  $('bvsync').onclick = () => setPace(PACE_ORDER[(PACE_ORDER.indexOf(pace) + 1) % PACE_ORDER.length]);
+  setPace(pace);
+  // HUD buttons must never keep keyboard focus: Enter/Space would "click" them instead of reaching the game
+  for (const b of document.querySelectorAll('#hud button')) { b.tabIndex = -1; b.addEventListener('mousedown', e => e.preventDefault()); b.addEventListener('click', () => { b.blur(); canvas.focus(); }); }
+  setInterval(() => { const s = globalThis.__rxcStats; if (s) $('fps').textContent = `${s.fps.toFixed(0)} fps`; }, 500);
+
+  // ---- input -> guest window messages
+  const ev = (name, ...a) => { if (M && M['_' + name]) M['_' + name](...a); };
+  const locked = () => document.pointerLockElement === canvas;
+  const pos = e => { const r = canvas.getBoundingClientRect(), cw = (M && M.canvasW) || canvas.width, ch = (M && M.canvasH) || canvas.height; return [Math.round((e.clientX - r.left) * cw / r.width), Math.round((e.clientY - r.top) * ch / r.height)]; };
+  let mouseX = 0, mouseY = 0;
+  const cursor = $('locked-cursor');
+  const mousePosition = e => {
+    if (!locked()) return pos(e);
+    if (!autoCapture) return [-1, -1];
+    const r = canvas.getBoundingClientRect();
+    return pos({ clientX: r.left + mouseX, clientY: r.top + mouseY });
+  };
+  const showCursor = () => {
+    cursor.hidden = !autoCapture || !locked() || !$('overlay').classList.contains('hidden');
+    const r = canvas.getBoundingClientRect();
+    cursor.style.left = `${r.left + mouseX}px`;
+    cursor.style.top = `${r.top + mouseY}px`;
+  };
+  document.addEventListener('pointerlockchange', showCursor);
+  addEventListener('keydown', e => {
+    if (!started) return;
+    if (e.code === 'F9') { toggle($('log')); e.preventDefault(); return; }
+    if (e.code === 'F8') { $('bfps').onclick(); e.preventDefault(); return; }
+    if (e.code === 'F11') { $('bfull').onclick(); e.preventDefault(); return; }
+    if (e.code === 'F10') { $('bmouse').onclick(); e.preventDefault(); return; }
+    const k = K[e.code]; if (!k) return;
+    ev('rxc_ev_key', 1, k[0], k[1], (e.repeat ? 1 : 0) | (k[2] ? 2 : 0));
+    if (e.key.length === 1 && !e.ctrlKey && !e.altKey) ev('rxc_ev_char', e.key.charCodeAt(0));
+    else if (e.code === 'Enter' || e.code === 'Backspace' || e.code === 'Tab' || e.code === 'Escape') ev('rxc_ev_char', k[0]);
+    e.preventDefault();
+  });
+  addEventListener('keyup', e => { if (!started) return; const k = K[e.code]; if (!k) return; ev('rxc_ev_key', 0, k[0], k[1], k[2] ? 2 : 0); e.preventDefault(); });
+  canvas.addEventListener('mousemove', e => {
+    if (locked()) {
+      if (autoCapture) {
+        const r = canvas.getBoundingClientRect();
+        mouseX = Math.max(0, Math.min(r.width - 1, mouseX + e.movementX));
+        mouseY = Math.max(0, Math.min(r.height - 1, mouseY + e.movementY));
+        ev('rxc_ev_mouse', 4, ...pos({ clientX: r.left + mouseX, clientY: r.top + mouseY }), 0, 0);
+        showCursor();
+      }
+      if ((e.movementX || e.movementY) && (!autoCapture || M?._rxc_raw_mouse_wanted?.())) ev('rxc_ev_mouse_raw', e.movementX, e.movementY);
+    }
+    else {
+      const [x, y] = pos(e); ev('rxc_ev_mouse', 0, x, y, 0, 0);
+      // Windows raw input reports mouse deltas whether or not the cursor is locked: games that read the mouse through
+      // WM_INPUT get them as well as the absolute position
+      if ((e.movementX || e.movementY) && M && M._rxc_raw_mouse_wanted && M._rxc_raw_mouse_wanted()) ev('rxc_ev_mouse_raw', e.movementX, e.movementY);
+    }
+  });
+  canvas.addEventListener('click', e => {
+    if (autoCapture && started && !locked()) {
+      const r = canvas.getBoundingClientRect();
+      mouseX = e.clientX - r.left; mouseY = e.clientY - r.top;
+      grab();
+    }
+  });
+  canvas.addEventListener('mousedown', e => {
+    canvas.focus();
+    const [x, y] = mousePosition(e); ev('rxc_ev_mouse', 1, x, y, e.button, 0); e.preventDefault();
+  });
+  addEventListener('mouseup', e => { if (!started) return; const [x, y] = mousePosition(e); ev('rxc_ev_mouse', 2, x, y, e.button, 0); });
+  canvas.addEventListener('wheel', e => { ev('rxc_ev_mouse', 3, -1, -1, 0, -Math.sign(e.deltaY) * 120); e.preventDefault(); }, { passive: false });
+  canvas.addEventListener('contextmenu', e => e.preventDefault());
+  addEventListener('focus', () => ev('rxc_ev_focus', 1)); addEventListener('blur', () => ev('rxc_ev_focus', 0));
+  view.addEventListener('webglcontextlost', e => { window.__rxcLost = true; status('The graphics context was lost (GPU reset). Reload the page to continue.'); startupError(); });
+  document.addEventListener('pointerlockchange', () => $('hint').classList.toggle('show', started && !locked()));
+
+  // ---- audio: an AudioWorklet playing the PCM the game's audio device produces (rt/win32/wasapi.c). A small jitter
+  // buffer: playback starts with 80 ms queued and increases that target after an underrun, so late delivery plays in longer pieces instead of
+  // crackling; a gap decays to silence and the stream fades back in (no clicks); a backlog over 350 ms (the game ran
+  // ahead of the device) skips to 150 ms. Every second it reports underruns ({a: stats}: frames of silence, gaps,
+  // frames dropped, queue low/high in frames) - globalThis.__rxcAudio, read by tools/mc2bench.py.
+  const WORKLET = `class RexcompOut extends AudioWorkletProcessor {
+    constructor() { super(); this.q = []; this.off = 0; this.queued = 0; this.play = false; this.began = false; this.gain = 1; this.l = 0; this.r = 0; this.k = 0;
+      this.target = sampleRate * 0.08;
+      this.st = { starve: 0, gaps: 0, drop: 0, qmin: 1e9, qmax: 0 };
+      this.port.onmessage = e => { if (e.data && e.data.reset) { this.q = []; this.off = this.queued = 0; this.play = this.began = false; this.target = sampleRate * 0.08; this.gain = 0; this.l = this.r = 0; return; }
+        this.q.push(e.data); this.queued += e.data.length / 2;
+        if (this.queued > sampleRate * 0.35) { while (this.q.length > 1) { const f = this.q[0].length / 2 - this.off; if (this.queued - f < Math.max(sampleRate * 0.15, this.target)) break; this.q.shift(); this.queued -= f; this.st.drop += f; this.off = 0; } this.gain = 0; } }; }
+    process(inputs, outputs) { const out = outputs[0], L = out[0], R = out[1] || out[0], n = L.length; let i = 0;
+      if (!this.play && this.queued >= this.target) { this.play = true; this.began = true; this.gain = 0; }
+      if (this.play) {
+        while (i < n && this.q.length) { const b = this.q[0], frames = b.length / 2, take = Math.min(n - i, frames - this.off);
+          for (let k = 0; k < take; k++) { const g = this.gain; L[i + k] = b[(this.off + k) * 2] * g; R[i + k] = b[(this.off + k) * 2 + 1] * g; if (g < 1) this.gain = Math.min(1, g + 1 / 128); }
+          i += take; this.off += take; this.queued -= take; if (this.off >= frames) { this.q.shift(); this.off = 0; } }
+        if (i) { this.l = L[i - 1]; this.r = R[i - 1]; }
+        if (i < n) { this.play = false; this.target = Math.min(sampleRate * 0.24, this.target + sampleRate * 0.04); this.st.gaps++; }
+      }
+      if (i < n && this.began) this.st.starve += n - i;
+      for (; i < n; i++) { this.l *= 0.9; this.r *= 0.9; L[i] = this.l; R[i] = this.r; }
+      if (this.queued < this.st.qmin) this.st.qmin = this.queued; if (this.queued > this.st.qmax) this.st.qmax = this.queued;
+      if (++this.k % 375 === 0) { this.st.targetMs = this.target * 1000 / sampleRate; this.port.postMessage({ a: this.st }); this.st = { starve: 0, gaps: 0, drop: 0, qmin: 1e9, qmax: 0 }; }
+      return true; } }
+  registerProcessor('rexcomp-out', RexcompOut);`;
+  async function startAudio(M) {
+    try {
+      const ctx = new AudioContext({ sampleRate: 48000, latencyHint: 'interactive' });
+      M.audioContext = ctx; M.soundOn = true;
+      const soundLabel = () => { $('bsound').textContent = !M.soundOn ? 'Sound: off' : ctx.state === 'running' ? 'Sound: on' : 'Sound: click to enable'; };
+      ctx.onstatechange = soundLabel; soundLabel();
+      ctx.resume().catch(() => soundLabel());
+      const ensureAudio = () => { if (M.soundOn && ctx.state !== 'running') ctx.resume().catch(soundLabel); };
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) ensureAudio(); });
+      addEventListener('focus', ensureAudio);
+      addEventListener('pointerdown', ensureAudio, true);
+      addEventListener('keydown', ensureAudio, true);
+      await ctx.audioWorklet.addModule('data:text/javascript,' + encodeURIComponent(WORKLET));
+      const node = new AudioWorkletNode(ctx, 'rexcomp-out', { numberOfInputs: 0, outputChannelCount: [2] });
+      node.connect(ctx.destination); M.audioNode = node;
+      const an = ctx.createAnalyser(); an.fftSize = 2048; node.connect(an);
+      window.rxcAudioLevel = async ms => {
+        const buf = new Float32Array(an.fftSize), end = performance.now() + (ms || 3000); let n = 0, sum = 0, peak = 0, loud = 0, polls = 0;
+        while (performance.now() < end) { an.getFloatTimeDomainData(buf); let s = 0; for (const v of buf) { s += v * v; if (Math.abs(v) > peak) peak = Math.abs(v); } sum += s; n += buf.length; polls++; if (Math.sqrt(s / buf.length) > 0.001) loud++; await new Promise(r => setTimeout(r, 40)); }
+        return { state: ctx.state, rms: Math.sqrt(sum / Math.max(1, n)), peak, audibleFraction: loud / Math.max(1, polls), destinationChannels: ctx.destination.channelCount };
+      };
+      // underrun totals since the last read (tools/mc2bench.py reads and resets them)
+      node.port.onmessage = e => { const a = e.data.a, t = globalThis.__rxcAudio || (globalThis.__rxcAudio = { starve: 0, gaps: 0, drop: 0, qmin: 1e9, qmax: 0 });
+        t.starve += a.starve; t.gaps += a.gaps; t.drop += a.drop; t.qmin = Math.min(t.qmin, a.qmin); t.qmax = Math.max(t.qmax, a.qmax); t.targetMs = a.targetMs; };
+      $('bsound').onclick = () => { M.soundOn = !M.soundOn || ctx.state !== 'running'; (M.soundOn ? ctx.resume() : ctx.suspend()).catch(() => {}).finally(soundLabel); soundLabel(); };
+    } catch (e) { console.warn('[audio] unavailable:', e); $('bsound').textContent = 'Sound: n/a'; }
+  }
+
+  // ---- debug: window.rxcDump(glTexture, w, h, isFloat, name) reads a render target back from the graphics worker and POSTs it
+  // as a PNG to the dev server (tools/serve_web.py -> build/<name>/shots/<name>.png). Texture ids come from the pass log
+  // (window.rexcomp.gfxWorker.postMessage({passlog: 1}), lines "-> rt texN").
+  window.rxcProfile = async (ms, name) => {
+    const P = new Profiler({ sampleInterval: 1, maxBufferSize: 200000 });
+    await new Promise(r => setTimeout(r, ms || 5000));
+    const t = await P.stop(), self = new Map(), incl = new Map(), fname = i => { const f = t.frames[i]; return f ? (f.name || '?') + (f.resourceId !== undefined && !f.name ? '@' + f.line : '') : '?'; };
+    let n = 0;
+    for (const s of t.samples) {
+      if (s.stackId === undefined) continue; n++;
+      let st = t.stacks[s.stackId]; const top = fname(st.frameId); self.set(top, (self.get(top) || 0) + 1);
+      const seen = new Set(); while (st) { const nm = fname(st.frameId); if (!seen.has(nm)) { seen.add(nm); incl.set(nm, (incl.get(nm) || 0) + 1); } st = st.parentId !== undefined ? t.stacks[st.parentId] : null; }
+    }
+    const top = (m, k) => [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, k).map(([f, c]) => `${(100 * c / n).toFixed(1)}% ${f}`);
+    const out = { samples: n, self: top(self, 80), inclusive: top(incl, 120) };
+    await fetch('/upload/' + (name || 'profile') + '.json', { method: 'POST', body: JSON.stringify(out, null, 1) });
+    return n;
+  };
+  window.rxcDump = (tex, w, h, fl, name) => window.rexcomp.gfxWorker.postMessage({ readtex: [tex, w, h, fl ? 1 : 0, name || ('tex' + tex)] });
+  function rxcImage(im) {
+    const c = new OffscreenCanvas(im.w, im.h); c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(im.data.buffer), im.w, im.h), 0, 0);
+    c.convertToBlob({ type: 'image/png' }).then(b => fetch('/upload/' + im.name + '.png', { method: 'POST', body: b })).then(() => console.log('[dump] uploaded ' + im.name));
+  }
+
+  const PROG_KEY = 'rxcPrograms';
+  const loadLearned = () => { try { const a = JSON.parse(localStorage.getItem(PROG_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } };
+  const saveLearned = () => {
+    const cur = globalThis.__rxcPrograms; if (!cur || !cur.length) return;
+    try { const all = new Set(loadLearned()); for (const k of cur) all.add(k); localStorage.setItem(PROG_KEY, JSON.stringify([...all].slice(-8000))); } catch (e) {}
+  };
+
+  // ---- start
+  const bar = $('bar').firstElementChild;
+
+  $('play').onclick = async () => {
+    if (started) return; started = true;
+    if (autoCapture && navigator.userActivation?.isActive) {
+      const r = canvas.getBoundingClientRect();
+      mouseX = r.width / 2; mouseY = r.height / 2;
+      grab();
+    }
+    startupLogStart = performance.now(); startupLogActive = true;
+    $('play').disabled = true;
+    $('overlay').classList.remove('startup-error');
+    status('Preparing download…');
+    bar.parentElement.classList.add('indeterminate');
+    const clock = $('elapsed');
+    const showElapsed = () => {
+      const seconds = Math.floor((performance.now() - startupLogStart) / 1000);
+      clock.textContent = 'Elapsed ' + Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
+    };
+    showElapsed();
+    const timer = setInterval(showElapsed, 1000);
+    try {
+      await rxcDownloadGame(q.get('base') || GAME_BASE, (loaded, total) => {
+        const percent = total ? Math.floor(100 * loaded / total) : 100;
+        bar.parentElement.classList.remove('indeterminate');
+        bar.style.width = percent + '%';
+        $('status').textContent = 'Downloading ' + percent + '% · ' + Math.round(loaded / 1048576) + ' / ' + Math.round(total / 1048576) + ' MiB';
+      });
+    } catch (error) {
+      startupError();
+      status('Download failed. ' + error.message);
+      $('play').textContent = 'Retry';
+      $('play').disabled = false;
+      started = false;
+      return;
+    } finally {
+      clearInterval(timer);
+      showElapsed();
+    }
+    status('Download complete · Starting game…');
+    M = {
+      canvas: view, arguments: [launchArgs()], yieldMode: PACE[pace][1], fpsCap: +(q.get('fps') || 60),
+      // ?mt=N: N guest threads get a host thread of their own (0 = the threaded module, still cooperative)
+      gameBase: q.get('base') || GAME_BASE,
+      dynamicLibraries: window.REXCOMP_SIDE_MODULES || [],
+      preRun: [m => { m.ENV.REXCOMP_MT = q.get('mt') || '0'; m.ENV.REXCOMP_SCREEN = res.join('x'); Object.assign(m.ENV, PORT_ENV); for (const k in env) m.ENV[k] = env[k]; }],   // debug switches, e.g. ?REXCOMP_INPUT=...
+      print: s => { console.log(s); if (globalThis.__rxcSink) globalThis.__rxcSink.push(s); },
+      printErr: s => { console.error(s); if (globalThis.__rxcSink) globalThis.__rxcSink.push(s); },
+      onFirstFrame: () => { flushStartupLog(); startupLogActive = false; bar.parentElement.classList.remove('indeterminate'); bar.style.width = '100%'; $('overlay').classList.add('hidden'); showCursor(); $('hint').classList.add('show'); setTimeout(() => $('hint').classList.remove('show'), 5000); canvas.focus(); },
+    };
+    const useWorker = q.get('gfxworker') !== '0' && !!view.transferControlToOffscreen;
+    window.rexcomp = M;
+    // graphics on a worker thread: the canvas is handed to rt/gfxworker (OffscreenCanvas) and the engine thread only
+    // records commands (rt/web/gfx_remote.c). ?gfxworker=0 keeps WebGL on the engine thread.
+    if (useWorker) {
+      try {
+        const w = await rxcMakeGfxWorker(), off = view.transferControlToOffscreen(), wenv = {};
+        for (const k in env) if (!['REXCOMP_INPUT', 'REXCOMP_EXIT_AT', 'REXCOMP_SHOT'].includes(k)) wenv[k] = env[k];
+        M.__gfxEarly = [];
+        w.onmessage = e => { if (e.data.img) return rxcImage(e.data.img); M.__gfxmsg ? M.__gfxmsg(e.data) : M.__gfxEarly.push(e.data); };
+        w.onerror = e => { console.error('[gfx worker] ' + (e.message || e)); status('The graphics worker failed to start: ' + (e.message || e)); };
+        const noprelink = M.prelinkShaders === false || q.has('noprelink');
+        w.postMessage({ init: true, canvas: off, env: wenv, noprelink, learned: noprelink ? [] : loadLearned() }, [off]);
+        setInterval(saveLearned, 15000); addEventListener('pagehide', saveLearned);
+        M.gfxWorker = w;
+      } catch (e) { console.warn('[web] graphics worker unavailable, WebGL stays on the engine thread:', e); }
+    }
+    // the engine loads levels synchronously (no frames for many seconds): show a spinner whenever frames stop for 1.5 s
+    setInterval(() => { const t = M.__lastPresent; $('busy').classList.toggle('show', !!t && performance.now() - t > 1500); }, 250);
+    if (q.has('logsink')) {
+      globalThis.__rxcSink = [];
+      fetch('/log?start=1', { method: 'POST', body: '' });
+      setInterval(() => { const b = globalThis.__rxcSink; if (!b.length) return; globalThis.__rxcSink = []; fetch('/log', { method: 'POST', body: b.join('\n') + '\n' }); }, 1000);
+      let dumped = 0;
+      setInterval(() => { const t = M.__lastPresent; if (t && performance.now() - t > 12000 && performance.now() - dumped > 60000 && M._rxc_dbg_thrdump) { dumped = performance.now(); M._rxc_dbg_thrdump(); } }, 2000);
+    }
+    await startAudio(M);                   // inside the click: user activation lets the AudioContext start
+    Promise.resolve().then(() => Rexcomp(M)).catch(e => {
+      startupError();
+      let what = String(e);
+      if (e instanceof WebAssembly.Exception && M.getExceptionMessage) { try { what = 'C++ exception ' + M.getExceptionMessage(e).filter(Boolean).join(': '); } catch (_) {} }
+      status('Failed to start: ' + what); console.error('[rexcomp] ' + what + (e && e.stack ? '\n' + e.stack : ''));
+      if (globalThis.__rxcSink) globalThis.__rxcSink.push('[web] main thread crashed: ' + (e && e.stack ? e.stack : e));
+    });
+    // the page stays interactive while main() runs on its own JSPI stack; clicking the canvas captures the mouse
+    canvas.focus();
+  };
+  if ('Suspending' in WebAssembly && (q.has('autostart') || document.documentElement.classList.contains('rxc-direct'))) $('play').onclick();
+})();
+</script>
+</body></html>

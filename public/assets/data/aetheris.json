@@ -8555,6 +8555,17 @@
     ]
   },
   {
+    "id": "ninah",
+    "title": "No, I'm not a Human",
+    "html": "assets/games/ninah.html",
+    "image": "assets/images/ninah.webp",
+    "source": "aetheris",
+    "tags": [
+      "Horror",
+      "WASM"
+    ]
+  },
+  {
     "id": "onepiecefighting",
     "title": "One Piece Fighting",
     "html": "assets/games/onepiecefighting.html",
