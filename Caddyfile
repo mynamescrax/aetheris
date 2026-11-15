@@ -118,6 +118,17 @@ https:// {
 		respond 204
 	}
 
+	# TikTok isolation: set TIKTOK_RELAY_HOST=t.aetheris.win in the app and
+	# point this hostname at the server. The app refuses site/API routes on
+	# this vhost, even when the relay hostname is not configured correctly.
+	@tiktokrelay host t.aetheris.win
+	handle @tiktokrelay {
+		header -X-Frame-Options
+		reverse_proxy http://127.0.0.1:8080 {
+			header_up X-Aetheris-Relay tiktok
+		}
+	}
+
 	# Movie relay origin. Requires a DNS record for m.aetheris.win and
 	# MOVIE_RELAY_HOST=m.aetheris.win in the app env. Only relay paths reach
 	# the app and everything else is a 404, so relayed third-party script

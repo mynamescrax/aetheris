@@ -5,6 +5,8 @@ import zlib from "node:zlib";
 import { promisify } from "node:util";
 import { pipeline, Transform } from "node:stream";
 import { resolvePublicUrl, pinnedLookup } from "./lib/public-network.js";
+import { envNumber } from "./lib/env.js";
+import { createRelayLimiter } from "./lib/relay-limiter.js";
 
 const MAX_REDIRECTS = 5;
 const PROXY_ROUTE = "/movie-proxy";
@@ -93,10 +95,7 @@ const EMPTY_HTML = "<!DOCTYPE html><html><body></body></html>";
 // Media segments are immutable once published, and some CDNs throttle the
 // shared VPS egress. A small LRU serves repeated requests (seek storms,
 // player retry loops, several viewers on one title) from memory. 0 disables.
-const SEGMENT_CACHE_BYTES = Math.max(
-  0,
-  (Number(process.env.MOVIE_SEGMENT_CACHE_MB) || 192) * 1024 * 1024,
-);
+const SEGMENT_CACHE_BYTES = envNumber("MOVIE_SEGMENT_CACHE_MB", 192) * 1024 * 1024;
 const SEGMENT_CACHE_TTL_MS = Math.max(
   60_000,
   (Number(process.env.MOVIE_SEGMENT_TTL_MIN) || 15) * 60_000,
@@ -805,8 +804,18 @@ export function registerMovieRelay(
     // Called with { ev, name, src, kind, id, ip } for movies UI beacons
     // (lib/movie-report.js turns them into Discord reports).
     onUiEvent = null,
+    limits = {},
   } = {},
 ) {
+  const enterRelay = createRelayLimiter({
+    maxConcurrent: Math.floor(envNumber("MOVIE_MAX_CONCURRENT", 32, 1)),
+    maxPerKey: Math.floor(envNumber("MOVIE_MAX_PER_IP", 16, 1)),
+    maxQueued: 128,
+    maxQueuedPerKey: 64,
+    queueTimeoutMs: 10000,
+    ...limits,
+  });
+  const relaySignals = new WeakMap();
   relayHost = String(relayHost || "")
     .trim()
     .toLowerCase();
@@ -932,6 +941,7 @@ export function registerMovieRelay(
     );
   }, 10 * 60_000);
   cacheTimer.unref?.();
+  server.addHook("onClose", async () => clearInterval(cacheTimer));
 
   if (relayHost) {
     // Root-level hook, so it also covers static files and the 404 handler.
@@ -949,14 +959,16 @@ export function registerMovieRelay(
   }
 
   // resolveTarget is overridable for tests only; requests can't bypass it.
-  async function validateUrl(rawUrl) {
+  async function validateUrl(rawUrl, signal) {
+    signal?.throwIfAborted();
     const resolved = await resolveTarget(unwrapProxyUrl(rawUrl));
+    signal?.throwIfAborted();
     resolved.url.validatedAddresses = resolved.addresses;
     return resolved.url;
   }
 
   // Buffered, SSRF-checked GET used by /hls-resolve.
-  function fetchValidated(target, { accept = "*/*", referer = null } = {}) {
+  function fetchValidated(target, { accept = "*/*", referer = null, signal } = {}) {
     return new Promise((resolve, reject) => {
       const attempt = (currentUrl, redirectsLeft) => {
         const transport = currentUrl.protocol === "https:" ? https : http;
@@ -982,7 +994,7 @@ export function registerMovieRelay(
             method: "GET",
             headers,
             lookup: pinnedLookup(currentUrl.validatedAddresses),
-            signal: dialAbort.signal,
+            signal: signal ? AbortSignal.any([signal, dialAbort.signal]) : dialAbort.signal,
           },
           (response) => {
             clearTimeout(dialTimer);
@@ -998,7 +1010,7 @@ export function registerMovieRelay(
               } catch {
                 return reject(new Error("Bad redirect target"));
               }
-              validateUrl(nextUrl.href).then(
+              validateUrl(nextUrl.href, signal).then(
                 (validated) => attempt(validated, redirectsLeft - 1),
                 reject,
               );
@@ -1039,6 +1051,20 @@ export function registerMovieRelay(
     });
   }
   server.register(async function (fastify) {
+    fastify.addHook("onRequest", async (req, reply) => {
+      if (req.method === "OPTIONS" || ![PROXY_ROUTE, "/api.php", "/hls-resolve"].includes(req.routeOptions.url)) return;
+      try {
+        relaySignals.set(req.raw, await enterRelay(req.raw, reply.raw, req.ip));
+      } catch (error) {
+        if (reply.raw.destroyed) return reply.hijack();
+        if (error.code !== "WORK_BUSY") throw error;
+        return reply.code(503)
+          .header("Access-Control-Allow-Origin", "*")
+          .header("Retry-After", "1")
+          .header("Cache-Control", "no-store")
+          .send("Movie relay is busy. Please retry shortly.");
+      }
+    });
     // Relay request bodies byte-for-byte, including form and multipart POSTs.
     fastify.removeAllContentTypeParsers();
     fastify.addContentTypeParser(
@@ -1047,6 +1073,7 @@ export function registerMovieRelay(
       (_req, body, done) => done(null, body),
     );
     const handleMovieProxy = async (req, reply) => {
+      const signal = relaySignals.get(req.raw);
       let rawTarget = req.query.url;
       if (!rawTarget || typeof rawTarget !== "string") {
         reply.code(400).send("Missing url query parameter");
@@ -1166,7 +1193,7 @@ export function registerMovieRelay(
         if (cacheableRead && SEGMENT_CACHE_BYTES > 0 &&
             MEDIA_EXT_RE.test(new URL(rawTarget).pathname))
           settleMediaFetch = trackMediaFetch(cacheKey, reply.raw);
-        currentUrl = await validateUrl(rawTarget);
+        currentUrl = await validateUrl(rawTarget, signal);
       } catch (err) {
         reply.code(403).send(`SSRF validation failed: ${err.message}`);
         return;
@@ -1193,11 +1220,6 @@ export function registerMovieRelay(
       let upstreamRes = null;
       let method = req.method;
       let body = Buffer.isBuffer(req.body) ? req.body : null;
-      const abort = new AbortController();
-      const abortUpstream = () => {
-        if (!reply.raw.writableFinished) abort.abort();
-      };
-      reply.raw.once("close", abortUpstream);
 
       while (redirectCount <= MAX_REDIRECTS) {
         if (BLOCKED_DOMAINS.has(currentUrl.hostname.toLowerCase()))
@@ -1253,7 +1275,7 @@ export function registerMovieRelay(
                 method,
                 headers: reqHeaders,
                 lookup: pinnedLookup(currentUrl.validatedAddresses),
-                signal: AbortSignal.any([abort.signal, dialAbort.signal]),
+                signal: AbortSignal.any([signal, dialAbort.signal]),
               },
               (response) => {
                 clearTimeout(dialTimer);
@@ -1280,16 +1302,16 @@ export function registerMovieRelay(
             ["ECONNRESET", "ETIMEDOUT", "EAI_AGAIN"].includes(err.code) ||
             /Upstream (?:connect )?timeout/.test(err.message);
           if (
-            !abort.signal.aborted &&
+            !signal.aborted &&
             transient &&
             (method === "GET" || method === "HEAD") &&
             upstreamRetries < MAX_UPSTREAM_RETRIES
           ) {
             upstreamRetries++;
             await new Promise((resolve) => setTimeout(resolve, 250));
-            if (!abort.signal.aborted) continue;
+            if (!signal.aborted) continue;
           }
-          if (abort.signal.aborted) {
+          if (signal.aborted) {
             // Client went away; nothing to answer.
             reply.raw.destroy();
             return;
@@ -1312,7 +1334,7 @@ export function registerMovieRelay(
           const delay = throttleDelayMs(upstreamRes.headers["retry-after"]);
           upstreamRes.destroy();
           await new Promise((resolve) => setTimeout(resolve, delay));
-          if (abort.signal.aborted) {
+          if (signal.aborted) {
             reply.raw.destroy();
             return;
           }
@@ -1328,7 +1350,7 @@ export function registerMovieRelay(
             );
             if (isDecoyAdImage(nextUrl))
               throw new Error("Blocked decoy media fragment");
-            currentUrl = await validateUrl(nextUrl.href);
+            currentUrl = await validateUrl(nextUrl.href, signal);
             if (
               status === 303 ||
               ((status === 301 || status === 302) && method === "POST")
@@ -1564,7 +1586,7 @@ export function registerMovieRelay(
         reply.hijack();
         reply.raw.writeHead(upstreamRes.statusCode, passthrough);
         pipeline([...streams, reply.raw], (error) => {
-          if (error && !abort.signal.aborted)
+          if (error && !signal.aborted)
             console.warn("[movie-proxy] stream closed:", error.message);
         });
         return;
@@ -1595,7 +1617,7 @@ export function registerMovieRelay(
         );
       } catch (error) {
         upstreamRes.destroy();
-        if (abort.signal.aborted) {
+        if (signal.aborted) {
           reply.raw.destroy();
           return;
         }
@@ -1766,6 +1788,7 @@ export function registerMovieRelay(
     // through /movie-proxy. Params are strictly validated, so they can't
     // steer the API URL.
     fastify.get("/hls-resolve", async (req, reply) => {
+      const signal = relaySignals.get(req.raw);
       const type = req.query.type;
       const id = req.query.id;
       const via = req.query.via || "hls";
@@ -1810,7 +1833,7 @@ export function registerMovieRelay(
       const apiReferer = via === "lul" ? "https://aether.ist/" : null;
       let apiUrl;
       try {
-        apiUrl = await validateUrl(`${apiBase}${apiPath}`);
+        apiUrl = await validateUrl(`${apiBase}${apiPath}`, signal);
       } catch (err) {
         return reply.code(403).send(`SSRF validation failed: ${err.message}`);
       }
@@ -1819,6 +1842,7 @@ export function registerMovieRelay(
         const apiRes = await fetchValidated(apiUrl, {
           accept: "application/json",
           referer: apiReferer,
+          signal,
         });
         if (apiRes.status !== 200)
           throw new Error(`API answered ${apiRes.status}`);
@@ -1831,7 +1855,7 @@ export function registerMovieRelay(
       }
       let playlistUrl;
       try {
-        playlistUrl = await validateUrl(playlistHref);
+        playlistUrl = await validateUrl(playlistHref, signal);
       } catch (err) {
         return reply.code(403).send(`SSRF validation failed: ${err.message}`);
       }
@@ -1845,6 +1869,7 @@ export function registerMovieRelay(
             await new Promise((resolve) => setTimeout(resolve, 2000));
           const playlistRes = await fetchValidated(playlistUrl, {
             referer: TOTALLYACDN_REFERER,
+            signal,
           });
           if (playlistRes.status !== 200)
             throw new Error(`Playlist answered ${playlistRes.status}`);

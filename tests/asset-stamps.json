@@ -15,6 +15,10 @@
     "stamp": "20261106.1",
     "hash": "dfb7b8ae11891c3b"
   },
+  "css/chat-notifications.css": {
+    "stamp": "20261115.1",
+    "hash": "7700c23d94b5b1d9"
+  },
   "css/chat.css": {
     "stamp": "20260907.1",
     "hash": "236ab19ec1c1aefb"
@@ -67,6 +71,10 @@
     "stamp": "20260924.1",
     "hash": "beeeb18672bd83d0"
   },
+  "js/chat-notifications.js": {
+    "stamp": "20261115.1",
+    "hash": "22b36ca8c3e187e5"
+  },
   "js/chat.js": {
     "stamp": "20261106.1",
     "hash": "66a1f9eebb6be898"
@@ -80,8 +88,8 @@
     "hash": "cedf8d3cbb8daf46"
   },
   "js/dm-ui.js": {
-    "stamp": "20261011.3",
-    "hash": "f463fb597693bd41"
+    "stamp": "20261115.1",
+    "hash": "3771b1b5287588ee"
   },
   "js/games.js": {
     "stamp": "20261115.3",

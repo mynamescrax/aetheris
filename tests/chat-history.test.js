@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { messagesAfter, countUnread } from "../lib/chat-history.js";
+import {
+  messagesAfter,
+  countUnread,
+  latestUnread,
+} from "../lib/chat-history.js";
 
 test("cursor lookup matches polling semantics including equal timestamps and invalid cursors", () => {
   const messages = [1, 2, 2, 3, 5, 100].map((time, i) =>
@@ -32,9 +36,25 @@ test("cursor lookup matches polling semantics including equal timestamps and inv
       countUnread(messages, after, include),
       messages.filter((m) => m.time > after && include(m)).length,
     );
+    assert.equal(
+      latestUnread(messages, after, include),
+      messages.filter((m) => m.time > after && include(m)).at(-1) || null,
+    );
   }
   assert.deepEqual(messagesAfter([], 0), []);
   assert.equal(countUnread([], 0, include), 0);
+});
+
+test("notification previews select incoming messages, not newer self or system messages", () => {
+  const incoming = { time: 1, from: "friend", message: "hello" };
+  const messages = [
+    incoming,
+    { time: 2, from: "me", message: "reply" },
+    { time: 3, from: "friend", system: true, message: "joined" },
+  ];
+  const include = (m) => m.from !== "me" && !m.system;
+  assert.equal(latestUnread(messages, 0, include), incoming);
+  assert.equal(latestUnread(messages, 1, include), null);
 });
 
 test("an up-to-date chat poll avoids reading the full message history", () => {

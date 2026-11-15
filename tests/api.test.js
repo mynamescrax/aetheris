@@ -130,6 +130,7 @@ before(async () => {
       CRAX_GPT_IMAGE_MODEL: "test-image",
       TMDB_API_KEY: "local-test-only",
       TMDB_BASE_URL: `http://127.0.0.1:${provider.address().port}/3`,
+      AETHERIS_RELEASE: "local-test-release",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -162,6 +163,36 @@ before(async () => {
   bob = await register("TestBob");
   assert.equal(alice.status, 200);
   assert.equal(bob.status, 200);
+});
+
+test("release health checks identify the running build and are not cacheable", async () => {
+  const response = await api("/healthz");
+  assert.equal(response.status, 200);
+  assert.deepEqual(response.data, { ok: true, release: "local-test-release" });
+  assert.equal(response.headers.get("cache-control"), "no-store");
+});
+
+test("inbox notification previews show unread incoming messages, not the caller's newer reply", async () => {
+  const sender = await register("ToastSender", device(), "198.51.100.252");
+  const reader = await register("ToastReader", device(), "198.51.100.252");
+  const text = "A message preview ".repeat(20);
+  const sent = await api("/api/dm/ToastReader", {
+    method: "POST", headers: headers(sender.data.token), body: JSON.stringify({ message: text }),
+  });
+  assert.equal(sent.status, 200);
+  await api("/api/dm/ToastSender", {
+    method: "POST", headers: headers(reader.data.token), body: JSON.stringify({ message: "my own reply" }),
+  });
+  const inbox = await api("/api/dm-inbox", { headers: headers(reader.data.token) });
+  const conversation = inbox.data.conversations[0];
+  assert.equal(conversation.lastMessage, "my own reply");
+  assert.equal(conversation.notification.from, "ToastSender");
+  assert.equal(conversation.notification.message, text.slice(0, 240));
+  await api("/api/dm-inbox/read/ToastSender", {
+    method: "POST", headers: headers(reader.data.token), body: JSON.stringify({ through: conversation.lastTime }),
+  });
+  const read = await api("/api/dm-inbox", { headers: headers(reader.data.token) });
+  assert.equal(read.data.conversations[0].notification, null);
 });
 
 after(async () => {

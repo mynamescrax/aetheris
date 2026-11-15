@@ -232,3 +232,97 @@ test("group membership indices rebuild from the existing JSON format", async (t)
   await reopened.rebuild();
   assert.deepEqual(reopened.groupsOf("bob"), []);
 });
+
+test("a multi-record write is invisible until every record commits", async t => {
+  const dir = await fixture(t);
+  const entered = deferred(), finish = deferred();
+  let hold = false;
+  const store = await createJsonStore(dir, { io: {
+    ...fs,
+    async rename(from, to) {
+      if (hold && to === join(dir, "bob.json")) {
+        entered.resolve();
+        await finish.promise;
+      }
+      return fs.rename(from, to);
+    },
+  } });
+  await store.write("alice", { message: "before" });
+  await store.write("bob", { message: "before" });
+  hold = true;
+  const commit = store.writeMany([["alice", { message: "after" }], ["bob", { message: "after" }]]);
+  await entered.promise;
+  let readFinished = false;
+  const read = Promise.all([store.read("alice"), store.read("bob")]).then(records => { readFinished = true; return records; });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(readFinished, false);
+  finish.resolve();
+  await commit;
+  assert.deepEqual(await read, [{ message: "after" }, { message: "after" }]);
+  assert.deepEqual(await fs.readdir(join(dir, ".transactions")), []);
+});
+
+test("a failed second record rolls both sides back and permits a safe retry", async t => {
+  const dir = await fixture(t);
+  let fail = false;
+  const store = await createJsonStore(dir, { io: {
+    ...fs,
+    async rename(from, to) {
+      if (fail && to === join(dir, "bob.json")) {
+        fail = false;
+        throw Object.assign(new Error("disk failure"), { code: "EIO" });
+      }
+      return fs.rename(from, to);
+    },
+  } });
+  await store.write("alice", { count: 0 });
+  await store.write("bob", { count: 0 });
+  fail = true;
+  await assert.rejects(store.writeMany([["alice", { count: 1 }], ["bob", { count: 1 }]]), { code: "EIO" });
+  assert.deepEqual(await store.read("alice"), { count: 0 });
+  assert.deepEqual(await store.read("bob"), { count: 0 });
+  await store.writeMany([["alice", { count: 1 }], ["bob", { count: 1 }]]);
+  assert.deepEqual(await store.read("alice"), { count: 1 });
+  assert.deepEqual(await store.read("bob"), { count: 1 });
+});
+
+test("an uncertain rollback fails closed until startup recovers the journal", async t => {
+  const dir = await fixture(t);
+  const normal = await createJsonStore(dir);
+  await normal.write("alice", { count: 0 });
+  await normal.write("bob", { count: 0 });
+  let failed = false;
+  const store = await createJsonStore(dir, { io: {
+    ...fs,
+    async rename(from, to) {
+      if (to === join(dir, "bob.json") || failed) {
+        failed = true;
+        throw Object.assign(new Error("disk unavailable"), { code: "EIO" });
+      }
+      return fs.rename(from, to);
+    },
+  } });
+  await assert.rejects(store.writeMany([["alice", { count: 1 }], ["bob", { count: 1 }]]), { code: "EIO" });
+  await assert.rejects(store.read("alice"), { code: "STORE_RECOVERY_REQUIRED" });
+  await assert.rejects(store.write("charlie", {}), { code: "STORE_RECOVERY_REQUIRED" });
+  const recovered = await createJsonStore(dir);
+  assert.deepEqual(await recovered.read("alice"), { count: 0 });
+  assert.deepEqual(await recovered.read("bob"), { count: 0 });
+  assert.deepEqual(await fs.readdir(join(dir, ".transactions")), []);
+});
+
+test("committed journal recovery preserves both records after cleanup fails", async t => {
+  const dir = await fixture(t);
+  const store = await createJsonStore(dir, { io: {
+    ...fs,
+    async unlink(path) {
+      if (path.endsWith(".committed.json")) throw Object.assign(new Error("cleanup unavailable"), { code: "EIO" });
+      return fs.unlink(path);
+    },
+  } });
+  await assert.rejects(store.writeMany([["alice", { count: 1 }], ["bob", { count: 1 }]]), { code: "EIO" });
+  await assert.rejects(store.remove("alice"), { code: "STORE_RECOVERY_REQUIRED" });
+  const recovered = await createJsonStore(dir);
+  assert.deepEqual(await recovered.read("alice"), { count: 1 });
+  assert.deepEqual(await recovered.read("bob"), { count: 1 });
+});

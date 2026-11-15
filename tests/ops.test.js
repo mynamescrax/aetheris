@@ -30,6 +30,13 @@ test("the site block sends baseline security headers", () => {
   assert.match(caddyfile, /X-Frame-Options "SAMEORIGIN"/);
 });
 
+test("the TikTok vhost delegates only to the guarded app and permits cross-origin framing", () => {
+  const block = caddyfile.slice(caddyfile.indexOf("@tiktokrelay"), caddyfile.indexOf("# Movie relay origin"));
+  assert.match(block, /host t\.aetheris\.win/);
+  assert.match(block, /header -X-Frame-Options/);
+  assert.match(block, /header_up X-Aetheris-Relay tiktok/);
+});
+
 test("wisp stream limits keep the per-host option disabled", () => {
   // wisp-js 0.4.1 iterates `connection.streams` (a plain object) when
   // stream_limit_per_host is enabled, throwing "connection.streams is not

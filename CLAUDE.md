@@ -18,8 +18,10 @@ PM2; Caddy uses the repo's `Caddyfile` as `/etc/caddy/Caddyfile`.
 - `Caddyfile` - public routing and server-side reverse proxies.
 - `public/movies.html` - Movies & TV UI and provider selection.
 - `public/js/scramjet-init.js` - browsing-proxy bootstrap for games/apps.
-- `deploy.sh` - pulls `main`, installs deps, runs lint/tests, installs the
-  Caddyfile, reloads Caddy, restarts PM2, health-checks.
+- `deploy.sh` - stages `main` in `.releases/`, checks it before activation,
+  preserves the shared working directory and rolls back PM2/Caddy on failure.
+- `lib/json-store.js` - atomic single-record writes and journaled DM batches;
+  never remove `database/.transactions/` during backup/recovery.
 - `notes.md` - server ops notes (gitignored, local only).
 - `TODO.md` - open work.
 
@@ -65,9 +67,10 @@ PM2; Caddy uses the repo's `Caddyfile` as `/etc/caddy/Caddyfile`.
   and the prefix prevents name collisions; don't switch the path back to
   `/tiktok` or masked root pages lose the jar. The injected client does the
   same renaming for `document.cookie` writes.
-- Same-origin by design: TikTok JS can read the site's localStorage. Don't put
-  secrets there (the DM token currently lives in localStorage). A subdomain is
-  the only real isolation.
+- Set TIKTOK_RELAY_HOST and TIKTOK_EMBEDDERS for a dedicated TikTok origin;
+  Caddy/DNS must match. Without this, legacy same-origin behavior still exposes
+  the site's localStorage to TikTok JS. The frame status bridge validates origin
+  and source; keep account/site routes unavailable on the relay hostname.
 - Rewritten JS/CSS is cached in memory for 10 minutes (32 MB cap, `X-TT-Cache:
   hit` on hits). Keep the key as the upstream URL; the rewritten body depends
   on that URL, not on the page that requested it.

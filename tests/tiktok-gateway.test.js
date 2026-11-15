@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createServer } from "node:http";
+import { createServer, request as httpRequest } from "node:http";
 import { readFileSync } from "node:fs";
+import vm from "node:vm";
 
 import {
   COOKIE_PATH,
@@ -9,6 +10,7 @@ import {
   toBrowserSetCookie,
 } from "../lib/tiktok-cookies.js";
 import {
+  createTikTokGateway,
   handleTikTokRequest,
   injectClient,
   isTikTokNavPath,
@@ -21,6 +23,98 @@ import {
 
 const site = (file) =>
   readFileSync(new URL("../public/" + file, import.meta.url), "utf8");
+
+// Native fetch replaces Host in current Node releases; use raw HTTP to test
+// virtual-host routing without changing DNS or contacting a public hostname.
+function fetchHost(url, { headers } = {}) {
+  return new Promise((resolve, reject) => {
+    const req = httpRequest(url, { headers }, res => {
+      const chunks = [];
+      res.on("data", chunk => chunks.push(chunk));
+      res.on("error", reject);
+      res.on("end", () => resolve({ status: res.statusCode, headers: new Headers(res.headers), text: async () => Buffer.concat(chunks).toString() }));
+    });
+    req.on("error", reject);
+    req.end();
+  });
+}
+
+test("a dedicated TikTok origin serves no site pages/APIs and redirects legacy relay URLs", async t => {
+  const upstream = createServer((_req, res) => {
+    res.writeHead(200, { "content-type": "text/html" });
+    res.end("<!doctype html><html><head></head><body><video></video></body></html>");
+  });
+  await new Promise(resolve => upstream.listen(0, "127.0.0.1", resolve));
+  const gateway = createTikTokGateway({
+    relayHost: "t.example.test", embedders: ["https://site.example.test"],
+    resolveTarget: async raw => ({ url: new URL(raw), addresses: [{ address: "127.0.0.1", family: 4 }] }),
+  });
+  const server = createServer((req, res) => {
+    if (!gateway.handleRequest(req, res)) res.end("primary site");
+  });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  t.after(async () => {
+    server.closeAllConnections(); upstream.closeAllConnections();
+    await Promise.all([new Promise(resolve => server.close(resolve)), new Promise(resolve => upstream.close(resolve))]);
+  });
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const relay = { host: "t.example.test" }, main = { host: "site.example.test" };
+  for (const path of ["/api/accounts/me", "/chat.html", "/js/site.js", "/movie-proxy", "/tiktok-config.js"]) {
+    const response = await fetchHost(base + path, { headers: relay });
+    assert.equal(response.status, 404, path);
+    await response.text();
+  }
+  const path = "/tiktok/tt?url=" + encodeURIComponent(`http://fixture.test:${upstream.address().port}/foryou`);
+  const legacy = await fetchHost(base + path, { headers: main });
+  assert.equal(legacy.status, 302);
+  assert.equal(legacy.headers.get("location"), "http://t.example.test" + path);
+  const page = await fetchHost(base + path, { headers: relay });
+  assert.equal(page.status, 200);
+  assert.match(page.headers.get("content-security-policy"), /frame-ancestors 'self' https:\/\/site\.example\.test/);
+  assert.match(await page.text(), /<video>/);
+  const config = await fetchHost(base + "/tiktok-config.js", { headers: main });
+  assert.match(await config.text(), /TIKTOK_RELAY_ORIGIN = "http:\/\/t\.example\.test"/);
+  const normal = await fetchHost(base + "/foryou", { headers: { ...main, cookie: "aetheris_tt=1" } });
+  assert.equal(await normal.text(), "primary site");
+  for (const [host, url] of [["t.example.test", "/wisp/"], ["site.example.test", "/tiktok/tt-ws?url=x"]]) {
+    let answer = "";
+    assert.equal(gateway.upgrade({ url, headers: { host } }, { end: value => { answer = value; } }, Buffer.alloc(0)), true);
+    assert.match(answer, /404/);
+  }
+});
+
+test("TikTok isolation config rejects malformed hosts/origins and a misconfigured relay vhost fails closed", () => {
+  for (const relayHost of ["https://t.example", "user@t.example", "t.example/path", "t.example?x=y"])
+    assert.throws(() => createTikTokGateway({ relayHost, embedders: ["https://site.example"] }));
+  assert.throws(() => createTikTokGateway({ relayHost: "t.example", embedders: ["https://site.example/path"] }));
+  const gateway = createTikTokGateway({ relayHost: "" });
+  let status;
+  const response = { writeHead: code => { status = code; }, end() {} };
+  assert.equal(gateway.handleRequest({ url: "/api/accounts/me", headers: { host: "t.example", "x-aetheris-relay": "tiktok" } }, response), true);
+  assert.equal(status, 503);
+});
+
+test("the isolated TikTok frame only accepts its own bounded status messages", () => {
+  const listeners = {};
+  const storage = new Map();
+  const frame = { contentWindow: {}, src: "" };
+  let reloads = 0;
+  Object.defineProperty(frame, "src", { get: () => "", set: () => { reloads++; } });
+  const context = {
+    window: { TIKTOK_RELAY_ORIGIN: "https://t.example", addEventListener: (type, fn) => { listeners[type] = fn; } },
+    document: { getElementById: () => frame },
+    sessionStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) },
+    location: { origin: "https://site.example" }, setInterval() {}, URL,
+  };
+  const scripts = [...site("tiktok.html").matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)];
+  vm.runInNewContext(scripts.at(-1)[1], context);
+  const event = { origin: "https://t.example", source: frame.contentWindow, data: { type: "aetheris:tiktok-status", feedReady: true, feedFailed: true } };
+  listeners.message({ ...event, origin: "https://evil.example" });
+  listeners.message({ ...event, source: {} });
+  assert.equal(reloads, 1);
+  listeners.message(event); listeners.message(event); listeners.message(event);
+  assert.equal(reloads, 3, "only two automatic retries are allowed");
+});
 
 test("the gateway only claims its /tiktok subtree", () => {
   assert.equal(TIKTOK_BASE, "/tiktok");

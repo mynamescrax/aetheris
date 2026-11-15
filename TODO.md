@@ -49,21 +49,18 @@ From Game Report site feedback (home page, `/home.html`), 2026-10-11.
 
 Each of these needs a product decision or live testing first.
 
-- Raise the registration password minimum (currently 4 chars, `index.js`).
-- `data-transfer.js` builds the whole export JSON before checking the 128 MB
-  limit, so a huge save can OOM before the guard runs.
-- `movie-relay.js` only rewrites quoted `src`/`href`/`data-src`/`data-api`;
-  `srcset`, `action`, `poster` and unquoted attributes fall through.
+- Review the registration password minimum (currently 6 chars, `index.js`).
+- Measure backup export memory on real iPads with large/deeply nested saves;
+  export now batches reads and enforces a pre-encoding budget.
 - `/movie-proxy` is an unauthenticated, CORS-wide forward relay with a small
   blocklist. An upstream allowlist or auth gate would close it, but could
   break working providers.
-- `lc-relay` has no per-socket message-rate limit (frames are capped at 1 MB,
-  backpressure terminates at 4 MB buffered).
 - On-demand TLS is intentionally open (any hostname pointing here gets a cert,
   UBG-style). Abuse risk is LE rate-limit exhaustion.
 - AI model menu: no arrow-key navigation / listbox role.
 - `theme.js` `applyTheme()` doesn't persist the choice itself.
-- Proxy content runs same-origin with the site; a separate origin for proxied
-  content would be real isolation.
+- Enable the TikTok dedicated origin in production (DNS, Caddy and
+  TIKTOK_RELAY_HOST/TIKTOK_EMBEDDERS); unset configuration remains same-origin.
+- Verify staged deployment rollback and real playback on the production VPS.
 - The app keeps accounts in per-user JSON files: run one instance per
   `database/` directory.

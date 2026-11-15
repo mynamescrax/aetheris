@@ -11,8 +11,8 @@
 - **apps**: a handful of web apps
 - **proxy**: Scramjet with libcurl/epoxy transports
 - **movies & tv**: TMDB search plus a few embed sources
-- **tiktok**: a same-origin gateway with the real web app, feed and playback
-- **chat**: DMs with accounts
+- **tiktok**: a gateway with the real web app, feed and playback, with optional dedicated-origin isolation
+- **chat**: DMs and group chats with accounts and brief message notifications
 - **ai**: chat and image gen through any OpenAI-compatible API
 - **cheats**: bookmarklets
 - **tab cloak**: fake the tab title and icon (Google, Drive, Classroom...)
@@ -57,16 +57,49 @@ sudo systemctl reload caddy
 
 ### updating
 
-`deploy.sh` does the whole update on the server: pulls `main`, installs deps, runs lint and tests, validates and installs the Caddyfile, reloads Caddy, restarts the PM2 app and checks it answers. set `SKIP_CHECKS=1` to skip lint/tests.
+`deploy.sh` fetches `main` into a private `.releases/` directory without changing
+live files. It installs dependencies, runs lint/syntax/tests and validates Caddy
+before activation. The new app keeps the original working directory (and its
+database, caches and `.env`), but serves code/assets from the staged release.
+Only after release-identity and Wisp checks pass does the source checkout advance.
 
 ```bash
 ./deploy.sh
 ```
 
+Failures after activation restore the previous PM2 configuration, active-release
+pointer and Caddyfile. Pending storage journals are recovered while the app is
+stopped, before older code restarts. `CADDY_CONFIG` can override the default
+`/etc/caddy/Caddyfile`; that file and `.env` must already exist. Tracked local
+changes and concurrent deployments are refused. `SKIP_CHECKS=1` skips source
+checks, not Caddy validation or health checks.
+
+Old releases and owner-only `.deploy-state.*` recovery directories are retained
+for inspection/manual cleanup; the latter can contain environment secrets.
+Code rollback does not restore earlier database contents or `.env` edits, so
+take a backup before deployments that migrate data or configuration.
+
+### isolating TikTok
+
+Create a DNS record for `t.aetheris.win` pointing at your server (or change the
+TikTok vhost in `Caddyfile` to your hostname), then configure:
+
+```dotenv
+TIKTOK_RELAY_HOST=t.aetheris.win
+TIKTOK_EMBEDDERS=https://aetheris.win,https://balf-games.xyz
+```
+
+The main page loads a cross-origin frame; that origin serves no account APIs or
+site assets. Legacy gateway URLs redirect there, and status messages are checked
+against the frame's origin and window. Add every site alias to `TIKTOK_EMBEDDERS`.
+When the hostname is unset, legacy same-origin behavior remains for compatibility:
+it is **not isolated from account tokens or browser storage**. Deploying the code
+alone does not enable isolation; DNS, Caddy and the environment must agree.
+
 ## development
 
 ```bash
-pnpm start     # node index.js (pass --env-file=.env if you want your config)
+pnpm start     # node index.js (automatically loads .env)
 pnpm lint      # eslint
 pnpm check     # syntax-check every script, inline <script> and catalog JSON
 pnpm test      # node --test
@@ -78,12 +111,35 @@ The backend benchmark compares the optimized hot paths with their previous
 full-scan implementations. It uses synthetic data and a local fetch fixture;
 the timings measure those operations, not whole-page or production latency.
 
+`pnpm start` loads `.env` before feature modules initialize; existing environment
+variables take precedence. Set `MOVIE_SEGMENT_CACHE_MB=0` or
+`GAME_ASSET_DISK_CACHE_MB=0` to disable the corresponding cache.
+
+The image relay shares duplicate downloads and allows up to 12 active downloads
+(8 per IP), with a bounded queue of 128 (64 per IP). Queued work expires after
+10 seconds; overload returns a non-cacheable 503 with `Retry-After`. Disconnecting
+the last reader cancels its download without interrupting other readers.
+
+Movie and TikTok relay requests have separate lifetime limits (32/16 and 24/16
+global/per-IP by default). Admission happens before request-body buffering, and
+streaming keeps its slot until the response closes. Movie requests can queue
+128 globally/64 per IP; TikTok queues 256/128. Queues expire after 10 seconds
+with a non-cacheable 503 and `Retry-After`. TikTok WebSockets are capped separately
+at 128 globally/16 per IP, with a 10-second handshake deadline and 90-second idle
+timeout. See `.env.example` for the concurrency settings.
+
 Accounts and chats keep their existing files in `database/`. File operations
 are asynchronous, writes replace records atomically, and API responses wait
 for writes to finish. Concurrent readers share a disk read but receive separate
 objects. Account/group mutations hold their locks through the write; run one
 app instance per database directory. The storage benchmark uses temporary
 fixture records and removes them afterward.
+
+DM delivery writes both accounts as one journaled batch. Reads wait for its
+commit; an interrupted pending batch rolls back at startup, while an already
+committed batch is replayed. If rollback or journal cleanup fails, storage refuses
+new work with 503 until recovery rather than exposing divergent conversations.
+Keep `database/.transactions/` with the database in backups; do not delete journals.
 
 ## credits
 

@@ -20,6 +20,7 @@ var conversationVersion = 0,
   sending = false;
 var drafts = Object.create(null);
 var activegroup = null; // /info for the open group chat
+var requestedConversation = null;
 var grouppicks = []; // usernames picked in the new-group dialog
 
 function dmel(key) {
@@ -145,6 +146,11 @@ async function loadinbox() {
     if (!d.ok) return;
     inboxcache = Array.isArray(d.conversations) ? d.conversations : [];
     filterinbox();
+    if (requestedConversation) {
+      var requested = inboxcache.find(function (conversation) { return convokey(conversation) === requestedConversation; });
+      requestedConversation = null;
+      if (requested) openconvo(convokey(requested), requested.with);
+    }
   } catch (_) {}
 }
 
@@ -865,6 +871,7 @@ function bgclose(e, id) {
 
 function startdm(config) {
   dmui = config;
+  requestedConversation = new URLSearchParams(location.search).get("conversation");
   dmel("input").addEventListener("keydown", function (e) {
     if (e.key === "Enter" && !e.isComposing) senddm();
   });

@@ -1,3 +1,4 @@
+import "./lib/load-env.js";
 import { createServer } from "node:http";
 import {
   readFileSync,
@@ -39,7 +40,7 @@ import { registerGameAssets } from "./lib/game-assets.js";
 import { rewriteAssetUrls } from "./lib/asset-urls.js";
 import { uniqueOnlineCount } from "./lib/online.js";
 import { createPresence } from "./lib/presence.js";
-import { messagesAfter, countUnread } from "./lib/chat-history.js";
+import { messagesAfter, countUnread, latestUnread } from "./lib/chat-history.js";
 import { createJsonStore } from "./lib/json-store.js";
 import {
   createGroupStore,
@@ -56,18 +57,6 @@ import {
   topcountries,
 } from "./lib/geo.js";
 import { websocketOriginAllowed } from "./lib/ws-origin.js";
-
-// Load local development configuration before any feature reads process.env.
-// Values supplied by the host environment keep precedence over .env values.
-if (typeof process.loadEnvFile === "function") {
-  try {
-    process.loadEnvFile();
-  } catch (error) {
-    if (error && error.code !== "ENOENT") {
-      console.warn("[config] Could not load .env:", error.message);
-    }
-  }
-}
 
 const _require = createRequire(import.meta.url);
 const epoxypath = dirname(_require.resolve("@mercuryworkshop/epoxy-transport"));
@@ -822,6 +811,11 @@ fastify.get("/online", (req, reply) => {
     broadcastcount();
   });
 });
+
+fastify.get("/healthz", (_req, reply) => reply.header("Cache-Control", "no-store").send({
+  ok: true,
+  release: process.env.AETHERIS_RELEASE || null,
+}));
 
 fastify.get("/online-count", (_req, reply) => {
   reply.header("Access-Control-Allow-Origin", "*");
@@ -1607,15 +1601,18 @@ fastify.post("/api/dm/:recipient", async (req, reply) => {
     if (sender.dms[recipientlower].length > DM_MAX) {
       sender.dms[recipientlower] = sender.dms[recipientlower].slice(-DM_MAX);
     }
-    await writeuser(sender);
-
     recipient.dms ??= {};
     recipient.dms[senderlower] ??= [];
     recipient.dms[senderlower].push(msg);
     if (recipient.dms[senderlower].length > DM_MAX) {
       recipient.dms[senderlower] = recipient.dms[senderlower].slice(-DM_MAX);
     }
-    await writeuser(recipient);
+    await users.writeMany([
+      [safefilename(sender.username), sender],
+      [safefilename(recipient.username), recipient],
+    ]);
+    indexuser(sender);
+    indexuser(recipient);
     return true;
   });
 
@@ -1626,6 +1623,11 @@ fastify.post("/api/dm/:recipient", async (req, reply) => {
     });
   reply.send({ ok: true });
 });
+
+function inboxnotification(messages, after, include) {
+  const message = latestUnread(messages, after, include);
+  return message ? { from: displayname(message.from.toLowerCase()), message: message.message.slice(0, 240), time: message.time } : null;
+}
 
 fastify.get("/api/dm-inbox", async (req, reply) => {
   const me = await requireauth(req, reply);
@@ -1645,6 +1647,7 @@ fastify.get("/api/dm-inbox", async (req, reply) => {
       lastMessage: last.message,
       lastTime: last.time,
       unread,
+      notification: inboxnotification(msgs, readts, (m) => m.from.toLowerCase() === otherlower),
       online: presence.isOnline(otherlower),
     });
   }
@@ -1668,6 +1671,7 @@ fastify.get("/api/dm-inbox", async (req, reply) => {
         : "",
       lastTime: last?.time || group.createdAt || 0,
       unread: countUnread(group.messages, readts, (m) => !m.system && m.from !== mylc),
+      notification: inboxnotification(group.messages, readts, (m) => !m.system && m.from !== mylc),
     });
   }
 

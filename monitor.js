@@ -4,7 +4,7 @@
 // periodic status reports.
 
 import { exec }             from "node:child_process";
-import { createWriteStream } from "node:fs";
+import { createWriteStream, existsSync } from "node:fs";
 import { connect }          from "node:net";
 import { dirname }          from "node:path";
 import { fileURLToPath }    from "node:url";
@@ -337,9 +337,12 @@ async function recover(fallbackReachable) {
       if (!res.ok) {
         // Not in pm2 at all: start it fresh. --cwd matters because index.js
         // finds its database relative to process.cwd().
-        log(`pm2 restart failed. Running: pm2 start index.js --cwd ${CONFIG.appDir}`);
+        const entry = existsSync(`${CONFIG.appDir}/.current-release/index.js`)
+          ? `${CONFIG.appDir}/.current-release/index.js`
+          : `${CONFIG.appDir}/index.js`;
+        log(`pm2 restart failed. Running: pm2 start ${entry} --cwd ${CONFIG.appDir}`);
         const res2 = await run(
-          `pm2 start index.js --name ${CONFIG.appService} --cwd "${CONFIG.appDir}" ` +
+          `pm2 start "${entry}" --name ${CONFIG.appService} --cwd "${CONFIG.appDir}" ` +
             `--node-args="--env-file=${CONFIG.envFile}" --kill-timeout 5000 && pm2 save`,
         );
         log(`${CONFIG.appService} start result: ${res2.ok ? "ok" : "FAILED — " + res2.out}`);

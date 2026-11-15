@@ -26,6 +26,22 @@
   // it so relative API paths stay signable after client-side route changes.
   var CURRENT = window.__TT_TARGET__ || location.href;
   window.__TT_TARGET__ = CURRENT;
+  // Cross-origin parents cannot inspect our document. Report only the feed's
+  // readiness/failure state; never send session data or signed upstream URLs.
+  if (window.parent !== window) {
+    setInterval(function () {
+      if (document.readyState !== "complete" || !document.body) return;
+      try {
+        var path = new URL(CURRENT).pathname;
+        if (path !== "/" && path !== "/foryou") return;
+        window.parent.postMessage({
+          type: "aetheris:tiktok-status",
+          feedReady: true,
+          feedFailed: !document.querySelector("video") && (document.body.innerText || "").indexOf("Something went wrong") !== -1,
+        }, "*");
+      } catch (_) {}
+    }, 3000);
+  }
   // Must match DEFAULT_NAV_HOST in server.mjs: top-level navigations on this
   // host are masked as same-origin paths (see below).
   var NAV_HOST = "www.tiktok.com";

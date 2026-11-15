@@ -2,6 +2,7 @@
 <html lang="en">
   <head>
     <script src="./js/site.js?v=20261115.1"></script>
+    <script src="./js/chat-notifications.js?v=20261115.1"></script>
     <script defer src="./js/tutorial.js?v=20261103.1"></script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -320,6 +321,7 @@
       }
     </style>
     <link rel="stylesheet" href="./css/usability.css?v=20261115.2" />
+    <link rel="stylesheet" href="./css/chat-notifications.css?v=20261115.1" />
   </head>
 
   <body class="app-mode">
@@ -763,33 +765,77 @@
       }
 
       (function () {
+        var notifications = Aetheris.chatNotifications;
+        var checking = false;
+        notifications.onOpen = function (key, display) {
+          try {
+            var page = mainframe.contentWindow;
+            var route = Aetheris.routeForUrl(page.location.href);
+            if (route && route.name === "chat" && page.authtoken === Aetheris.getToken() && typeof page.openconvo === "function") {
+              page.openconvo(key, display);
+              return;
+            }
+          } catch (_) {}
+          gopage("chat?conversation=" + encodeURIComponent(key));
+        };
+        function activeConversation() {
+          try {
+            var page = mainframe.contentWindow;
+            var route = Aetheris.routeForUrl(page.location.href);
+            if (route && route.name === "chat") return page.activeconvo;
+            if (route && route.name === "load" && page.chatopen) {
+              var mini = page.document.getElementById("chat-iframe");
+              if (mini) return mini.contentWindow.activeconvo;
+            }
+          } catch (_) {}
+          return null;
+        }
         async function checkunread() {
           // Hidden tabs skip the poll; visibilitychange catches up on return.
           if (document.hidden) return;
           var token = Aetheris.getToken();
           if (!token) {
             chatbadge(0);
+            notifications.clear();
             return;
           }
-          var active = document.querySelector(".navitem a.is-active");
-          if (active && active.getAttribute("data-page") === "chat") return;
+          if (checking) return;
+          checking = true;
+          var controller = new AbortController();
+          var timeout = setTimeout(function () { controller.abort(); }, 10000);
           try {
             var r = await fetch("/api/dm-inbox", {
               headers: { Authorization: "Bearer " + token },
+              signal: controller.signal,
             });
+            if (token !== Aetheris.getToken()) return;
+            if (r.status === 401) { notifications.clear(); chatbadge(0); return; }
             if (!r.ok) return;
             var d = await r.json();
-            if (!d.ok) return;
+            if (!d.ok || token !== Aetheris.getToken()) return;
             var convos = Array.isArray(d.conversations) ? d.conversations : [];
+            var active = activeConversation();
+            notifications.update(convos, token, active);
             var total = convos.reduce(function (s, c) {
-              return s + (Number(c && c.unread) || 0);
+              var key = c.group ? "g:" + c.group : c.with.toLowerCase();
+              return s + (key === active ? 0 : Number(c.unread) || 0);
             }, 0);
             chatbadge(total);
-          } catch (_) {}
+          } catch (_) {
+          } finally {
+            clearTimeout(timeout);
+            checking = false;
+          }
         }
 
         checkunread();
-        setInterval(checkunread, 15000);
+        setInterval(checkunread, 6000);
+        window.addEventListener("storage", function (event) {
+          if (["dmToken", "dmAutoLogin"].indexOf(event.key) !== -1) {
+            notifications.clear();
+            checkunread();
+          }
+        });
         document.addEventListener("visibilitychange", function () {
           if (!document.hidden) checkunread();
         });

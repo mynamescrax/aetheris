@@ -13,3 +13,8 @@ server.err.log
 
 movie-report.json
 cache
+/.releases/
+/.current-release
+/.current-release.next
+/.deploy-lock/
+/.deploy-state.*/

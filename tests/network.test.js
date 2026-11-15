@@ -6,6 +6,7 @@ import {
   isPublicAddress,
   resolvePublicUrl,
   pinnedLookup,
+  downloadPublicImage,
 } from "../lib/public-network.js";
 import { createRateLimiter } from "../lib/rate-limit.js";
 import { websocketOriginAllowed } from "../lib/ws-origin.js";
@@ -15,6 +16,16 @@ import {
   rewriteJsImports,
   decompressBuffer,
 } from "../movie-relay.js";
+
+test("a cancelled image download stops before DNS or network access", async () => {
+  const controller = new AbortController();
+  const reason = new Error("Reader disconnected");
+  controller.abort(reason);
+  await assert.rejects(
+    downloadPublicImage("https://not-a-real-host.invalid/image.png", { signal: controller.signal }),
+    error => error === reason,
+  );
+});
 
 test("private, reserved and IPv4-mapped IPv6 addresses are blocked", () => {
   for (const ip of [

@@ -12,6 +12,7 @@
     />
     <title>Aetheris - TikTok</title>
     <script defer src="./js/preload.js?v=20261008.1"></script>
+    <script src="/tiktok-config.js"></script>
     <style>
       html,
       body {
@@ -47,6 +48,7 @@
         var RETRY_KEY = "tiktok-feed-retries";
         var frame = document.getElementById("tiktok-frame");
         var retries = 0;
+        var relayOrigin = window.TIKTOK_RELAY_ORIGIN || "";
 
         try {
           retries = Number(sessionStorage.getItem(RETRY_KEY) || 0) || 0;
@@ -61,7 +63,7 @@
 
         function gateway(url) {
           return (
-            "/tiktok/tt?url=" +
+            relayOrigin + "/tiktok/tt?url=" +
             encodeURIComponent(url) +
             "&referer=" +
             encodeURIComponent(url) +
@@ -102,12 +104,26 @@
           }
         }
 
+        // The isolated frame cannot be inspected by the parent. Its small
+        // status message carries no cookies, tokens or upstream query strings.
+        window.addEventListener("message", function (event) {
+          if (!relayOrigin || event.origin !== relayOrigin || event.source !== frame.contentWindow) return;
+          var data = event.data;
+          if (!data || data.type !== "aetheris:tiktok-status" || data.feedReady !== true) return;
+          if (data.feedFailed !== true) { resetretries(); return; }
+          if (retries >= 2) return;
+          retries++;
+          try { sessionStorage.setItem(RETRY_KEY, String(retries)); } catch (_) {}
+          frame.src = gateway(START);
+        });
+
         // If TikTok assigns location.href to the site root (its router treats
         // "/" as home), pull the frame back instead of showing Aetheris inside
         // the TikTok area. Real TikTok routes are all separate paths.
         var SITEPAGE_RE =
           /^\/(?:index|home|apps|tiktok|cheats|search|chat|ai|movies|settings|about|load|maths|minichat)\.html?$/;
         setInterval(function () {
+          if (relayOrigin) return;
           try {
             var current = new URL(frame.contentWindow.location.href);
             if (current.origin !== location.origin) return;
@@ -120,6 +136,7 @@
         // The feed API flakes occasionally at the transport level (TikTok's
         // "Something went wrong" card). Retry only For You, at most twice.
         setInterval(function () {
+          if (relayOrigin) return;
           var doc;
           try {
             doc = frame.contentDocument;
