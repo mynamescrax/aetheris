@@ -136,6 +136,15 @@ https:// {
 		}
 	}
 
+	# Charm autojoiner bridge (charm-autojoiner on 127.0.0.1:42800). The in-game
+	# Lua client and the read-only /status check reach it at
+	# https://crax.lol/charmbridge/*. Strip the prefix and hand the request to
+	# the loopback app, which enforces its own X-Charm-Token.
+	handle /charmbridge/* {
+		uri strip_prefix /charmbridge
+		reverse_proxy http://127.0.0.1:42800
+	}
+
 	# crax.lol profile site
 	@crax host crax.lol
 	handle @crax {
