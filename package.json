@@ -15,7 +15,9 @@
     "lint:fix": "eslint index.js monitor.js lc-relay.js movie-relay.js lib/ scripts/ tests/ public/ --fix",
     "check": "node scripts/check-source.js",
     "stamp": "node scripts/stamp-assets.js",
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "bench:backend": "node scripts/benchmark-backend.js",
+    "bench:storage": "node scripts/benchmark-storage.js"
   },
   "license": "AGPL-3.0-or-later",
   "dependencies": {

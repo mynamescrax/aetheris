@@ -5,8 +5,6 @@ import {
   existsSync,
   readdirSync,
   readlinkSync,
-  mkdirSync,
-  unlinkSync,
   renameSync,
 } from "node:fs";
 import { join, dirname } from "node:path";
@@ -35,10 +33,14 @@ import { createRateLimiter } from "./lib/rate-limit.js";
 import { downloadPublicImage, resolvePublicUrl } from "./lib/public-network.js";
 import { registerImageProxy } from "./lib/image-proxy.js";
 import { registerGameCatalogs } from "./lib/game-catalogs.js";
+import { prepareJson, sendJson } from "./lib/cached-response.js";
+import { createTmdbClient } from "./lib/tmdb-client.js";
 import { registerGameAssets } from "./lib/game-assets.js";
 import { rewriteAssetUrls } from "./lib/asset-urls.js";
 import { uniqueOnlineCount } from "./lib/online.js";
 import { createPresence } from "./lib/presence.js";
+import { messagesAfter, countUnread } from "./lib/chat-history.js";
+import { createJsonStore } from "./lib/json-store.js";
 import {
   createGroupStore,
   cleanGroupName,
@@ -160,69 +162,46 @@ function gettoken(req) {
 // --- per-user file database (database/<username>.json) ---
 
 const dbdir = join(process.cwd(), "database");
-if (!existsSync(dbdir)) mkdirSync(dbdir, { recursive: true });
-
-function userpath(username) {
-  return join(dbdir, safefilename(username) + ".json");
-}
+const users = await createJsonStore(dbdir);
 
 function readuser(username) {
-  try {
-    return JSON.parse(readFileSync(userpath(username), "utf8"));
-  } catch {
-    return null;
-  }
+  return users.read(safefilename(username));
 }
 
 // write-then-rename so a crash mid-write can't leave a truncated file
-function writeuser(data) {
-  const dest = userpath(data.username);
-  const tmp = `${dest}.${process.pid}.${Date.now()}.tmp`;
-  writeFileSync(tmp, JSON.stringify(data));
-  renameSync(tmp, dest);
+async function writeuser(data) {
+  await users.write(safefilename(data.username), data);
   indexuser(data);
 }
 
-function deleteuser(user) {
+async function deleteuser(user) {
   if (!user?.username) return;
   const lc = user.username.toLowerCase();
 
+  await users.remove(safefilename(user.username));
   usernames.delete(lc);
   if (user.deviceId && deviceindex.get(user.deviceId) === lc)
     deviceindex.delete(user.deviceId);
-
-  try {
-    unlinkSync(userpath(user.username));
-  } catch {
-    /* already gone */
-  }
 }
 
-function allusers() {
-  try {
-    return readdirSync(dbdir)
-      .filter((f) => f.endsWith(".json"))
-      .map((f) => {
-        try {
-          return JSON.parse(readFileSync(join(dbdir, f), "utf8"));
-        } catch {
-          return null;
-        }
-      })
-      .filter(Boolean);
-  } catch {
-    return [];
+async function* allusers() {
+  for (const key of await users.keys()) {
+    const user = await users.read(key);
+    if (user) yield user;
   }
 }
 
 const SESSION_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days
 const MAX_SESSIONS = 10;
 
-function finduser(token) {
+async function finduser(token) {
   const username = tokenlookup(token);
   if (!username) return null;
 
-  const user = readuser(username);
+  const user = await readuser(username);
+  // A concurrent logout/deletion may complete while the disk read is pending.
+  if (tokenlookup(token) !== username || deletingUsers.has(username))
+    return null;
   // raw-token keys only survive if the startup migration failed to write
   const session =
     user?.sessions?.[tokenkey(token)] ??
@@ -288,8 +267,19 @@ function withuserlock(lc, fn) {
 }
 
 function withuserlocks(a, b, fn) {
+  if (a === b) return withuserlock(a, fn);
   const [first, second] = a < b ? [a, b] : [b, a];
   return withuserlock(first, () => withuserlock(second, fn));
+}
+
+// Membership changes lock accounts first, then the group. Deletion marks the
+// account under its lock before visiting groups, so an async create/add cannot
+// publish a membership after that account has already been deleted.
+function withuserslocked(names, fn) {
+  const keys = [...new Set(names)].sort();
+  const next = (i) =>
+    i === keys.length ? fn() : withuserlock(keys[i], () => next(i + 1));
+  return next(0);
 }
 
 // --- in-memory indices (rebuilt on startup, kept in sync on writes) ---
@@ -320,12 +310,12 @@ function forgettoken(token) {
   if (islegacykey(token)) tokenindex.delete(token);
 }
 
-function rebuildindices() {
+async function rebuildindices() {
   tokenindex.clear();
   usernames.clear();
   deviceindex.clear();
   let migrated = 0;
-  for (const u of allusers()) {
+  for await (const u of allusers()) {
     indexuser(u);
     if (!u.sessions) continue;
 
@@ -340,7 +330,7 @@ function rebuildindices() {
     }
     if (changed) {
       try {
-        writeuser(u);
+        await writeuser(u);
       } catch (err) {
         // finduser's legacy fallback keeps the raw key working meanwhile
         console.error(`could not migrate sessions for ${u.username}:`, err);
@@ -356,7 +346,7 @@ function rebuildindices() {
       (migrated ? ` (${migrated} legacy sessions migrated)` : ""),
   );
 }
-rebuildindices();
+await rebuildindices();
 
 // --- play counts (gameplays.json), catalog ids only ---
 
@@ -695,8 +685,8 @@ registerGameCatalogs(fastify);
 registerGameAssets(fastify);
 
 // Returns { group, limit, windowMs, perAccount } for metered requests, or null.
-// Relay and image routes fetch upstream per request, and authenticated GETs do
-// blocking file I/O, so those are capped alongside the POST APIs.
+// Relay and image routes fetch upstream, and authenticated GETs read records,
+// so those are capped alongside the POST APIs.
 function ratelimitfor(method, path) {
   if (method === "OPTIONS") return null;
   if (
@@ -883,29 +873,38 @@ let countscache = null;
 let countsstale = 0;
 const CACHE_TTL = 10_000;
 
-fastify.get("/api/plays/top", (_req, reply) => {
+fastify.get("/api/plays/top", async (req, reply) => {
   const now = Date.now();
   if (!toppopular || now - topstale > CACHE_TTL) {
-    toppopular = Object.entries(loadplays())
-      .filter(([id]) => isgame(id))
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
-      .map(([id]) => id);
+    toppopular = prepareJson(
+      Object.entries(loadplays())
+        .filter(([id]) => isgame(id))
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([id]) => id),
+    );
     topstale = now;
   }
-  reply.send(toppopular);
+  return sendJson(
+    req, reply, await toppopular,
+    "public, max-age=10, stale-while-revalidate=30",
+  );
 });
 
-fastify.get("/api/plays/counts", (_req, reply) => {
+fastify.get("/api/plays/counts", async (req, reply) => {
   const now = Date.now();
   if (!countscache || now - countsstale > CACHE_TTL) {
-    countscache = {};
+    const counts = {};
     for (const [id, count] of Object.entries(loadplays())) {
-      if (isgame(id)) countscache[id] = count;
+      if (isgame(id)) counts[id] = count;
     }
+    countscache = prepareJson(counts);
     countsstale = now;
   }
-  reply.send(countscache);
+  return sendJson(
+    req, reply, await countscache,
+    "public, max-age=10, stale-while-revalidate=30",
+  );
 });
 
 // one bump per (fingerprint, game) per minute
@@ -1147,13 +1146,13 @@ poststats();
 setInterval(poststats, STATS_INTERVAL);
 
 // returns the user object or null (after sending an error response)
-function requireauth(req, reply) {
+async function requireauth(req, reply) {
   const token = gettoken(req);
   if (!token) {
     reply.code(401).send({ ok: false, error: "Not authenticated." });
     return null;
   }
-  const user = finduser(token);
+  const user = await finduser(token);
   if (!user) {
     reply.code(401).send({ ok: false, error: "Invalid or expired session." });
     return null;
@@ -1163,9 +1162,9 @@ function requireauth(req, reply) {
 
 // Removes the account and its conversations from the other side. Takes one
 // lock at a time (never nested) so withuserlocks() ordering stays deadlock-free.
-async function deleteaccount(lc) {
-  const victim = await withuserlock(lc, () => {
-    const user = readuser(lc);
+async function deleteaccount(lc, token) {
+  const victim = await withuserlock(lc, async () => {
+    const user = await finduser(token);
     if (!user || deletingUsers.has(lc)) return null;
     deletingUsers.add(lc);
     for (const key of Object.keys(user.sessions || {})) tokenindex.delete(key);
@@ -1175,12 +1174,12 @@ async function deleteaccount(lc) {
 
   try {
     for (const otherlower of Object.keys(victim.dms || {})) {
-      await withuserlock(otherlower, () => {
-        const other = readuser(otherlower);
+      await withuserlock(otherlower, async () => {
+        const other = await readuser(otherlower);
         if (other?.dms) {
           delete other.dms[lc];
           if (other.lastRead) delete other.lastRead[lc];
-          writeuser(other);
+          await writeuser(other);
         }
       });
     }
@@ -1188,12 +1187,12 @@ async function deleteaccount(lc) {
       await leavegroup(id, lc, "deleted their account");
     presence.forget(lc);
 
-    await withuserlock(lc, () => {
-      const fresh = readuser(lc);
+    await withuserlock(lc, async () => {
+      const fresh = await readuser(lc);
       if (!fresh) return;
       for (const key of Object.keys(fresh.sessions || {}))
         tokenindex.delete(key);
-      deleteuser(fresh);
+      await deleteuser(fresh);
     });
     return true;
   } finally {
@@ -1260,24 +1259,19 @@ fastify.post("/api/accounts/register", async (req, reply) => {
 
   const loweruser = username.toLowerCase();
 
-  const existinglc = deviceindex.get(deviceid);
-  if (existinglc) {
-    const existing = readuser(existinglc);
-    if (existing)
-      return reply.code(403).send({
-        ok: false,
-        error: `This device already has an account (${existing.username}). Log in or delete it first.`,
-      });
-    // stale index entry
-    deviceindex.delete(deviceid);
-  }
-
-  // re-check and create inside the locks so racing registrations can't both win
-  const result = await withuserlock("device:" + deviceid, () =>
-    withuserlock(loweruser, async () => {
+  // Stale-index cleanup also holds the device lock: an async read must not
+  // remove an index entry installed by a newer registration on the same device.
+  const result = await withuserlock("device:" + deviceid, async () => {
+    const existinglc = deviceindex.get(deviceid);
+    if (existinglc) {
+      const existing = await readuser(existinglc);
+      if (existing) return { deviceConflict: true, existing: existing.username };
+      if (deviceindex.get(deviceid) === existinglc) deviceindex.delete(deviceid);
+    }
+    return withuserlock(loweruser, async () => {
       if (deviceindex.has(deviceid)) return { deviceConflict: true };
       if (deletingUsers.has(loweruser)) return { conflict: true };
-      if (usernames.has(loweruser) || readuser(loweruser))
+      if (usernames.has(loweruser) || (await readuser(loweruser)))
         return { conflict: true };
 
       const user = {
@@ -1291,16 +1285,18 @@ fastify.post("/api/accounts/register", async (req, reply) => {
       };
       const token = maketoken();
       user.sessions[tokenkey(token)] = { ip, createdAt: Date.now() };
-      writeuser(user);
+      await writeuser(user);
       remembertoken(token, user.username);
       return { token };
-    }),
-  );
+    });
+  });
 
   if (result.deviceConflict)
     return reply.code(403).send({
       ok: false,
-      error: "This device already has an account. Log in or delete it first.",
+      error: result.existing
+        ? `This device already has an account (${result.existing}). Log in or delete it first.`
+        : "This device already has an account. Log in or delete it first.",
     });
   if (result.conflict)
     return reply
@@ -1365,7 +1361,7 @@ fastify.post("/api/accounts/login", async (req, reply) => {
   pair.count++;
 
   const user = await withuserlock(userlc, async () => {
-    const u = readuser(userlc);
+    const u = await readuser(userlc);
     if (!u || deletingUsers.has(userlc)) {
       // same cost as a wrong password
       await verifypw(password, DUMMY_HASH);
@@ -1379,7 +1375,7 @@ fastify.post("/api/accounts/login", async (req, reply) => {
     u.sessions[key] = { ip, createdAt: Date.now() };
     u.ip = ip;
     prunesessions(u, key);
-    writeuser(u);
+    await writeuser(u);
     remembertoken(token, u.username);
     return { user: u, token };
   });
@@ -1401,14 +1397,14 @@ fastify.post("/api/accounts/logout", async (req, reply) => {
 
   const lc = tokenlookup(token);
   if (lc) {
-    await withuserlock(lc, () => {
-      const user = readuser(lc);
+    await withuserlock(lc, async () => {
+      const user = await readuser(lc);
       if (user?.sessions) {
         const key = tokenkey(token);
         if (user.sessions[key] || user.sessions[token]) {
           delete user.sessions[key];
           delete user.sessions[token];
-          writeuser(user);
+          await writeuser(user);
         }
       }
     });
@@ -1419,16 +1415,17 @@ fastify.post("/api/accounts/logout", async (req, reply) => {
 });
 
 fastify.delete("/api/accounts/delete", async (req, reply) => {
-  const me = requireauth(req, reply);
+  const me = await requireauth(req, reply);
   if (!me) return;
-  await deleteaccount(me.username.toLowerCase());
+  if (!(await deleteaccount(me.username.toLowerCase(), gettoken(req))))
+    return reply.code(409).send({ ok: false, error: "The account or session is no longer available." });
   reply.send({ ok: true });
 });
 
 fastify.delete("/api/accounts/delete-all-mine", async (req, reply) => {
   // The device id alone is not proof of ownership (it is readable from a shared
   // browser and included in settings exports), so require a session too.
-  const me = requireauth(req, reply);
+  const me = await requireauth(req, reply);
   if (!me) return;
 
   const { deviceId: deviceid } = req.body || {};
@@ -1442,13 +1439,14 @@ fastify.delete("/api/accounts/delete-all-mine", async (req, reply) => {
       error: "This account was not created on that device.",
     });
 
-  await deleteaccount(me.username.toLowerCase());
+  if (!(await deleteaccount(me.username.toLowerCase(), gettoken(req))))
+    return reply.code(409).send({ ok: false, error: "The account or session is no longer available." });
   reply.send({ ok: true, deleted: 1 });
 });
 
-fastify.get("/api/accounts/me", (req, reply) => {
+fastify.get("/api/accounts/me", async (req, reply) => {
   reply.header("Cache-Control", "no-store");
-  const user = requireauth(req, reply);
+  const user = await requireauth(req, reply);
   if (!user) return;
   reply.send({
     ok: true, username: user.username, createdAt: user.createdAt,
@@ -1457,29 +1455,29 @@ fastify.get("/api/accounts/me", (req, reply) => {
   });
 });
 
-function revokeOtherSessions(user, token) {
+async function revokeOtherSessions(user, token) {
   const keep = user.sessions[tokenkey(token)] ? tokenkey(token) : token;
   const removed = Object.keys(user.sessions).filter(key => key !== keep);
   user.sessions = { [keep]: user.sessions[keep] };
-  writeuser(user);
+  await writeuser(user);
   for (const key of removed) tokenindex.delete(key);
 }
 
 fastify.post("/api/accounts/logout-others", async (req, reply) => {
   reply.header("Cache-Control", "no-store");
-  const me = requireauth(req, reply);
+  const me = await requireauth(req, reply);
   if (!me) return;
-  await withuserlock(me.username.toLowerCase(), () => {
-    const user = requireauth(req, reply);
+  await withuserlock(me.username.toLowerCase(), async () => {
+    const user = await requireauth(req, reply);
     if (!user) return;
-    revokeOtherSessions(user, gettoken(req));
+    await revokeOtherSessions(user, gettoken(req));
     reply.send({ ok: true, activeSessions: 1 });
   });
 });
 
 fastify.post("/api/accounts/password", async (req, reply) => {
   reply.header("Cache-Control", "no-store");
-  const me = requireauth(req, reply);
+  const me = await requireauth(req, reply);
   if (!me) return;
   const { currentPassword, newPassword } = req.body || {};
   if (typeof currentPassword !== "string" || !currentPassword || currentPassword.length > 128 ||
@@ -1489,18 +1487,18 @@ fastify.post("/api/accounts/password", async (req, reply) => {
     return reply.code(400).send({ ok: false, error: "Choose a different new password." });
   await withuserlock(me.username.toLowerCase(), async () => {
     // Authentication is checked again after waiting for concurrent account writes.
-    const user = requireauth(req, reply);
+    const user = await requireauth(req, reply);
     if (!user) return;
     if (!(await verifypw(currentPassword, user.passwordHash)))
       return reply.code(403).send({ ok: false, error: "Your current password is incorrect." });
     user.passwordHash = await hashpw(newPassword);
-    revokeOtherSessions(user, gettoken(req));
+    await revokeOtherSessions(user, gettoken(req));
     reply.send({ ok: true, activeSessions: 1 });
   });
 });
 
-fastify.get("/api/accounts/search", (req, reply) => {
-  const me = requireauth(req, reply);
+fastify.get("/api/accounts/search", async (req, reply) => {
+  const me = await requireauth(req, reply);
   if (!me) return;
 
   const q = String(req.query.q || "")
@@ -1531,7 +1529,7 @@ const DM_MAX = 500;
 
 // --- chat presence + group chat storage ---
 const presence = createPresence();
-const groups = createGroupStore(join(dbdir, "groups"));
+const groups = await createGroupStore(join(dbdir, "groups"));
 
 // any authenticated API request (chat polling, site.js heartbeat) counts
 function markpresence(req) {
@@ -1544,8 +1542,8 @@ function displayname(lc) {
   return usernames.get(lc) ?? lc;
 }
 
-fastify.get("/api/dm/:recipient", (req, reply) => {
-  const me = requireauth(req, reply);
+fastify.get("/api/dm/:recipient", async (req, reply) => {
+  const me = await requireauth(req, reply);
   if (!me) return;
 
   const recipientlower = req.params.recipient.toLowerCase();
@@ -1554,11 +1552,11 @@ fastify.get("/api/dm/:recipient", (req, reply) => {
 
   const msgs = (me.dms || {})[recipientlower] || [];
   const after = parseInt(req.query.after || "0", 10);
-  reply.send(after ? msgs.filter((m) => m.time > after) : msgs);
+  reply.send(after ? messagesAfter(msgs, after) : msgs);
 });
 
 fastify.post("/api/dm/:recipient", async (req, reply) => {
-  const me = requireauth(req, reply);
+  const me = await requireauth(req, reply);
   if (!me) return;
 
   const recipientlower = req.params.recipient.toLowerCase();
@@ -1580,15 +1578,16 @@ fastify.post("/api/dm/:recipient", async (req, reply) => {
   if (senderlower === recipientlower)
     return reply.code(400).send({ ok: false, error: "Cannot DM yourself." });
 
-  const delivered = await withuserlocks(senderlower, recipientlower, () => {
-    const sender = readuser(senderlower);
-    const recipient = readuser(recipientlower);
+  const delivered = await withuserlocks(senderlower, recipientlower, async () => {
+    const [sender, recipient] = await Promise.all([
+      finduser(gettoken(req)),
+      readuser(recipientlower),
+    ]);
     if (
       !sender ||
       !recipient ||
       deletingUsers.has(senderlower) ||
-      deletingUsers.has(recipientlower) ||
-      !finduser(gettoken(req))
+      deletingUsers.has(recipientlower)
     )
       return false;
     const sent = sender.dms?.[recipientlower];
@@ -1608,7 +1607,7 @@ fastify.post("/api/dm/:recipient", async (req, reply) => {
     if (sender.dms[recipientlower].length > DM_MAX) {
       sender.dms[recipientlower] = sender.dms[recipientlower].slice(-DM_MAX);
     }
-    writeuser(sender);
+    await writeuser(sender);
 
     recipient.dms ??= {};
     recipient.dms[senderlower] ??= [];
@@ -1616,7 +1615,7 @@ fastify.post("/api/dm/:recipient", async (req, reply) => {
     if (recipient.dms[senderlower].length > DM_MAX) {
       recipient.dms[senderlower] = recipient.dms[senderlower].slice(-DM_MAX);
     }
-    writeuser(recipient);
+    await writeuser(recipient);
     return true;
   });
 
@@ -1628,8 +1627,8 @@ fastify.post("/api/dm/:recipient", async (req, reply) => {
   reply.send({ ok: true });
 });
 
-fastify.get("/api/dm-inbox", (req, reply) => {
-  const me = requireauth(req, reply);
+fastify.get("/api/dm-inbox", async (req, reply) => {
+  const me = await requireauth(req, reply);
   if (!me) return;
 
   const mylc = me.username.toLowerCase();
@@ -1640,9 +1639,7 @@ fastify.get("/api/dm-inbox", (req, reply) => {
     if (!msgs.length) continue;
     const last = msgs[msgs.length - 1];
     const readts = lastread[otherlower] || 0;
-    const unread = msgs.filter(
-      (m) => m.from.toLowerCase() === otherlower && m.time > readts,
-    ).length;
+    const unread = countUnread(msgs, readts, (m) => m.from.toLowerCase() === otherlower);
     conversations.push({
       with: usernames.get(otherlower) ?? otherlower,
       lastMessage: last.message,
@@ -1652,8 +1649,10 @@ fastify.get("/api/dm-inbox", (req, reply) => {
     });
   }
 
-  for (const id of groups.groupsOf(mylc)) {
-    const group = groupformember(id, mylc);
+  const inboxGroups = await Promise.all(
+    groups.groupsOf(mylc).map((id) => groupformember(id, mylc)),
+  );
+  for (const group of inboxGroups) {
     if (!group) continue;
     const last = group.messages.at(-1);
     const readts = group.lastRead?.[mylc] || 0;
@@ -1668,9 +1667,7 @@ fastify.get("/api/dm-inbox", (req, reply) => {
         ? displayname(last.from) + (last.system ? " " : ": ") + last.message
         : "",
       lastTime: last?.time || group.createdAt || 0,
-      unread: group.messages.filter(
-        (m) => !m.system && m.from !== mylc && m.time > readts,
-      ).length,
+      unread: countUnread(group.messages, readts, (m) => !m.system && m.from !== mylc),
     });
   }
 
@@ -1679,12 +1676,12 @@ fastify.get("/api/dm-inbox", (req, reply) => {
 });
 
 fastify.post("/api/dm-inbox/read/:other", async (req, reply) => {
-  const me = requireauth(req, reply);
+  const me = await requireauth(req, reply);
   if (!me) return;
 
   const lc = me.username.toLowerCase();
-  await withuserlock(lc, () => {
-    const fresh = readuser(lc);
+  await withuserlock(lc, async () => {
+    const fresh = await requireauth(req, reply);
     if (!fresh) return;
     const other = req.params.other.toLowerCase();
     if (!isvalidusername(other)) return;
@@ -1701,16 +1698,17 @@ fastify.post("/api/dm-inbox/read/:other", async (req, reply) => {
     const next = Math.max(fresh.lastRead[other] || 0, through);
     if (next === fresh.lastRead[other]) return;
     fresh.lastRead[other] = next;
-    writeuser(fresh);
+    await writeuser(fresh);
   });
+  if (reply.sent) return;
   reply.send({ ok: true });
 });
 
 // --- presence: "is the person I'm chatting with online?" ---
 
 // GET /api/presence?users=a,b -> { users: { a: { online, lastSeen } } }
-fastify.get("/api/presence", (req, reply) => {
-  if (!requireauth(req, reply)) return;
+fastify.get("/api/presence", async (req, reply) => {
+  if (!(await requireauth(req, reply))) return;
   const users = {};
   for (const name of String(req.query.users || "")
     .split(",")
@@ -1723,8 +1721,8 @@ fastify.get("/api/presence", (req, reply) => {
 });
 
 // heartbeat from site.js; the onRequest hook records it
-fastify.post("/api/presence", (req, reply) => {
-  if (!requireauth(req, reply)) return;
+fastify.post("/api/presence", async (req, reply) => {
+  if (!(await requireauth(req, reply))) return;
   reply.send({ ok: true });
 });
 
@@ -1735,8 +1733,8 @@ function withgrouplock(id, fn) {
   return withuserlock(`group:${id}`, fn);
 }
 
-function groupformember(id, lc) {
-  const group = groups.read(id);
+async function groupformember(id, lc) {
+  const group = await groups.read(id);
   return group && group.members.includes(lc) ? group : null;
 }
 
@@ -1761,25 +1759,29 @@ function defaultgroupname(members) {
 }
 
 async function leavegroup(id, lc, note = "left the group") {
-  return withgrouplock(id, () => {
-    groups.unindex(id, lc);
-    const group = groups.read(id);
-    if (!group || !group.members.includes(lc)) return false;
+  return withgrouplock(id, async () => {
+    const group = await groups.read(id);
+    if (!group || !group.members.includes(lc)) {
+      groups.unindex(id, lc);
+      return false;
+    }
     group.members = group.members.filter((m) => m !== lc);
     if (group.lastRead) delete group.lastRead[lc];
     if (!group.members.length) {
-      groups.remove(id);
+      await groups.remove(id);
+      groups.unindex(id, lc);
       return true;
     }
     if (group.owner === lc) group.owner = group.members[0];
     pushgroupmessage(group, { from: lc, message: note, system: true });
-    groups.write(group);
+    await groups.write(group);
+    groups.unindex(id, lc);
     return true;
   });
 }
 
 fastify.post("/api/groups", async (req, reply) => {
-  const me = requireauth(req, reply);
+  const me = await requireauth(req, reply);
   if (!me) return;
   const mylc = me.username.toLowerCase();
   const { name, members } = req.body || {};
@@ -1805,47 +1807,56 @@ fastify.post("/api/groups", async (req, reply) => {
       ok: false,
       error: `Groups can have up to ${GROUP_MAX_MEMBERS} people.`,
     });
-  if (groups.groupsOf(mylc).length >= GROUP_MAX_PER_USER)
-    return reply.code(400).send({
-      ok: false,
-      error: "You're in too many groups. Leave one first.",
-    });
-
   const all = [mylc, ...others];
-  const group = {
-    id: groups.newId(),
-    name: cleanGroupName(name) || defaultgroupname(all),
-    owner: mylc,
-    members: all,
-    createdAt: Date.now(),
-    lastRead: {},
-    messages: [],
-  };
-  group.lastRead[mylc] = pushgroupmessage(group, {
-    from: mylc,
-    message: "created the group",
-    system: true,
+  return withuserslocked(all, async () => {
+    if (!(await requireauth(req, reply))) return;
+    if (all.some((lc) => deletingUsers.has(lc) || !usernames.has(lc)))
+      return reply.code(404).send({
+        ok: false,
+        error: "One of those users doesn't exist.",
+      });
+    if (all.some((lc) => groups.groupsOf(lc).length >= GROUP_MAX_PER_USER))
+      return reply.code(400).send({
+        ok: false,
+        error: "One of those users is in too many groups. Leave one first.",
+      });
+    const group = {
+      id: await groups.newId(),
+      name: cleanGroupName(name) || defaultgroupname(all),
+      owner: mylc,
+      members: all,
+      createdAt: Date.now(),
+      lastRead: {},
+      messages: [],
+    };
+    group.lastRead[mylc] = pushgroupmessage(group, {
+      from: mylc,
+      message: "created the group",
+      system: true,
+    });
+    return withgrouplock(group.id, async () => {
+      await groups.write(group);
+      for (const lc of all) groups.index(group.id, lc);
+      reply.send({ ok: true, id: group.id, name: group.name });
+    });
   });
-  await withgrouplock(group.id, () => groups.write(group));
-  for (const lc of all) groups.index(group.id, lc);
-  reply.send({ ok: true, id: group.id, name: group.name });
 });
 
-fastify.get("/api/groups/:id", (req, reply) => {
-  const me = requireauth(req, reply);
+fastify.get("/api/groups/:id", async (req, reply) => {
+  const me = await requireauth(req, reply);
   if (!me) return;
-  const group = groupformember(req.params.id, me.username.toLowerCase());
+  const group = await groupformember(req.params.id, me.username.toLowerCase());
   if (!group) return groupnotfound(reply);
   const after = parseInt(req.query.after || "0", 10);
   reply.send(
-    after ? group.messages.filter((m) => m.time > after) : group.messages,
+    after ? messagesAfter(group.messages, after) : group.messages,
   );
 });
 
-fastify.get("/api/groups/:id/info", (req, reply) => {
-  const me = requireauth(req, reply);
+fastify.get("/api/groups/:id/info", async (req, reply) => {
+  const me = await requireauth(req, reply);
   if (!me) return;
-  const group = groupformember(req.params.id, me.username.toLowerCase());
+  const group = await groupformember(req.params.id, me.username.toLowerCase());
   if (!group) return groupnotfound(reply);
   reply.send({
     ok: true,
@@ -1860,7 +1871,7 @@ fastify.get("/api/groups/:id/info", (req, reply) => {
 });
 
 fastify.post("/api/groups/:id", async (req, reply) => {
-  const me = requireauth(req, reply);
+  const me = await requireauth(req, reply);
   if (!me) return;
   const { id } = req.params;
   const { message } = req.body || {};
@@ -1875,48 +1886,53 @@ fastify.post("/api/groups/:id", async (req, reply) => {
   if (!GROUP_ID.test(id)) return groupnotfound(reply);
 
   const mylc = me.username.toLowerCase();
-  const sent = await withgrouplock(id, () => {
-    const group = groupformember(id, mylc);
-    if (!group || deletingUsers.has(mylc) || !finduser(gettoken(req)))
-      return false;
-    const time = pushgroupmessage(group, {
-      from: mylc,
-      message: message.trim(),
-    });
-    group.lastRead ??= {};
-    group.lastRead[mylc] = time;
-    groups.write(group);
-    return true;
-  });
+  const sent = await withuserlock(mylc, () =>
+    withgrouplock(id, async () => {
+      const group = await groupformember(id, mylc);
+      if (!group || !(await finduser(gettoken(req)))) return false;
+      const time = pushgroupmessage(group, {
+        from: mylc,
+        message: message.trim(),
+      });
+      group.lastRead ??= {};
+      group.lastRead[mylc] = time;
+      await groups.write(group);
+      return true;
+    }),
+  );
   if (!sent) return groupnotfound(reply);
   reply.send({ ok: true });
 });
 
 fastify.post("/api/groups/:id/read", async (req, reply) => {
-  const me = requireauth(req, reply);
+  const me = await requireauth(req, reply);
   if (!me) return;
   const { id } = req.params;
   if (!GROUP_ID.test(id)) return groupnotfound(reply);
   const mylc = me.username.toLowerCase();
-  await withgrouplock(id, () => {
-    const group = groupformember(id, mylc);
-    if (!group) return;
-    const latest = group.messages.at(-1)?.time || 0;
-    const requested = Number(req.body?.through);
-    const through =
-      Number.isFinite(requested) && requested >= 0
-        ? Math.min(requested, latest)
-        : latest;
-    group.lastRead ??= {};
-    if (through <= (group.lastRead[mylc] || 0)) return;
-    group.lastRead[mylc] = through;
-    groups.write(group);
-  });
+  await withuserlock(mylc, () =>
+    withgrouplock(id, async () => {
+      if (!(await requireauth(req, reply))) return;
+      const group = await groupformember(id, mylc);
+      if (!group) return;
+      const latest = group.messages.at(-1)?.time || 0;
+      const requested = Number(req.body?.through);
+      const through =
+        Number.isFinite(requested) && requested >= 0
+          ? Math.min(requested, latest)
+          : latest;
+      group.lastRead ??= {};
+      if (through <= (group.lastRead[mylc] || 0)) return;
+      group.lastRead[mylc] = through;
+      await groups.write(group);
+    }),
+  );
+  if (reply.sent) return;
   reply.send({ ok: true });
 });
 
 fastify.post("/api/groups/:id/members", async (req, reply) => {
-  const me = requireauth(req, reply);
+  const me = await requireauth(req, reply);
   if (!me) return;
   const { id } = req.params;
   if (!GROUP_ID.test(id)) return groupnotfound(reply);
@@ -1927,37 +1943,46 @@ fastify.post("/api/groups/:id/members", async (req, reply) => {
     return reply.code(404).send({ ok: false, error: "User not found." });
 
   const mylc = me.username.toLowerCase();
-  const error = await withgrouplock(id, () => {
-    const group = groupformember(id, mylc);
-    if (!group) return "missing";
-    if (group.members.includes(lc))
-      return "That person is already in the group.";
-    if (group.members.length >= GROUP_MAX_MEMBERS)
-      return `Groups can have up to ${GROUP_MAX_MEMBERS} people.`;
-    if (groups.groupsOf(lc).length >= GROUP_MAX_PER_USER)
-      return "That person is in too many groups.";
-    group.members.push(lc);
-    pushgroupmessage(group, {
-      from: mylc,
-      message: `added ${displayname(lc)}`,
-      system: true,
-    });
-    groups.write(group);
-    groups.index(id, lc);
-    return null;
-  });
+  const error = await withuserslocked([mylc, lc], () =>
+    withgrouplock(id, async () => {
+      if (!(await requireauth(req, reply))) return;
+      if (deletingUsers.has(lc) || !usernames.has(lc)) return "missing";
+      const group = await groupformember(id, mylc);
+      if (!group) return "missing";
+      if (group.members.includes(lc))
+        return "That person is already in the group.";
+      if (group.members.length >= GROUP_MAX_MEMBERS)
+        return `Groups can have up to ${GROUP_MAX_MEMBERS} people.`;
+      if (groups.groupsOf(lc).length >= GROUP_MAX_PER_USER)
+        return "That person is in too many groups.";
+      group.members.push(lc);
+      pushgroupmessage(group, {
+        from: mylc,
+        message: `added ${displayname(lc)}`,
+        system: true,
+      });
+      await groups.write(group);
+      groups.index(id, lc);
+      return null;
+    }),
+  );
+  if (reply.sent) return;
   if (error === "missing") return groupnotfound(reply);
   if (error) return reply.code(400).send({ ok: false, error });
   reply.send({ ok: true });
 });
 
 fastify.post("/api/groups/:id/leave", async (req, reply) => {
-  const me = requireauth(req, reply);
+  const me = await requireauth(req, reply);
   if (!me) return;
   const { id } = req.params;
   if (!GROUP_ID.test(id)) return groupnotfound(reply);
-  if (!(await leavegroup(id, me.username.toLowerCase())))
-    return groupnotfound(reply);
+  const left = await withuserlock(me.username.toLowerCase(), async () => {
+    if (!(await requireauth(req, reply))) return false;
+    return leavegroup(id, me.username.toLowerCase());
+  });
+  if (reply.sent) return;
+  if (!left) return groupnotfound(reply);
   reply.send({ ok: true });
 });
 
@@ -2184,14 +2209,14 @@ async function resolveAiModel(requested, kind) {
 }
 
 // Sends the error and returns false when AI is unavailable to this request.
-function aiallowed(req, reply) {
+async function aiallowed(req, reply) {
   if (!CRAX_GPT_KEY) {
     reply
       .code(503)
       .send({ ok: false, error: "AI is not configured on this server." });
     return false;
   }
-  if (process.env.AI_REQUIRE_LOGIN === "true" && !requireauth(req, reply))
+  if (process.env.AI_REQUIRE_LOGIN === "true" && !(await requireauth(req, reply)))
     return false;
   return true;
 }
@@ -2207,7 +2232,7 @@ fastify.post(
   "/api/ai/chat",
   { bodyLimit: 20 * 1024 * 1024 },
   async (req, reply) => {
-    if (!aiallowed(req, reply)) return;
+    if (!(await aiallowed(req, reply))) return;
     const clientip = getclientip(req);
     if (!acquireAiSlot(clientip))
       return reply.code(429).send({
@@ -2320,7 +2345,7 @@ fastify.post(
 );
 
 fastify.get("/api/ai/models", async (req, reply) => {
-  if (!aiallowed(req, reply)) return;
+  if (!(await aiallowed(req, reply))) return;
   try {
     const catalog = await aiModelCatalog();
     reply.send({
@@ -2345,7 +2370,7 @@ fastify.post(
   "/api/ai/images",
   { bodyLimit: 24 * 1024 * 1024 },
   async (req, reply) => {
-    if (!aiallowed(req, reply)) return;
+    if (!(await aiallowed(req, reply))) return;
     const clientip = getclientip(req);
     if (!acquireAiSlot(clientip))
       return reply.code(429).send({
@@ -2480,6 +2505,7 @@ const TMDB_KEY = process.env.TMDB_API_KEY || "";
 const TMDB_BASE = (
   process.env.TMDB_BASE_URL || "https://api.themoviedb.org/3"
 ).replace(/\/+$/, "");
+const tmdb = createTmdbClient();
 
 if (!TMDB_KEY) {
   console.warn(
@@ -2513,23 +2539,20 @@ fastify.get("/api/tmdb/*", async (req, reply) => {
   url.search = params.toString();
 
   try {
-    const res = await fetch(url, {
-      headers: { accept: "application/json" },
-      signal: AbortSignal.timeout(15000),
-    });
-    const text = await res.text();
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      data = { ok: false, error: text.slice(0, 500) };
-    }
+    const res = await tmdb.request(url, url.pathname.slice(basepath.length + 1));
+    const data = res.data;
     if (isupstreamfault(res.status))
       return sendUpstreamError(reply, res, data, "tmdb", "Movies search");
+    if (res.prepared) {
+      reply.header("X-TMDB-Cache", res.cache);
+      return sendJson(req, reply, res.prepared, "public, max-age=300");
+    }
     // don't let browsers cache upstream errors such as 404s
-    if (res.ok) reply.header("Cache-Control", "public, max-age=300");
+    // or responses that depend on a session/query outside the public allowlist.
     return reply.code(res.status).send(data);
   } catch (e) {
+    if (e.code === "TMDB_BUSY")
+      return reply.header("Retry-After", "1").code(503).send({ ok: false, error: "Movies search is busy. Please try again shortly." });
     sendUpstreamFailure(reply, e, "tmdb", "TMDB");
   }
 });

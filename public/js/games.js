@@ -6,6 +6,9 @@
   var byId = Object.create(null);
   var favorites = [];
   var favoriteMatches = new WeakMap();
+  var searchIndex = new WeakMap();
+  var rendered = new WeakMap();
+  var filterKey = null;
   var limit = PAGE_SIZE;
   var sortByPlays = false;
   var playCounts = null;
@@ -92,9 +95,7 @@
     img.decoding = "async";
     img.referrerPolicy = "no-referrer";
     img.alt = title;
-    img.src = Aetheris.imageUrl(
-      game.image || game.img || Aetheris.placeholder,
-    );
+    img.src = Aetheris.imageUrl(game.image || game.img || Aetheris.placeholder);
     img.onerror = function () {
       img.onerror = null;
       img.src = Aetheris.placeholder;
@@ -104,6 +105,51 @@
     card.title = label.textContent;
     card.append(img, label);
     return card;
+  }
+
+  // Retain existing cards on pagination and provider updates. This preserves
+  // decoded artwork and keyboard focus instead of rebuilding the entire grid.
+  function syncGrid(grid, games) {
+    if (!grid) return;
+    var previous = rendered.get(grid) || [];
+    if (
+      previous.length === games.length &&
+      games.every(function (game, i) {
+        return previous[i].game === game;
+      }) &&
+      rendered.has(grid)
+    )
+      return;
+    var appendOnly =
+      previous.length <= games.length &&
+      previous.every(function (entry, i) {
+        return entry.game === games[i];
+      });
+    var next;
+    if (appendOnly) {
+      // Pagination only allocates records and cards for the new page.
+      next = previous.concat(
+        games.slice(previous.length).map(function (game) {
+          return { game: game, node: makeCard(game) };
+        }),
+      );
+    } else {
+      var existing = new Map(
+        previous.map(function (entry) {
+          return [entry.game, entry.node];
+        }),
+      );
+      next = games.map(function (game) {
+        return { game: game, node: existing.get(game) || makeCard(game) };
+      });
+    }
+    var fragment = document.createDocumentFragment();
+    next.slice(appendOnly ? previous.length : 0).forEach(function (entry) {
+      fragment.appendChild(entry.node);
+    });
+    if (!appendOnly || !rendered.has(grid)) grid.replaceChildren();
+    grid.appendChild(fragment);
+    rendered.set(grid, next);
   }
 
   // A game can be favorited under its primary id or any provider's own id.
@@ -121,13 +167,15 @@
   function renderPopular() {
     if (!popular) return;
     var show = !search.value.trim() && !activeTags.size;
-    popular.replaceChildren();
-    if (show)
-      popularIds.forEach(function (id) {
-        if (byId[id]) popular.appendChild(makeCard(byId[id]));
-      });
-    document.getElementById("popular-label").style.display = popular.children
-      .length
+    var games = show
+      ? popularIds
+          .map(function (id) {
+            return byId[id];
+          })
+          .filter(Boolean)
+      : [];
+    syncGrid(popular, games);
+    document.getElementById("popular-label").style.display = games.length
       ? "block"
       : "none";
   }
@@ -145,18 +193,8 @@
       0,
       Math.max(0, limit - visibleFavorites.length),
     );
-    favGrid.replaceChildren();
-    main.replaceChildren();
-    var favFrag = document.createDocumentFragment();
-    var mainFrag = document.createDocumentFragment();
-    visibleFavorites.forEach(function (game) {
-      favFrag.appendChild(makeCard(game));
-    });
-    visibleOthers.forEach(function (game) {
-      mainFrag.appendChild(makeCard(game));
-    });
-    favGrid.appendChild(favFrag);
-    main.appendChild(mainFrag);
+    syncGrid(favGrid, visibleFavorites);
+    syncGrid(main, visibleOthers);
     document.getElementById("favorites-label").style.display =
       visibleFavorites.length ? "block" : "none";
     var visible = visibleFavorites.length + visibleOthers.length;
@@ -184,8 +222,7 @@
       !(window.gamesLoadErrors && window.gamesLoadErrors.length) &&
       !!catalog.length;
     more.hidden = visible >= filtered.length;
-    if (clearBtn)
-      clearBtn.hidden = !(catalog.length && !filtered.length);
+    if (clearBtn) clearBtn.hidden = !(catalog.length && !filtered.length);
     random.disabled = !filtered.length;
     renderPopular();
     saveState();
@@ -195,22 +232,19 @@
     if (reset !== false) limit = PAGE_SIZE;
     var query = search.value.trim().toLowerCase();
     var tags = Array.from(activeTags);
+    var key = JSON.stringify([query, tags, sortByPlays]);
+    if (key === filterKey) {
+      if (redraw !== false) render();
+      return;
+    }
+    filterKey = key;
     filtered = catalog.filter(function (game) {
+      var indexed = searchIndex.get(game);
       return (
-        (!query ||
-          String(game.title || game.name || "")
-            .toLowerCase()
-            .includes(query)) &&
+        (!query || indexed.title.includes(query)) &&
         (!tags.length ||
           tags.some(function (tag) {
-            return (
-              Array.isArray(game.tags) &&
-              game.tags.some(function (value) {
-                return (
-                  typeof value === "string" && value.toLowerCase() === tag
-                );
-              })
-            );
+            return indexed.tags.has(tag);
           }))
       );
     });
@@ -223,6 +257,27 @@
       });
     }
     if (redraw !== false) render();
+  }
+
+  function indexCatalog() {
+    filterKey = null;
+    searchIndex = new WeakMap();
+    byId = Object.create(null);
+    catalog.forEach(function (game) {
+      byId[game.id] = game;
+      searchIndex.set(game, {
+        title: String(game.title || game.name || "").toLowerCase(),
+        tags: new Set(
+          (Array.isArray(game.tags) ? game.tags : [])
+            .filter(function (tag) {
+              return typeof tag === "string";
+            })
+            .map(function (tag) {
+              return tag.trim().toLowerCase();
+            }),
+        ),
+      });
+    });
   }
 
   function renderTags() {
@@ -276,24 +331,21 @@
     catalog = Array.isArray(window.games) ? window.games : [];
     favorites = Aetheris.readList("favoritedGames");
     favoriteMatches = new WeakMap();
-    byId = Object.create(null);
-    catalog.forEach(function (game) {
-      byId[game.id] = game;
-    });
+    indexCatalog();
     restoreState();
     renderTags();
     if (sortByPlays && !playCounts) {
       fetchPlayCounts().then(
         function () {
-          applyFilters();
+          applyFilters(false);
         },
         function () {
-          applyFilters();
+          applyFilters(false);
         },
       );
-      applyFilters();
+      applyFilters(false);
     } else {
-      applyFilters();
+      applyFilters(false);
     }
     if (restoredScroll !== null) {
       requestAnimationFrame(function () {
@@ -308,6 +360,7 @@
     var response = await fetch("/api/plays/counts");
     if (!response.ok) throw new Error("Could not load play counts.");
     playCounts = await response.json();
+    filterKey = null;
   }
 
   async function loadPopular() {
@@ -323,7 +376,7 @@
   var searchTimer;
   search.addEventListener("input", function () {
     clearTimeout(searchTimer);
-    searchTimer = setTimeout(applyFilters, 120);
+    searchTimer = setTimeout(applyFilters, 80);
   });
   more.addEventListener("click", function () {
     limit += PAGE_SIZE;
@@ -416,6 +469,7 @@
     if (event.key === "favoritedGames") {
       favorites = Aetheris.readList("favoritedGames");
       favoriteMatches = new WeakMap();
+      filterKey = null;
       applyFilters(false);
     }
   });
@@ -445,10 +499,7 @@
   function refresh() {
     catalog = Array.isArray(window.games) ? window.games : [];
     favoriteMatches = new WeakMap();
-    byId = Object.create(null);
-    catalog.forEach(function (game) {
-      byId[game.id] = game;
-    });
+    indexCatalog();
     renderTags();
     applyFilters(false);
   }

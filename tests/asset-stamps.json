@@ -4,7 +4,7 @@
     "hash": "9b7d587e77725d97"
   },
   "css/cards.css": {
-    "stamp": "20260907.1",
+    "stamp": "20261115.2",
     "hash": "6498489c18adf80a"
   },
   "css/chat-account.css": {
@@ -20,7 +20,7 @@
     "hash": "236ab19ec1c1aefb"
   },
   "css/games.css": {
-    "stamp": "20261105.2",
+    "stamp": "20261115.4",
     "hash": "4d56ca6543037fa8"
   },
   "css/load.css": {
@@ -48,7 +48,7 @@
     "hash": "6ab5d58f6274e886"
   },
   "css/usability.css": {
-    "stamp": "20261103.3",
+    "stamp": "20261115.2",
     "hash": "2d615dd6252a5940"
   },
   "js/ad-spoof.js": {
@@ -84,8 +84,8 @@
     "hash": "f463fb597693bd41"
   },
   "js/games.js": {
-    "stamp": "20261106.2",
-    "hash": "f2a97ccdc634e337"
+    "stamp": "20261115.3",
+    "hash": "26bcbe9f8fa1b24c"
   },
   "js/load.js": {
     "stamp": "20261110.1",
@@ -124,8 +124,8 @@
     "hash": "316d47c840787b14"
   },
   "js/site.js": {
-    "stamp": "20261110.1",
-    "hash": "ee442f511914cdea"
+    "stamp": "20261115.1",
+    "hash": "4b54676ec6a07c4b"
   },
   "js/theme.js": {
     "stamp": "20261101.1",

@@ -5,6 +5,7 @@ import {
   mkdtempSync,
   mkdirSync,
   readFileSync,
+  readdirSync,
   writeFileSync,
   existsSync,
   rmSync,
@@ -19,6 +20,7 @@ import vm from "node:vm";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 let child, base, runtime, provider, alice, bob, legacyToken;
+let metadataRequests = 0;
 const device = () => randomBytes(32).toString("hex");
 const headers = (token) => ({
   "Content-Type": "application/json",
@@ -28,10 +30,10 @@ async function api(path, options = {}) {
   const res = await fetch(base + path, options);
   return { status: res.status, headers: res.headers, data: await res.json() };
 }
-async function register(name, id = device()) {
+async function register(name, id = device(), ip) {
   const result = await api("/api/accounts/register", {
     method: "POST",
-    headers: headers(),
+    headers: { ...headers(), ...(ip ? { "X-Forwarded-For": ip } : {}) },
     body: JSON.stringify({
       username: name,
       password: "local-test-password",
@@ -44,6 +46,13 @@ async function register(name, id = device()) {
 before(async () => {
   runtime = mkdtempSync(join(tmpdir(), "aetheris-test-"));
   provider = createServer((req, res) => {
+    if (req.url.startsWith("/3/trending/all/week")) {
+      metadataRequests++;
+      res.setHeader("content-type", "application/json");
+      return setTimeout(() => res.end(JSON.stringify({
+        results: Array.from({ length: 100 }, (_, id) => ({ id, title: "A fixture movie" })),
+      })), 25);
+    }
     if (req.url === "/v1/models") {
       res.setHeader("content-type", "application/json");
       return res.end(
@@ -404,6 +413,26 @@ test("TMDB passthrough injects the server key and forwards queries", async () =>
     res.data.seen,
     "/3/search/test?query=hello&page=2&api_key=local-test-only",
   );
+});
+
+test("movie metadata is coalesced, compressed and revalidated through the real API", async () => {
+  const path = "/api/tmdb/trending/all/week?language=en&page=1";
+  const responses = await Promise.all(Array.from({ length: 20 }, () => fetch(base + path, {
+    headers: { "accept-encoding": "br" },
+  })));
+  assert.equal(metadataRequests, 1);
+  for (const response of responses) {
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("content-encoding"), "br");
+    assert.match(response.headers.get("cache-control"), /public, max-age=300/);
+    assert.equal((await response.json()).results.length, 100);
+  }
+  const etag = responses[0].headers.get("etag");
+  const repeat = await fetch(base + path, { headers: { "if-none-match": etag } });
+  assert.equal(repeat.status, 304);
+  assert.equal(repeat.headers.get("x-tmdb-cache"), "hit");
+  assert.equal(await repeat.text(), "");
+  assert.equal(metadataRequests, 1);
 });
 
 test("AI login option, model defaults, and streaming work with a local provider fixture", async () => {
@@ -1235,4 +1264,85 @@ test("stamped css/js are cached for a year, everything else briefly", async () =
   const [status, missing] = await cache("/js/no-such-file.js?v=1");
   assert.equal(status, 404);
   assert.notEqual(missing, year);
+});
+
+test("async account writes preserve sessions while DMs and authentication run concurrently", { timeout: 10000 }, async () => {
+  const [a, b, c] = await Promise.all(["AsyncAccountA", "AsyncAccountB", "AsyncAccountC"].map((name) => register(name, device(), "198.51.100.80")));
+  for (const account of [a, b, c]) assert.equal(account.status, 200);
+  const signins = Array.from({ length: 4 }, () => api("/api/accounts/login", {
+    method: "POST", headers: { ...headers(), "X-Forwarded-For": "198.51.100.80" },
+    body: JSON.stringify({ username: "AsyncAccountA", password: "local-test-password" }),
+  }));
+  const sends = Array.from({ length: 12 }, (_, i) => api("/api/dm/" + (i % 2 ? "AsyncAccountB" : "AsyncAccountC"), {
+    method: "POST", headers: headers(a.data.token), body: JSON.stringify({ message: `concurrent-${i}` }),
+  }));
+  const polls = Array.from({ length: 12 }, () => api("/api/accounts/me", { headers: headers(a.data.token) }));
+  const results = await Promise.all([...signins, ...sends, ...polls]);
+  for (const result of results) assert.equal(result.status, 200, JSON.stringify(result.data));
+  const record = JSON.parse(readFileSync(join(runtime, "database", "asyncaccounta.json"), "utf8"));
+  assert.equal(Object.keys(record.sessions).length, 5);
+  assert.equal(record.dms.asyncaccountb.length, 6);
+  assert.equal(record.dms.asyncaccountc.length, 6);
+  for (const account of [b, c]) {
+    const thread = await api("/api/dm/AsyncAccountA", { headers: headers(account.data.token) });
+    assert.equal(thread.data.length, 6);
+  }
+  assert.equal((await api("/api/accounts/logout-others", { method: "POST", headers: headers(a.data.token), body: "{}" })).status, 200);
+  for (const result of results.slice(0, 4)) {
+    assert.equal((await api("/api/accounts/me", { headers: headers(result.data.token) })).status, 401);
+  }
+  assert.equal(readdirSync(join(runtime, "database")).some((name) => name.endsWith(".tmp")), false);
+});
+
+test("async stale-device cleanup still permits only one replacement registration", async () => {
+  const fingerprint = device();
+  const ip = "198.51.100.82";
+  const original = await register("AsyncStaleDevice", fingerprint, ip);
+  assert.equal(original.status, 200);
+  rmSync(join(runtime, "database", "asyncstaledevice.json"));
+  const replacements = await Promise.all([
+    register("AsyncReplacementA", fingerprint, ip),
+    register("AsyncReplacementB", fingerprint, ip),
+  ]);
+  assert.deepEqual(replacements.map((result) => result.status).sort(), [200, 403]);
+  const winner = replacements.find((result) => result.status === 200);
+  const me = await api("/api/accounts/me", { headers: headers(winner.data.token) });
+  assert.equal(me.status, 200);
+  assert.equal(me.data.username, winner.data.username);
+});
+
+test("async group writes retain concurrent messages and cannot resurrect a deleted member", { timeout: 10000 }, async () => {
+  const [a, b, victim] = await Promise.all(["AsyncGroupA", "AsyncGroupB", "AsyncGroupGone"].map((name) => register(name, device(), "198.51.100.81")));
+  for (const account of [a, b, victim]) assert.equal(account.status, 200);
+  const post = (who, path, body) => api(path, { method: "POST", headers: headers(who.data.token), body: JSON.stringify(body) });
+  const created = await post(a, "/api/groups", { members: ["AsyncGroupB"] });
+  assert.equal(created.status, 200);
+  const path = "/api/groups/" + created.data.id;
+  assert.equal((await post(a, path + "/members", { username: "AsyncGroupA" })).status, 400);
+  const sends = Array.from({ length: 16 }, (_, i) => post(i % 2 ? a : b, path, { message: `group-${i}` }));
+  const polls = Array.from({ length: 8 }, () => api("/api/dm-inbox", { headers: headers(b.data.token) }));
+  for (const result of await Promise.all([...sends, ...polls])) assert.equal(result.status, 200, JSON.stringify(result.data));
+  const messages = (await api(path, { headers: headers(b.data.token) })).data;
+  assert.equal(messages.length, 17);
+  for (let i = 1; i < messages.length; i++) assert.ok(messages[i].time > messages[i - 1].time);
+  assert.equal((await api(path + "?after=" + messages[8].time, { headers: headers(b.data.token) })).data.length, 8);
+  const [added, another, dm, deleted] = await Promise.all([
+    post(a, path + "/members", { username: "AsyncGroupGone" }),
+    post(a, "/api/groups", { members: ["AsyncGroupGone"] }),
+    post(a, "/api/dm/AsyncGroupGone", { message: "racing deletion" }),
+    api("/api/accounts/delete", { method: "DELETE", headers: headers(victim.data.token), body: "{}" }),
+  ]);
+  assert.ok([200, 404].includes(added.status));
+  assert.ok([200, 404].includes(another.status));
+  assert.ok([200, 404, 409].includes(dm.status));
+  assert.equal(deleted.status, 200);
+  assert.equal(existsSync(join(runtime, "database", "asyncgroupgone.json")), false);
+  const owner = JSON.parse(readFileSync(join(runtime, "database", "asyncgroupa.json"), "utf8"));
+  assert.equal(owner.dms.asyncgroupgone, undefined);
+  const groupdir = join(runtime, "database", "groups");
+  for (const file of readdirSync(groupdir).filter((name) => name.endsWith(".json"))) {
+    const group = JSON.parse(readFileSync(join(groupdir, file), "utf8"));
+    assert.equal(group.members.includes("asyncgroupgone"), false);
+  }
+  assert.equal(readdirSync(groupdir).some((name) => name.endsWith(".tmp")), false);
 });

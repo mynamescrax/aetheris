@@ -70,7 +70,20 @@ pnpm start     # node index.js (pass --env-file=.env if you want your config)
 pnpm lint      # eslint
 pnpm check     # syntax-check every script, inline <script> and catalog JSON
 pnpm test      # node --test
+pnpm bench:backend # offline rate-limiter, chat cursor and metadata-cache benchmarks
+pnpm bench:storage # local JSON storage throughput, disk reads and event-loop delay
 ```
+
+The backend benchmark compares the optimized hot paths with their previous
+full-scan implementations. It uses synthetic data and a local fetch fixture;
+the timings measure those operations, not whole-page or production latency.
+
+Accounts and chats keep their existing files in `database/`. File operations
+are asynchronous, writes replace records atomically, and API responses wait
+for writes to finish. Concurrent readers share a disk read but receive separate
+objects. Account/group mutations hold their locks through the write; run one
+app instance per database directory. The storage benchmark uses temporary
+fixture records and removes them afterward.
 
 ## credits
 

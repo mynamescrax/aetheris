@@ -48,3 +48,30 @@ test("a failed cover download is released so the next request can retry", async 
   assert.equal((await app.inject(url)).body, "retry");
   assert.equal(calls, 2);
 });
+
+test("artwork revalidates without a body and expires even while frequently accessed", async (t) => {
+  const app = Fastify();
+  t.after(() => app.close());
+  let now = 1000;
+  let calls = 0;
+  registerImageProxy(app, {
+    now: () => now,
+    download: async () => ({
+      mime: "image/png",
+      bytes: Buffer.from(`cover-${++calls}`),
+    }),
+  });
+  const url = "/img?url=https%3A%2F%2Fexample.com%2Fcover.png";
+  const first = await app.inject(url);
+  const headers = { "if-none-match": first.headers.etag };
+  now += 23 * 60 * 60 * 1000;
+  const unchanged = await app.inject({ url, headers });
+  assert.equal(unchanged.statusCode, 304);
+  assert.equal(unchanged.body, "");
+  assert.equal(calls, 1);
+  now += 60 * 60 * 1000;
+  const changed = await app.inject({ url, headers });
+  assert.equal(changed.statusCode, 200);
+  assert.equal(changed.body, "cover-2");
+  assert.notEqual(changed.headers.etag, first.headers.etag);
+});

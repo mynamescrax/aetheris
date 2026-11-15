@@ -39,11 +39,21 @@
         };
       window.gtag("js", new Date());
       window.gtag("config", GA_ID);
-      var gaScript = document.createElement("script");
-      gaScript.async = true;
-      gaScript.src =
-        "https://www.googletagmanager.com/gtag/js?id=" + GA_ID;
-      document.head.appendChild(gaScript);
+      // Let the visible app load first. Keep the queue and ancestor marker
+      // available immediately so iframe navigation never injects a second copy.
+      function loadAnalytics() {
+        var gaScript = document.createElement("script");
+        gaScript.async = true;
+        gaScript.src = "https://www.googletagmanager.com/gtag/js?id=" + GA_ID;
+        document.head.appendChild(gaScript);
+      }
+      function scheduleAnalytics() {
+        if (typeof window.requestIdleCallback === "function")
+          window.requestIdleCallback(loadAnalytics, { timeout: 2500 });
+        else setTimeout(loadAnalytics, 1200);
+      }
+      if (document.readyState === "complete") scheduleAnalytics();
+      else window.addEventListener("load", scheduleAnalytics, { once: true });
     }
   } catch (_) {
     // Analytics must never break the site.
