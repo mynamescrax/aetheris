@@ -60,7 +60,8 @@ rollback() {
         if [ "$recovered" != true ]; then
             echo "!! Storage recovery failed; app left stopped to protect pending transactions." >&2
         elif [ -f "$state/previous-pm2.json" ]; then
-            pm2 startOrRestart "$state/previous-pm2.json" --only "$APP_NAME" --update-env
+            pm2 delete "$APP_NAME" >/dev/null 2>&1 || true
+            pm2 start "$state/previous-pm2.json" --only "$APP_NAME"
         else
             pm2 delete "$APP_NAME"
         fi
@@ -114,7 +115,11 @@ activated=true
 set_pointer "$release"
 install -m 0644 "$release/Caddyfile" "$CADDY_CONFIG"
 caddy reload --config "$CADDY_CONFIG"
-pm2 startOrRestart "$release/pm2.json" --only "$APP_NAME" --update-env
+# startOrRestart can retain an existing process's old pm_exec_path even when
+# the ecosystem file names a new script. Replace this one app explicitly so
+# both activation and rollback use the intended immutable release.
+if pm2 describe "$APP_NAME" >/dev/null 2>&1; then pm2 delete "$APP_NAME"; fi
+pm2 start "$release/pm2.json" --only "$APP_NAME"
 
 healthy=false
 for _ in {1..40}; do

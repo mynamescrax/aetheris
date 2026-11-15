@@ -110,7 +110,7 @@ for (const scenario of [
     );
     stub(
       "pm2",
-      `if [[ "$1" == jlist ]]; then echo '[]'; fi\nif [[ "$SCENARIO" == restart && "$1" == startOrRestart && "$2" == *'.releases/'* ]]; then exit 1; fi`,
+      `if [[ "$1" == jlist ]]; then echo '[]'; fi\nif [[ "$SCENARIO" == restart && "$1" == start && "$2" == *'.releases/'* ]]; then exit 1; fi`,
     );
     stub(
       "node",
@@ -156,15 +156,16 @@ for (const scenario of [
     if (scenario === "success" || scenario === "bootstrap") {
       assert.equal(readFileSync(join(dir, "caddy.conf"), "utf8"), "new config");
       assert.match(trace, /git merge --ff-only/);
+      assert.match(trace, /pm2 delete aetheris[\s\S]*pm2 start .*\.releases\//);
     } else {
       assert.equal(readFileSync(join(dir, "caddy.conf"), "utf8"), "old config");
       assert.doesNotMatch(trace, /git merge --ff-only/);
       if (scenario === "checks" || scenario === "validate")
-        assert.doesNotMatch(trace, /pm2 startOrRestart/);
+        assert.doesNotMatch(trace, /pm2 start /);
       else if (scenario === "recovery") {
-        assert.doesNotMatch(trace, /pm2 startOrRestart .*previous-pm2.json/);
+        assert.doesNotMatch(trace, /pm2 start .*previous-pm2.json/);
         assert.match(result.stderr, /app left stopped/);
-      } else assert.match(trace, /pm2 startOrRestart .*previous-pm2.json/);
+      } else assert.match(trace, /pm2 start .*previous-pm2.json/);
     }
     assert.equal(existsSync(join(app, ".deploy-lock")), false);
     assert.equal(readdirSync(join(app, ".releases")).length, 1);
