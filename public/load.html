@@ -1,6 +1,28 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <script src="./js/open-about-blank.js?v=20261117.2"></script>
+    <style>
+      .page-only body > :not(.game-wrapper),
+      .page-only .game-wrapper > :not(#game-frame) {
+        display: none !important;
+      }
+
+      .page-only,
+      .page-only body {
+        overflow: hidden;
+      }
+
+      .page-only .game-wrapper {
+        margin: 0;
+        padding: 0;
+      }
+
+      .page-only #game-frame {
+        width: 100% !important;
+        height: 100dvh !important;
+      }
+    </style>
     <script src="./js/site.js?v=20261115.1"></script>
     <meta charset="utf-8" />
     <meta
@@ -371,8 +393,9 @@
             </svg>
           </button>
           <button
-            onclick="openinnewtab()"
-            title="Open in new tab"
+            onclick="openGameInAboutBlank()"
+            title="Open in about:blank"
+            aria-label="Open game in about:blank"
             style="min-width: 44px; min-height: 44px; font-size: 20px"
           >
             ↗
@@ -467,71 +490,9 @@
         if (debugframe) injecterudaintoiframe(debugframe);
       }
 
-      function eschtml(s) {
-        return String(s)
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/"/g, "&quot;");
-      }
-
-      function openinnewtab() {
-        var iframe = document.querySelector("#game-frame iframe");
-        if (!iframe) {
-          alert("No game loaded yet.");
-          return;
-        }
-
-        // Open the game itself, not another copy of this player page.
-        // The live location also follows navigation inside the game;
-        // fall back to the src attribute when it can't be read.
-        var gameurl = "";
-        try {
-          var livehref =
-            iframe.contentWindow && iframe.contentWindow.location.href;
-          if (livehref && livehref !== "about:blank") gameurl = livehref;
-        } catch (e) {}
-        if (!gameurl) gameurl = iframe.src || iframe.getAttribute("src") || "";
-        if (!gameurl || gameurl === "about:blank") {
-          alert("No game loaded yet.");
-          return;
-        }
-
-        // Proxied (/~/sj/...) URLs only route under this tab's Controller,
-        // so they can't load in a bare new tab — reopen those through the
-        // player shell, which boots its own proxy.
-        if (gameurl.indexOf("/~/sj/") !== -1) {
-          gameurl = location.origin + "/index.html#load" + location.search;
-        }
-        var tabtitle = localStorage.getItem("tabName") || "Google";
-        var tabicon =
-          localStorage.getItem("tabIcon") ||
-          "https://www.google.com/favicon.ico";
-
-        var newwindow = window.open("about:blank", "_blank");
-        if (!newwindow) {
-          alert("Popup blocked. Please allow popups for this site.");
-          return;
-        }
-
-        newwindow.document.write(
-          "<!DOCTYPE html><html><head>" +
-            "<title>" +
-            eschtml(tabtitle) +
-            "</title>" +
-            '<link rel="icon" href="' +
-            eschtml(tabicon) +
-            '">' +
-            "<style>body{margin:0;overflow:hidden;background:#000}" +
-            "iframe{border:none;width:100vw;height:100vh;position:fixed;inset:0}</style>" +
-            "</head><body>" +
-            '<iframe src="' +
-            eschtml(gameurl) +
-            '" allowfullscreen allow="autoplay; fullscreen" referrerpolicy="no-referrer"' +
-            ' sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-pointer-lock allow-downloads allow-modals allow-orientation-lock allow-presentation allow-storage-access-by-user-activation"></iframe>' +
-            "</body></html>",
-        );
-        newwindow.document.close();
+      function openGameInAboutBlank() {
+        // The player restores the selected game and starts its own proxy.
+        openAboutBlank(location.href, "Aetheris Game");
       }
 
       (function () {

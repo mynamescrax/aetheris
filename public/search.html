@@ -25,104 +25,134 @@
     <script src="register-sw.js?v=20260907.1" defer></script>
     <script defer src="./js/preload.js?v=20261008.1"></script>
 
+    <script src="./js/open-about-blank.js?v=20261117.2"></script>
+
     <style>
-      .centered {
-        min-height: 100vh;
-        width: 100%;
+      #main-container {
+        min-height: var(--app-height, 100dvh);
         display: flex;
         flex-direction: column;
-        align-items: center;
         justify-content: center;
-        gap: 24px;
-        padding: 40px 20px;
-        transition: all 0.4s ease;
+        align-items: center;
+        gap: 10px;
+        padding: 24px clamp(14px, 3vw, 36px);
       }
 
-      .centered h1 {
-        font-family: var(--font-sans);
+      .search-header {
+        width: min(100%, 960px);
+        text-align: left;
+      }
+
+      .search-header h1 {
         font-size: clamp(2.5rem, 8vw, 4rem);
-        font-weight: 900;
-        color: var(--text-color);
-        letter-spacing: -2px;
-        margin: 0;
-        text-align: center;
+        margin-bottom: 8px;
+      }
+
+      .search-header p {
+        color: color-mix(in srgb, var(--text-color) 75%, transparent);
+        margin-bottom: 22px;
       }
 
       #sj-form {
-        width: 100%;
-        max-width: 720px;
+        display: flex;
+        min-width: 0;
+        gap: 6px;
+        padding: 6px;
+        border: 1px solid color-mix(in srgb, var(--text-color) 22%, transparent);
+        border-radius: 16px;
+        background: var(--navbar);
+      }
+
+      #sj-form:focus-within {
+        border-color: var(--accent);
       }
 
       #sj-address {
+        flex: 1;
+        min-width: 0;
         width: 100%;
-        height: 58px;
-        border: none;
-        outline: none;
-        border-radius: 9999px;
-        background: #05070c;
-        color: white;
-        font-size: 1.1rem;
-        padding: 0 28px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-        transition: all 0.3s ease;
+        margin: 0;
+        padding: 0 16px;
+        text-align: left;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: var(--text-color);
+        font-size: 1.125rem;
       }
 
       #sj-address:focus {
-        box-shadow:
-          0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent),
-          0 4px 20px rgba(0, 0, 0, 0.3);
-        transform: scale(1.02);
+        box-shadow: none;
+      }
+
+      #sj-form button {
+        min-width: 84px;
+      }
+
+      #main-container:not(.results-open) #sj-form button {
+        min-height: 54px;
+      }
+
+      #sj-address::placeholder {
+        color: color-mix(in srgb, var(--text-color) 68%, transparent);
+      }
+
+      #sj-form button,
+      #frame-toolbar button {
+        min-height: 44px;
+        padding: 0 14px;
+        border: 1px solid color-mix(in srgb, var(--text-color) 24%, transparent);
+        border-radius: 10px;
+        background: color-mix(in srgb, var(--text-color) 9%, var(--navbar));
+        color: var(--text-color);
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      #sj-form button:hover,
+      #frame-toolbar button:hover {
+        border-color: var(--accent);
       }
 
       #error-area {
-        min-height: 28px;
-        text-align: center;
-      }
-      #sj-error {
-        color: #ff6b6b;
-        margin: 0;
-        font-weight: 500;
-      }
-      #sj-error-code {
-        color: #ffd2d2;
-        white-space: pre-wrap;
-        word-break: break-word;
-        margin-top: 8px;
-        font-size: 0.9rem;
-        max-width: 90vw;
+        width: 100%;
+        text-align: left;
+        overflow-wrap: anywhere;
       }
 
-      #result-area {
-        width: min(1520px, 96vw);
-        height: calc(100vh - 260px);
-        min-height: 540px;
-        border-radius: 20px;
+      #error-area:has(#sj-error:empty):has(#sj-error-code:empty) {
+        display: none;
+      }
+
+      #sj-error,
+      #sj-error-code {
+        color: var(--text-color);
+        margin: 0;
+      }
+
+      #search-results {
+        width: 100%;
+        border-radius: 14px;
         overflow: hidden;
         background: #fff;
-        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.35);
-        display: none;
-        border: 1px solid rgba(255, 255, 255, 0.06);
         position: relative;
+        display: none;
       }
 
-      #result-area iframe {
-        width: 100% !important;
-        height: 100% !important;
-        border: 0 !important;
-        background: #fff;
+      #search-results iframe {
+        width: 100%;
+        height: 100%;
+        border: 0;
         display: block;
       }
 
       #loading-indicator {
         position: absolute;
         inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        display: grid;
+        place-items: center;
         background: var(--navbar);
         color: var(--text-color);
-        font-family: var(--font-sans, system-ui, sans-serif);
-        font-size: 0.95rem;
         z-index: 2;
       }
 
@@ -132,119 +162,127 @@
 
       #frame-toolbar {
         display: none;
-        align-items: center;
-        justify-content: center;
-        gap: 10px;
         flex-wrap: wrap;
-        margin-top: 12px;
+        gap: 6px;
       }
 
-      #frame-toolbar button {
-        width: 46px;
-        height: 46px;
-        border-radius: 14px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        background: rgba(255, 255, 255, 0.06);
-        color: var(--text-color);
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.15rem;
-        transition: all 0.2s ease;
-      }
-
-      #frame-toolbar button:hover {
-        background: rgba(255, 255, 255, 0.15);
-        transform: translateY(-2px);
-      }
-
-      .results-open {
+      #main-container.results-open {
         justify-content: flex-start;
-        padding-top: 30px;
+        padding: 10px;
+        min-height: 0;
+        height: var(--app-height, 100dvh);
       }
-      .results-open h1 {
-        font-size: clamp(2.2rem, 6vw, 3.2rem);
-        margin-top: 0;
+
+      .results-open .search-header {
+        width: 100%;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px 16px;
       }
-      .results-open #result-area {
-        display: block;
+
+      /* Leave room for the shell's floating sidebar button above the frame. */
+      .in-iframe .results-open .search-header {
+        padding-left: max(56px, calc(env(safe-area-inset-left) + 45px));
       }
+
+      .results-open .search-header h1,
+      .results-open .search-header p {
+        display: none;
+      }
+
+      .results-open #sj-form {
+        flex: 1 1 320px;
+      }
+
       .results-open #frame-toolbar {
         display: flex;
       }
 
-      @media (max-width: 900px) {
-        .centered {
-          padding: 30px 15px;
-        }
-        #result-area {
-          height: calc(100vh - 210px);
-          min-height: 460px;
-        }
+      .results-open #search-results {
+        display: block;
+        flex: 1;
+        min-height: 200px;
+      }
+
+      .page-only #main-container {
+        padding: 0;
+      }
+
+      .page-only .search-header,
+      .page-only .results-open .search-header,
+      .page-only #error-area,
+      .page-only #loading-indicator {
+        display: none;
+      }
+
+      .page-only #search-results {
+        border-radius: 0;
+        min-height: 0;
       }
     </style>
     <link rel="stylesheet" href="./css/usability.css?v=20261115.2" />
   </head>
 
   <body>
-    <div class="centered" id="main-container">
-      <h1>Aetheris</h1>
+    <main id="main-container">
+      <header class="search-header">
+        <h1>Web search</h1>
+        <p>Search DuckDuckGo or open a website.</p>
 
-      <form id="sj-form">
-        <input
-          id="sj-search-engine"
-          type="hidden"
-          value="https://duckduckgo.com/?q=%s"
-        />
-        <input
-          id="sj-address"
-          class="pxyinput"
-          type="text"
-          aria-label="Search or enter a URL"
-          placeholder="Search or enter a URL"
-          autocomplete="off"
-          autocapitalize="none"
-          spellcheck="false"
-          enterkeyhint="go"
-        />
-      </form>
+        <form id="sj-form">
+          <input
+            id="sj-search-engine"
+            type="hidden"
+            value="https://duckduckgo.com/?q=%s"
+          />
+          <input
+            id="sj-address"
+            type="text"
+            aria-label="Search or enter a URL"
+            placeholder="Search or enter a URL"
+            autocomplete="off"
+            autocapitalize="none"
+            spellcheck="false"
+            enterkeyhint="go"
+          />
+          <button type="submit">Search</button>
+        </form>
+
+        <div id="frame-toolbar">
+          <button
+            onclick="toolbarfullscreen()"
+            title="Fullscreen"
+            aria-label="Fullscreen proxied page"
+          >
+            Fullscreen
+          </button>
+          <button
+            onclick="openSearchInAboutBlank()"
+            title="Open in about:blank"
+            aria-label="Open proxied page in about:blank"
+          >
+            About:blank ↗
+          </button>
+          <button
+            onclick="toolbarrefresh()"
+            title="Refresh"
+            aria-label="Refresh proxied page"
+          >
+            Refresh
+          </button>
+        </div>
+      </header>
 
       <div id="error-area" role="status" aria-live="polite">
         <p id="sj-error"></p>
         <pre id="sj-error-code"></pre>
       </div>
 
-      <div id="frame-toolbar">
-        <button
-          onclick="toolbarfullscreen()"
-          title="Fullscreen"
-          aria-label="Fullscreen proxied page"
-        >
-          ⛶
-        </button>
-        <button
-          onclick="toolbarnewtab()"
-          title="Open in new tab"
-          aria-label="Open proxied page in new tab"
-        >
-          ↗
-        </button>
-        <button
-          onclick="toolbarrefresh()"
-          title="Refresh"
-          aria-label="Refresh proxied page"
-        >
-          ⟳
-        </button>
+      <div id="search-results">
+        <div id="loading-indicator" class="hidden" role="status">Loading…</div>
       </div>
-
-      <div id="result-area">
-        <div id="loading-indicator" class="hidden" role="status">
-          Loading…
-        </div>
-      </div>
-    </div>
+    </main>
 
     <script>
       var backend = null;
@@ -326,11 +364,9 @@
       }
 
       async function gourl(input, fromHistory) {
-        var version = ++navigationVersion;
-        clearTimeout(loadingTimer);
         var errorel = document.getElementById("sj-error");
         var errorcode = document.getElementById("sj-error-code");
-        var resultarea = document.getElementById("result-area");
+        var resultarea = document.getElementById("search-results");
         var container = document.getElementById("main-container");
         var loader = document.getElementById("loading-indicator");
 
@@ -343,14 +379,15 @@
           return;
         }
 
+        var version = ++navigationVersion;
+        clearTimeout(loadingTimer);
+        lasturl = finalurl;
+
         if (!fromHistory) {
           try {
             var next =
               "search.html?q=" + encodeURIComponent(String(input).trim());
-            if (
-              location.search !==
-              "?" + next.slice("search.html?".length)
-            ) {
+            if (location.search !== "?" + next.slice("search.html?".length)) {
               history.pushState({ q: input }, "", next);
             }
           } catch (_) {}
@@ -365,8 +402,6 @@
           if (version !== navigationVersion) return;
 
           currentframe = mountframe(p, resultarea);
-
-          lasturl = finalurl;
 
           var frameel = currentframe.element;
           var hidden = false;
@@ -420,56 +455,16 @@
       }
 
       function toolbarfullscreen() {
-        var area = document.getElementById("result-area");
+        var area = document.getElementById("search-results");
         if (area) Aetheris.fullscreen(area);
       }
 
-      function eschtml(s) {
-        return String(s)
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/"/g, "&quot;");
-      }
-
-      function toolbarnewtab() {
+      function openSearchInAboutBlank() {
         var target = getframeurl();
-        if (!target) {
-          alert("nothing to open yet. search or visit a site first.");
-          return;
-        }
-        var url =
-          location.origin +
-          "/index.html#search?q=" +
-          encodeURIComponent(target);
-
-        var newwin = window.open("about:blank", "_blank");
-        if (!newwin) {
-          alert("popup blocked. please allow popups for this site.");
-          return;
-        }
-
-        var tabtitle = localStorage.getItem("tabName") || "Google";
-        var tabicon =
-          localStorage.getItem("tabIcon") || "https://www.google.com/favicon.ico";
-
-        newwin.document.write(
-          "<!DOCTYPE html><html><head>" +
-            "<title>" +
-            eschtml(tabtitle) +
-            "</title>" +
-            '<link rel="icon" href="' +
-            eschtml(tabicon) +
-            '">' +
-            "<style>*{margin:0;padding:0}body{overflow:hidden;background:#000}" +
-            "iframe{position:fixed;inset:0;width:100%;height:100%;border:none}</style>" +
-            "</head><body>" +
-            '<iframe src="' +
-            eschtml(url) +
-            '" allowfullscreen referrerpolicy="no-referrer"></iframe>' +
-            "</body></html>",
-        );
-        newwin.document.close();
+        if (!target) return;
+        var url = new URL("search.html", location.href);
+        url.searchParams.set("q", target);
+        openAboutBlank(url.href, "Aetheris Search");
       }
 
       function toolbarrefresh() {
@@ -522,7 +517,9 @@
           currentframe.element.parentNode.removeChild(currentframe.element);
         currentframe = null;
         lasturl = null;
-        document.getElementById("main-container").classList.remove("results-open");
+        document
+          .getElementById("main-container")
+          .classList.remove("results-open");
         document.getElementById("loading-indicator").classList.add("hidden");
         document.getElementById("sj-error").textContent = "";
         document.getElementById("sj-error-code").textContent = "";

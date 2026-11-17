@@ -1,5 +1,11 @@
 [
   {
+    "id": "krillion",
+    "title": "Krillion",
+    "href": "https://krillion.cc/",
+    "image": "https://krillion.cc/favicon.ico"
+  },
+  {
     "id": "ruffle",
     "title": "Ruffle",
     "html": "assets/games/ruffle.html",
