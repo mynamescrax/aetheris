@@ -43,8 +43,6 @@ test("JSON records retain their on-disk format and observe external changes", as
   await fs.mkdir(join(dir, "groups"));
   assert.deepEqual(await store.keys(), ["example"]);
   assert.equal(await store.read("missing"), null);
-  await fs.writeFile(join(dir, "broken.json"), "{");
-  assert.equal(await store.read("broken"), null);
   for (const key of ["../escape", "a/b", "a\\b", ""])
     await assert.rejects(store.write(key, {}), /Invalid record key/);
   await store.write("..", { username: ".." });
@@ -209,6 +207,18 @@ test("read/delete errors are not mistaken for missing accounts and rejected read
   await normal.remove("user");
   assert.equal(await normal.read("user"), null);
   await normal.remove("user");
+});
+
+test("corrupt records are distinct from missing records and can be repaired", async (t) => {
+  const dir = await fixture(t);
+  const store = await createJsonStore(dir);
+  await fs.writeFile(join(dir, "user.json"), '{"private":');
+  await assert.rejects(store.read("user"), {
+    code: "STORE_INVALID_JSON",
+    message: "Invalid JSON in record user.",
+  });
+  await store.write("user", { username: "User" });
+  assert.deepEqual(await store.read("user"), { username: "User" });
 });
 
 test("group membership indices rebuild from the existing JSON format", async (t) => {

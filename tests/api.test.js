@@ -107,9 +107,16 @@ before(async () => {
       ip: "127.0.0.1",
       createdAt: Date.now(),
       sessions: { [legacyToken]: { ip: "127.0.0.1", createdAt: Date.now() } },
-      dms: {},
+      dms: { interrupted: [] },
+      lastRead: { interrupted: 1 },
     }),
   );
+
+  writeFileSync(join(runtime, "database", "interrupted.json"), JSON.stringify({
+    username: "Interrupted",
+    deletionPending: true,
+    dms: { legacyuser: [] },
+  }));
 
   child = spawn(process.execPath, [join(root, "index.js")], {
     cwd: runtime,
@@ -935,6 +942,13 @@ test("the online counter caps SSE connections per IP", async () => {
   } finally {
     for (const req of streams) req.destroy();
   }
+});
+
+test("startup resumes interrupted account deletion", () => {
+  assert.equal(existsSync(join(runtime, "database", "interrupted.json")), false);
+  const remaining = JSON.parse(readFileSync(join(runtime, "database", "legacyuser.json"), "utf8"));
+  assert.equal(Object.hasOwn(remaining.dms, "interrupted"), false);
+  assert.equal(Object.hasOwn(remaining.lastRead, "interrupted"), false);
 });
 
 test("account deletion removes counterpart conversations", async () => {

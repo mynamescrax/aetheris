@@ -158,8 +158,8 @@ function readuser(username) {
 }
 
 // write-then-rename so a crash mid-write can't leave a truncated file
-async function writeuser(data) {
-  await users.write(safefilename(data.username), data);
+async function writeuser(data, options) {
+  await users.write(safefilename(data.username), data, options);
   indexuser(data);
 }
 
@@ -167,7 +167,7 @@ async function deleteuser(user) {
   if (!user?.username) return;
   const lc = user.username.toLowerCase();
 
-  await users.remove(safefilename(user.username));
+  await users.remove(safefilename(user.username), { durable: true });
   usernames.delete(lc);
   if (user.deviceId && deviceindex.get(user.deviceId) === lc)
     deviceindex.delete(user.deviceId);
@@ -278,7 +278,7 @@ const usernames = new Map(); // lowercase name -> original case
 const deviceindex = new Map(); // device fingerprint -> username (lowercase)
 
 function indexuser(u) {
-  if (!u?.username) return;
+  if (!u?.username || u.deletionPending === true) return;
   const lc = u.username.toLowerCase();
   usernames.set(lc, u.username);
   if (u.deviceId) deviceindex.set(u.deviceId, lc);
@@ -305,6 +305,10 @@ async function rebuildindices() {
   deviceindex.clear();
   let migrated = 0;
   for await (const u of allusers()) {
+    if (u.deletionPending === true) {
+      deletingUsers.add(u.username.toLowerCase());
+      continue;
+    }
     indexuser(u);
     if (!u.sessions) continue;
 
@@ -1161,37 +1165,41 @@ async function deleteaccount(lc, token) {
     const user = await finduser(token);
     if (!user || deletingUsers.has(lc)) return null;
     deletingUsers.add(lc);
+    // Keep the account reserved on failure. Startup can resume once storage
+    // is healthy, without restoring access to a partially deleted account.
+    await users.write(safefilename(lc), { ...user, deletionPending: true }, {
+      durable: true,
+    });
     for (const key of Object.keys(user.sessions || {})) tokenindex.delete(key);
     return user;
   });
   if (!victim) return false;
+  await finishaccountdeletion(lc, victim);
+  return true;
+}
 
-  try {
-    for (const otherlower of Object.keys(victim.dms || {})) {
-      await withuserlock(otherlower, async () => {
-        const other = await readuser(otherlower);
-        if (other?.dms) {
-          delete other.dms[lc];
-          if (other.lastRead) delete other.lastRead[lc];
-          await writeuser(other);
-        }
-      });
-    }
-    for (const id of groups.groupsOf(lc))
-      await leavegroup(id, lc, "deleted their account");
-    presence.forget(lc);
-
-    await withuserlock(lc, async () => {
-      const fresh = await readuser(lc);
-      if (!fresh) return;
-      for (const key of Object.keys(fresh.sessions || {}))
-        tokenindex.delete(key);
-      await deleteuser(fresh);
+async function finishaccountdeletion(lc, victim) {
+  for (const otherlower of Object.keys(victim.dms || {})) {
+    await withuserlock(otherlower, async () => {
+      const other = await readuser(otherlower);
+      if (other?.dms) {
+        delete other.dms[lc];
+        if (other.lastRead) delete other.lastRead[lc];
+        await writeuser(other, { durable: true });
+      }
     });
-    return true;
-  } finally {
-    deletingUsers.delete(lc);
   }
+  for (const id of groups.groupsOf(lc))
+    await leavegroup(id, lc, "deleted their account", { durable: true });
+  presence.forget(lc);
+
+  await withuserlock(lc, async () => {
+    const fresh = await readuser(lc);
+    if (!fresh) return;
+    for (const key of Object.keys(fresh.sessions || {})) tokenindex.delete(key);
+    await deleteuser(fresh);
+  });
+  deletingUsers.delete(lc);
 }
 
 // --- account creation rate limiting (each account is a file on disk) ---
@@ -1762,7 +1770,7 @@ function defaultgroupname(members) {
   );
 }
 
-async function leavegroup(id, lc, note = "left the group") {
+async function leavegroup(id, lc, note = "left the group", options) {
   return withgrouplock(id, async () => {
     const group = await groups.read(id);
     if (!group || !group.members.includes(lc)) {
@@ -1772,16 +1780,22 @@ async function leavegroup(id, lc, note = "left the group") {
     group.members = group.members.filter((m) => m !== lc);
     if (group.lastRead) delete group.lastRead[lc];
     if (!group.members.length) {
-      await groups.remove(id);
+      await groups.remove(id, options);
       groups.unindex(id, lc);
       return true;
     }
     if (group.owner === lc) group.owner = group.members[0];
     pushgroupmessage(group, { from: lc, message: note, system: true });
-    await groups.write(group);
+    await groups.write(group, options);
     groups.unindex(id, lc);
     return true;
   });
+}
+
+// Resume interrupted deletions after the group index and locks are ready.
+for (const lc of deletingUsers) {
+  const victim = await readuser(lc);
+  if (victim) await finishaccountdeletion(lc, victim);
 }
 
 fastify.post("/api/groups", async (req, reply) => {
