@@ -133,9 +133,10 @@
       <div class="update-modal">
         <h2 id="updatemodaltitle">What's new</h2>
         <ul class="update-list">
-          <li>Krillion is now available in Apps.</li>
-          <li>Web search has a wider search bar and more room for results. The menu button stays clear of the search field.</li>
-          <li>Open in about:blank shows just the website or game, without Aetheris controls.</li>
+          <li>The About page now has a Links menu with all mirror domains, so there's no Google Doc to open.</li>
+          <li>Retro Bowl College and 60s Burger Run have working local copies. Reported deep links now open them automatically.</li>
+          <li>Krillion opens in a new tab because its site blocks embedding.</li>
+          <li>Web search and game errors now show a readable message instead of a blank or white-on-white screen.</li>
         </ul>
         <div class="update-modal-footer">
           <button id="updatemodalclose" type="button">Got it</button>
@@ -587,7 +588,7 @@
     </style>
 
     <script>
-      var UPDATE_VERSION = "33";
+      var UPDATE_VERSION = "34";
 
       async function loadquote() {
         try {

@@ -80,6 +80,10 @@
     // Keep existing provider bookmarks working after repairing a broken wrapper.
     var repaired = {
       "https://truffled.lol/games/gta/index.html": "/assets/games/gta.html",
+      "https://gn-math.github.io/html/34-fix2.html":
+        "/assets/games/retrobowlcollege.html",
+      "https://selenite.cc/resources/semag/60sburgerrun/index.html":
+        "/assets/games/60sburgerrun.html",
       "https://gn-math.github.io/html/410-fix.html": "/assets/games/telekinesisdrive.html",
       "https://velara.my/assets/games/onepiecefighting.html": "/assets/games/onepiecefighting.html",
       "https://velara.my/assets/games/1on1tennis.html": "/assets/games/1on1tennis.html",
@@ -174,6 +178,15 @@
     var paragraph = document.createElement("p");
     paragraph.textContent = text;
     panel.appendChild(paragraph);
+    if (opts && opts.externalHref) {
+      var external = document.createElement("a");
+      external.href = opts.externalHref;
+      external.target = "_blank";
+      external.rel = "noopener";
+      external.className = "btn secondary-btn";
+      external.textContent = "Open in a new tab ↗";
+      panel.appendChild(external);
+    }
     if (error) {
       var retry = document.createElement("button");
       retry.textContent = "Try again";
@@ -524,14 +537,16 @@
             }
             // A missing aetheris game reaches the proxy as the site's 404
             // page; treat it like the direct branch does.
-            try {
-              if (
-                doc.querySelector('meta[name="aetheris-error"][content="404"]')
-              )
-                failattempt(
-                  new Error("The game file was not found on this source."),
-                );
-            } catch (_) {
+             try {
+               if (
+                 doc.querySelector('meta[name="aetheris-error"][content="404"]')
+               )
+                 failattempt(
+                   new Error("The game file was not found on this source."),
+                 );
+               else if (doc.querySelector('meta[name="aetheris-error"][content="proxy"]'))
+                 failattempt(new Error("The game could not be reached from this source."));
+             } catch (_) {
               /* an uninspectable document is not something to fail on */
             }
             // A cached copy of the proxy engine from before the same-origin
@@ -667,6 +682,15 @@
     // (TikTok has a dedicated gateway page). Old /load.html?app=<id> links
     // still work by handing off here.
     if (entry && typeof entry.href === "string" && entry.href) {
+      if (entry.newTab) {
+        var href = Aetheris.httpUrl(entry.href);
+        if (!href) throw new Error("This app does not have a valid URL.");
+        setgameinfo(entry);
+        message((entry.title || "This app") + " opens in a separate tab.", false, {
+          externalHref: href,
+        });
+        return;
+      }
       location.replace(entry.href);
       return;
     }

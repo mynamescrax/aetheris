@@ -1170,6 +1170,32 @@ function stripcontentlength(response, request) {
 // real reason instead of letting pages choke on it as JSON.
 var SW_ERROR_PREFIX = "Internal Service Worker Error";
 
+function proxynavigationerror(status) {
+  return new Response(`<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="aetheris-error" content="proxy">
+<title>Page could not load</title>
+<style>
+  html { color-scheme: dark; background: #15181d; color: #f1f4f8; }
+  body { margin: clamp(20px, 6vw, 64px); font: 1rem/1.55 system-ui, sans-serif; }
+  main { max-width: 36rem; }
+  h1 { font-size: 1.5rem; margin: 0 0 .5rem; }
+  p { margin: 0; color: #c5ceda; }
+  code { display: inline-block; margin-top: 1rem; color: #ffc9a8; }
+</style></head>
+<body><main><h1>Page could not load</h1>
+<p>Check the address and your connection, then try again.</p>
+<code>Proxy error ${status}</code></main></body></html>`, {
+    status: status,
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store",
+      "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'",
+    },
+  });
+}
+
 async function surfacerouteerror(response, request) {
   try {
     if (!response || response.status !== 500) return response;
@@ -1201,6 +1227,11 @@ async function surfacerouteerror(response, request) {
       "\n  mode:",
       request.mode,
     );
+    // Keep the legacy player recovery path for stale bundles. Do not replace
+    // upstream error pages or errors returned to scripts and binary fetches.
+    if (request.mode === "navigate" &&
+        text.indexOf("attempted to fetch from same origin") === -1)
+      return proxynavigationerror(response.status);
   } catch (e) {
     /* diagnostic only — never let it break the response */
   }

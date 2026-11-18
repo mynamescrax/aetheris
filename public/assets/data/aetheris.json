@@ -8600,5 +8600,25 @@
     "tags": [
       "Action"
     ]
+  },
+  {
+    "id": "retrobowlcollege",
+    "title": "Retro Bowl College",
+    "html": "assets/games/retrobowlcollege.html",
+    "image": "assets/images/retrobowlcollege.webp",
+    "source": "aetheris",
+    "tags": [
+      "Sports"
+    ]
+  },
+  {
+    "id": "60sburgerrun",
+    "title": "60s Burger Run",
+    "html": "assets/games/60sburgerrun.html",
+    "image": "assets/images/60sburgerrun.webp",
+    "source": "aetheris",
+    "tags": [
+      "Action"
+    ]
   }
 ]

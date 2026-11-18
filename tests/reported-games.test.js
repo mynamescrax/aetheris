@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { createHash } from "node:crypto";
-const read = path => readFileSync(new URL(path, import.meta.url), "utf8");
+const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 
 test("Assessment Examination mounts the complete split pack before starting Godot", async () => {
   const html = read("../public/assets/games/AssessmentExamination.html");
@@ -14,17 +14,24 @@ test("Assessment Examination mounts the complete split pack before starting Godo
   const calls = [];
   const context = {
     GODOT_CONFIG: { executable: "index", fileSizes: { "index.pck": 8 } },
-    fetch: async file => {
+    fetch: async (file) => {
       calls.push(file);
-      return { ok: true, arrayBuffer: async () => Uint8Array.of(calls.length).buffer };
+      return {
+        ok: true,
+        arrayBuffer: async () => Uint8Array.of(calls.length).buffer,
+      };
     },
     engine: {
-      async init(name) { calls.push(name); },
+      async init(name) {
+        calls.push(name);
+      },
       async preloadFile(pack, path) {
         assert.deepEqual([...pack], [1, 2, 3, 4, 5, 6, 7, 8]);
         calls.push(path);
       },
-      async start() { calls.push("start"); },
+      async start() {
+        calls.push("start");
+      },
     },
     statusProgressInner: { style: {} },
     setStatusMode() {},
@@ -32,11 +39,16 @@ test("Assessment Examination mounts the complete split pack before starting Godo
   await vm.runInNewContext(script + "startGame()", context);
   assert.deepEqual(calls, [
     ...Array.from({ length: 8 }, (_, index) => "index.pck.part" + (index + 1)),
-    "index", "index.pck", "start",
+    "index",
+    "index.pck",
+    "start",
   ]);
   context.fetch = async () => ({ ok: false });
-  await assert.rejects(vm.runInNewContext(script + "startGame()", context), /index\.pck\.part1/);
-  assert.equal(calls.filter(call => call === "start").length, 1);
+  await assert.rejects(
+    vm.runInNewContext(script + "startGame()", context),
+    /index\.pck\.part1/,
+  );
+  assert.equal(calls.filter((call) => call === "start").length, 1);
 });
 
 test("Bridge Race uses its own Unity build and Crossy Road lets its bootstrap load the game once", () => {
@@ -52,12 +64,14 @@ test("Bridge Race uses its own Unity build and Crossy Road lets its bootstrap lo
 test("Escape Road City 2 retains the supplied HTML and original Unity build", () => {
   const html = read("../public/assets/games/erc2.html");
   // The game is user-supplied. Fix the player, not its source or build version.
-  assert.equal(createHash("sha256").update(html.replace(/\r\n/g, "\n")).digest("hex"),
-    "d9e8e6b22fb8afa3885ba83138a2c01564b3293ec9cc6881a0c6026a497922ed");
+  assert.equal(
+    createHash("sha256").update(html.replace(/\r\n/g, "\n")).digest("hex"),
+    "d9e8e6b22fb8afa3885ba83138a2c01564b3293ec9cc6881a0c6026a497922ed",
+  );
   assert.match(html, /escape-road-city-2-v25022604\.loader\.js/);
   assert.doesNotMatch(html, /<iframe/i);
   const catalog = JSON.parse(read("../public/assets/data/aetheris.json"));
-  const entry = catalog.find(item => item.id === "escaperoadcity2");
+  const entry = catalog.find((item) => item.id === "escaperoadcity2");
   assert.equal(entry.html, "assets/games/erc2.html");
   assert.notEqual(entry.noProxy, true);
 });
@@ -66,24 +80,87 @@ test("repaired provider bookmarks resolve locally even when the provider catalog
   const source = read("../public/js/load.js");
   const repairs = [
     ["https://truffled.lol/games/gta/index.html", "gta"],
+    ["https://gn-math.github.io/html/34-fix2.html", "retrobowlcollege"],
+    [
+      "https://selenite.cc/resources/semag/60sburgerrun/index.html",
+      "60sburgerrun",
+    ],
     ["https://gn-math.github.io/html/410-fix.html", "telekinesisdrive"],
-    ["https://velara.my/assets/games/onepiecefighting.html", "onepiecefighting"],
+    [
+      "https://velara.my/assets/games/onepiecefighting.html",
+      "onepiecefighting",
+    ],
     ["https://velara.my/assets/games/1on1tennis.html", "1on1tennis"],
   ];
   const ctx = vm.createContext({
-    appid: null, srcsource: null, srctitle: null,
-    Aetheris: { httpUrl(value) { try { const u = new URL(value, "https://aetheris.win/"); return /^https?:$/.test(u.protocol) ? u.href : null; } catch { return null; } } },
-    window: { games: repairs.map(([, id]) => ({ id, html: "assets/games/" + id + ".html" })) },
+    appid: null,
+    srcsource: null,
+    srctitle: null,
+    Aetheris: {
+      httpUrl(value) {
+        try {
+          const u = new URL(value, "https://aetheris.win/");
+          return /^https?:$/.test(u.protocol) ? u.href : null;
+        } catch {
+          return null;
+        }
+      },
+    },
+    window: {
+      games: repairs.map(([, id]) => ({
+        id,
+        html: "assets/games/" + id + ".html",
+      })),
+    },
   });
-  vm.runInContext(source.slice(source.indexOf("  function sourceurl("), source.indexOf("  function withtimeout(")) +
-    source.slice(source.indexOf("  function slugify("), source.indexOf("  function setgameinfo(")), ctx);
+  vm.runInContext(
+    source.slice(
+      source.indexOf("  function sourceurl("),
+      source.indexOf("  function withtimeout("),
+    ) +
+      source.slice(
+        source.indexOf("  function slugify("),
+        source.indexOf("  function setgameinfo("),
+      ),
+    ctx,
+  );
   for (const [url, id] of repairs) {
     ctx.gameid = url;
     assert.equal(vm.runInContext("finditem().id", ctx), id);
-    assert.equal(vm.runInContext("sourceurl({url: gameid})", ctx), "https://aetheris.win/assets/games/" + id + ".html");
+    assert.equal(
+      vm.runInContext("sourceurl({url: gameid})", ctx),
+      "https://aetheris.win/assets/games/" + id + ".html",
+    );
   }
   ctx.gameid = "https://example.com/unknown";
   assert.equal(vm.runInContext("finditem()", ctx), null);
+});
+
+test("reported game wrappers are hosted locally with their real media URLs", () => {
+  const retro = read("../public/assets/games/retrobowlcollege.html");
+  assert.match(
+    retro,
+    /<base href="https:\/\/cdn\.jsdelivr\.net\/gh\/SenpaiX1\/ghdfhres@latest\/"\s*\/>/,
+  );
+  assert.match(
+    retro,
+    /UGS-Assets@[0-9a-f]+\/retro%20bowl\/html5game\/RetroBowl\.js/,
+  );
+  assert.match(retro, /window\.onload = GameMaker_Init/);
+
+  const burger = read("../public/assets/games/60sburgerrun.html");
+  assert.match(burger, /@ruffle-rs\/ruffle@0\.2\.0-nightly\.2025\.10\.2/);
+  assert.match(burger, /60secondsburgerrun\.swf/);
+  assert.doesNotMatch(burger, /\$1/);
+  assert.doesNotMatch(burger, /\]\]><\/Content>/);
+
+  const catalog = JSON.parse(read("../public/assets/data/aetheris.json"));
+  for (const id of ["retrobowlcollege", "60sburgerrun"]) {
+    const entry = catalog.find((item) => item.id === id);
+    assert.ok(entry, id + " must be in the local catalog");
+    assert.equal(entry.html, "assets/games/" + id + ".html");
+    assert.equal(entry.source, "aetheris");
+  }
 });
 
 test("Yandere passes a JSON URL to UnityLoader and resolves build files outside the blob URL", async () => {
@@ -91,19 +168,44 @@ test("Yandere passes a JSON URL to UnityLoader and resolves build files outside 
   const script = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)][0][1];
   let config, instantiated;
   const text = { textContent: "" };
-  class GameURL extends URL { static createObjectURL(blob) { if (blob.type === "application/json") config = blob; return "blob:test"; } }
+  class GameURL extends URL {
+    static createObjectURL(blob) {
+      if (blob.type === "application/json") config = blob;
+      return "blob:test";
+    }
+  }
   vm.runInNewContext(script, {
-    URL: GameURL, Blob, console,
+    URL: GameURL,
+    Blob,
+    console,
     fetch: async () => new Response(new Uint8Array([1])),
-    document: { baseURI: "https://cdn.jsdelivr.net/gh/bubblfan/web-port@master/yandere-simulator/", querySelector: () => text, getElementById: () => ({ style: {} }) },
+    document: {
+      baseURI:
+        "https://cdn.jsdelivr.net/gh/bubblfan/web-port@master/yandere-simulator/",
+      querySelector: () => text,
+      getElementById: () => ({ style: {} }),
+    },
     window: { addEventListener() {}, innerWidth: 800, innerHeight: 600 },
-    UnityLoader: { instantiate(...args) { instantiated = args; } },
+    UnityLoader: {
+      instantiate(...args) {
+        instantiated = args;
+      },
+    },
   });
-  await new Promise(resolve => setImmediate(resolve));
+  await new Promise((resolve) => setImmediate(resolve));
   assert.equal(instantiated[1], "blob:test");
-  assert.equal(instantiated[2].Module.resolveBuildUrl("blob:game-data"), "blob:game-data");
-  assert.match(instantiated[2].Module.streamingAssetsUrl(), /\/yandere-simulator\/StreamingAssets$/);
+  assert.equal(
+    instantiated[2].Module.resolveBuildUrl("blob:game-data"),
+    "blob:game-data",
+  );
+  assert.match(
+    instantiated[2].Module.streamingAssetsUrl(),
+    /\/yandere-simulator\/StreamingAssets$/,
+  );
   const json = JSON.parse(await config.text());
   assert.match(json.wasmCodeUrl, /\/Build\/YandereSim\.wasm\.code\.unityweb$/);
-  assert.match(json.wasmFrameworkUrl, /\/Build\/YandereSim\.wasm\.framework\.unityweb$/);
+  assert.match(
+    json.wasmFrameworkUrl,
+    /\/Build\/YandereSim\.wasm\.framework\.unityweb$/,
+  );
 });

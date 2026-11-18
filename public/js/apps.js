@@ -87,6 +87,11 @@
     // own same-origin gateway page.
     card.href = app.href || "/load.html?app=" + encodeURIComponent(app.id);
     card.title = title;
+    if (app.href && app.newTab) {
+      card.target = "_blank";
+      card.rel = "noopener";
+      card.setAttribute("aria-label", title + " (opens in a new tab)");
+    }
 
     img.loading = "lazy";
     img.decoding = "async";
@@ -228,8 +233,8 @@
       applyFilters(false, false);
       if (filtered.length) {
         var pick = filtered[Math.floor(Math.random() * filtered.length)];
-        location.href =
-          pick.href || "/load.html?app=" + encodeURIComponent(pick.id);
+        if (pick.href && pick.newTab) window.open(pick.href, "_blank", "noopener");
+        else location.href = pick.href || "/load.html?app=" + encodeURIComponent(pick.id);
       }
     });
   }

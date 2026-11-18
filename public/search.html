@@ -115,19 +115,23 @@
       }
 
       #error-area {
-        width: 100%;
+        width: min(100%, 960px);
+        padding: 12px 16px;
+        border: 1px solid #755044;
+        border-radius: 10px;
+        background: #241b1a;
         text-align: left;
         overflow-wrap: anywhere;
       }
 
-      #error-area:has(#sj-error:empty):has(#sj-error-code:empty) {
+      #error-area:has(#sj-error:empty) {
         display: none;
       }
 
-      #sj-error,
-      #sj-error-code {
-        color: var(--text-color);
+      #sj-error {
+        color: #ffe0cf;
         margin: 0;
+        font-size: 0.95rem;
       }
 
       #search-results {
@@ -211,7 +215,6 @@
 
       .page-only .search-header,
       .page-only .results-open .search-header,
-      .page-only #error-area,
       .page-only #loading-indicator {
         display: none;
       }
@@ -276,7 +279,6 @@
 
       <div id="error-area" role="status" aria-live="polite">
         <p id="sj-error"></p>
-        <pre id="sj-error-code"></pre>
       </div>
 
       <div id="search-results">
@@ -365,13 +367,11 @@
 
       async function gourl(input, fromHistory) {
         var errorel = document.getElementById("sj-error");
-        var errorcode = document.getElementById("sj-error-code");
         var resultarea = document.getElementById("search-results");
         var container = document.getElementById("main-container");
         var loader = document.getElementById("loading-indicator");
 
         errorel.textContent = "";
-        errorcode.textContent = "";
 
         var finalurl = resolveurl(input);
         if (!finalurl) {
@@ -427,10 +427,7 @@
             if (window.aetherisProxy) window.aetherisProxy.reset();
           } catch (_) {}
           errorel.textContent =
-            "failed to load: " +
-            (err && err.message ? err.message : String(err));
-          // Never print an engine stack trace into the visible error area.
-          errorcode.textContent = "";
+            "The page could not load. Check your connection and try again.";
           loader.classList.add("hidden");
         }
       }
@@ -522,7 +519,6 @@
           .classList.remove("results-open");
         document.getElementById("loading-indicator").classList.add("hidden");
         document.getElementById("sj-error").textContent = "";
-        document.getElementById("sj-error-code").textContent = "";
       });
     </script>
   </body>
