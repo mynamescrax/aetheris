@@ -8620,5 +8620,19 @@
     "tags": [
       "Action"
     ]
+  },
+  {
+    "id": "retrobowl",
+    "title": "Retro Bowl",
+    "html": "assets/games/retrobowl.html",
+    "image": "https://cdn.jsdelivr.net/gh/freebuisness/covers@main/33.png",
+    "source": "aetheris"
+  },
+  {
+    "id": "vicecity",
+    "title": "GTA Vice City",
+    "html": "assets/games/vicecity.html",
+    "image": "assets/images/icon.png",
+    "source": "aetheris"
   }
 ]

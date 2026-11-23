@@ -4,23 +4,13 @@ import { readFileSync } from "node:fs";
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 
-test("Krillion opens in its own tab instead of an unframed inline page", () => {
+test("Krillion uses the Scramjet player in the current tab", () => {
   const apps = JSON.parse(read("../public/assets/data/apps.json"));
   const krillion = apps.find((app) => app.id === "krillion");
-  assert.equal(krillion.href, "https://krillion.cc/");
-  assert.equal(
-    krillion.newTab,
-    true,
-    "the tile must opt out of the proxy frame",
-  );
-
-  const appsjs = read("../public/js/apps.js");
-  assert.match(appsjs, /app\.href && app\.newTab/);
-  assert.match(appsjs, /card\.target = "_blank"/);
-
-  const loadjs = read("../public/js/load.js");
-  assert.match(loadjs, /if \(entry\.newTab\)/);
-  assert.match(loadjs, /externalHref/);
+  assert.equal(krillion.url, "https://krillion.cc/");
+  assert.equal(krillion.href, undefined);
+  assert.equal(krillion.newTab, undefined);
+  assert.equal(krillion.noProxy, undefined);
 });
 
 test("proxy navigation errors stay readable in dark themes and flag the player", () => {

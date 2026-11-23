@@ -87,6 +87,7 @@
 
     async function fetchPart(url) {
       const response = await fetch(url);
+      if (!response.ok) throw new Error("Game file failed: " + url + " (" + response.status + ")");
       if (!response.body) {
         const ab = await response.arrayBuffer();
         loadedBytes += ab.byteLength;
@@ -170,18 +171,9 @@
         window.addEventListener('resize', onResize);
         onResize();
 
-        // Wait until Unity loader is available
-        await (async function waitForLoader() {
-          if (typeof createUnityInstance === 'function') return;
-          await new Promise(resolve => {
-            const check = setInterval(() => {
-              if (typeof createUnityInstance === 'function') {
-                clearInterval(check);
-                resolve();
-              }
-            }, 50);
-          });
-        })();
+        if (typeof createUnityInstance !== 'function') {
+          throw new Error('The Unity loader could not load. Reload to try again.');
+        }
 
         const config = {
           dataUrl: dataUrl,

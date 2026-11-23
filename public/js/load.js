@@ -80,6 +80,10 @@
     // Keep existing provider bookmarks working after repairing a broken wrapper.
     var repaired = {
       "https://truffled.lol/games/gta/index.html": "/assets/games/gta.html",
+      "https://truffled.lol/games/vicecity/index.html": "/assets/games/vicecity.html",
+      "https://gn-math.github.io/html/33-fix2.html": "/assets/games/retrobowl.html",
+      "https://gn-math.github.io/html/341-fix2.html": "/assets/games/learn2fly2.html",
+      "https://gn-math.github.io/html/342-fix.html": "/assets/games/learn2fly3.html",
       "https://gn-math.github.io/html/34-fix2.html":
         "/assets/games/retrobowlcollege.html",
       "https://selenite.cc/resources/semag/60sburgerrun/index.html":
@@ -693,6 +697,20 @@
       }
       location.replace(entry.href);
       return;
+    }
+    // SharedArrayBuffer requires isolation at the top level, not just inside
+    // the game iframe. Keep this opt-in so other apps retain their embeds.
+    var sharedMemoryGame = itemsources(entry).some(function (source) {
+      return /https:\/\/truffled\.lol\/games\/(casual|tbc)\//.test(sourceurl(source) || "");
+    });
+    if (sharedMemoryGame && !window.crossOriginIsolated) {
+      if (params.get("isolated") !== "1" || window.top !== window) {
+        var isolated = new URL(location.href);
+        isolated.searchParams.set("isolated", "1");
+        window.top.location.href = isolated.href;
+        return;
+      }
+      throw new Error("This game needs shared memory. Open it in a browser that supports cross-origin isolation.");
     }
     item = entry;
     attempts = itemsources(entry);

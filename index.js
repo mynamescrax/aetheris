@@ -2583,6 +2583,12 @@ fastify.get("/sw-recover", (_req, reply) =>
 fastify.addHook("onSend", async (req, reply, payload) => {
   const path = req.url.split("?")[0];
 
+  // Threaded games need an isolated top-level player, including its proxy frames.
+  if (path === "/load.html" && new URL(req.url, "http://localhost").searchParams.get("isolated") === "1") {
+    reply.header("Cross-Origin-Opener-Policy", "same-origin");
+    reply.header("Cross-Origin-Embedder-Policy", "require-corp");
+  }
+
   if (path === "/sw.js" || path === "/register-sw.js") {
     reply.header("Cache-Control", "no-store");
   } else if (path.startsWith("/assets/games/")) {

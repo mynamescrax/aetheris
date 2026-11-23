@@ -10,6 +10,10 @@ server-debug.err
 server-debug.log
 server.log
 server.err.log
+.local-release-check.log
+.local-server.log
+.local-server.err.log
+.local-server.pid
 
 movie-report.json
 cache

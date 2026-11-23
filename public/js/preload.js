@@ -5,7 +5,9 @@
     path === "" ||
     path.substring(path.length - 11) === "/index.html" ||
     path.substring(path.length - 6) === "/index";
-  if (window.self === window.top && !isindex) {
+  var isolatedPlayer = path === "/load.html" &&
+    new URLSearchParams(location.search).get("isolated") === "1";
+  if (window.self === window.top && !isindex && !isolatedPlayer) {
     var route = Aetheris.routeForUrl(location.href);
     if (route) location.replace("/index.html#" + route.route);
   }

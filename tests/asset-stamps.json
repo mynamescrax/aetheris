@@ -100,8 +100,8 @@
     "hash": "26bcbe9f8fa1b24c"
   },
   "js/load.js": {
-    "stamp": "20261118.2",
-    "hash": "e4289f702ef9d011"
+    "stamp": "20261122.2",
+    "hash": "ee4cfa0ec2c73130"
   },
   "js/movie-proxy-client.js": {
     "stamp": "20261102.1",
@@ -128,8 +128,8 @@
     "hash": "0fba4d29dea896b3"
   },
   "js/preload.js": {
-    "stamp": "20261008.1",
-    "hash": "08164c8a2099d2db"
+    "stamp": "20261122.1",
+    "hash": "bfdcb0a91c86712c"
   },
   "js/scramjet-init.js": {
     "stamp": "20261108.3",

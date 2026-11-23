@@ -81,7 +81,7 @@ var spoofrestored = new Promise(function (resolve) {
 // page is a week old never sees the fix that was deployed since. A new
 // version is a new cache key and a new HTTP cache entry, so the first visit
 // after a change always gets the current page.
-var GAMEPAGE_VERSION = "9";
+var GAMEPAGE_VERSION = "10";
 var GAMEPAGE_CACHE = "aetheris-gamepages-v" + GAMEPAGE_VERSION;
 // A handful of games is plenty; the cache is dropped when it grows past this.
 var GAMEPAGE_MAX_ENTRIES = 16;
@@ -1761,7 +1761,15 @@ self.addEventListener("fetch", function (event) {
             return injecthtmlshims(r, { desktopua: spoofdesktopua });
           })
           .then(function (r) {
-            return keepstreamalive(r, event);
+            // Permit proxied scripts, workers and frames in the isolated player.
+            var headers = new Headers(r.headers);
+            headers.set("Cross-Origin-Embedder-Policy", "require-corp");
+            headers.set("Cross-Origin-Resource-Policy", "cross-origin");
+            return keepstreamalive(new Response(r.body, {
+              status: r.status,
+              statusText: r.statusText,
+              headers: headers,
+            }), event);
           });
       })
       .catch(function (err) {

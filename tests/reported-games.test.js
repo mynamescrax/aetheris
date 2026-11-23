@@ -80,6 +80,10 @@ test("repaired provider bookmarks resolve locally even when the provider catalog
   const source = read("../public/js/load.js");
   const repairs = [
     ["https://truffled.lol/games/gta/index.html", "gta"],
+    ["https://truffled.lol/games/vicecity/index.html", "vicecity"],
+    ["https://gn-math.github.io/html/33-fix2.html", "retrobowl"],
+    ["https://gn-math.github.io/html/341-fix2.html", "learn2fly2"],
+    ["https://gn-math.github.io/html/342-fix.html", "learn2fly3"],
     ["https://gn-math.github.io/html/34-fix2.html", "retrobowlcollege"],
     [
       "https://selenite.cc/resources/semag/60sburgerrun/index.html",
@@ -208,4 +212,42 @@ test("Yandere passes a JSON URL to UnityLoader and resolves build files outside 
     json.wasmFrameworkUrl,
     /\/Build\/YandereSim\.wasm\.framework\.unityweb$/,
   );
+});
+
+
+test("Vice City preserves blob URL case when forwarding assembled files", async () => {
+  const html = read("../public/assets/games/vicecity.html");
+  const script = html.slice(html.indexOf("    const originalFetch ="), html.indexOf("    // Similarly override XHR"));
+  const seen = [];
+  const context = { window: { fetch: async (url) => seen.push(url) }, Request,
+    indexdataurl: "blob:https://aetheris.win/AbCd-EfGh" };
+  vm.runInNewContext(script, context);
+  await context.window.fetch("https://truffled.lol/games/vicecity/index.data");
+  assert.equal(seen[0], context.indexdataurl);
+  assert.match(html, /if \(!response.ok\) throw new Error/);
+});
+
+test("shared-memory games leave the shell for an isolated player in the same tab", async () => {
+  const source = read("../public/js/load.js");
+  const loaditem = source.slice(source.indexOf("  async function loaditem("), source.indexOf("  function setupfavoritebutton("));
+  const context = { window: { top: { location: {} }, crossOriginIsolated: false },
+    location: { href: "https://aetheris.win/load.html?game=casual" },
+    params: new URLSearchParams("game=casual"), URL,
+    itemsources: () => [{ url: "https://truffled.lol/games/casual/index.html" }],
+    sourceurl: source => source.url };
+  vm.runInNewContext(loaditem, context);
+  await context.loaditem({});
+  assert.equal(context.window.top.location.href, "https://aetheris.win/load.html?game=casual&isolated=1");
+  context.window.top = context.window;
+  context.params.set("isolated", "1");
+  await assert.rejects(context.loaditem({}), /needs shared memory/);
+});
+
+
+test("Baby Sniper rejects failed downloads before passing bytes to Unity", async () => {
+  const html = read("../public/assets/games/babysniperinvietnam.html");
+  const script = html.slice(html.indexOf("    async function fetchPart("), html.indexOf("    async function mergeParts("));
+  const context = { fetch: async () => ({ ok: false, status: 503 }) };
+  vm.runInNewContext(script, context);
+  await assert.rejects(context.fetchPart("Build/game.data.part1"), /Game file failed:.*503/);
 });

@@ -1391,3 +1391,12 @@ test("async group writes retain concurrent messages and cannot resurrect a delet
   }
   assert.equal(readdirSync(groupdir).some((name) => name.endsWith(".tmp")), false);
 });
+
+
+test("shared-memory player headers are opt-in", async () => {
+  const isolated = await fetch(base + "/load.html?game=casual&isolated=1");
+  assert.equal(isolated.headers.get("cross-origin-opener-policy"), "same-origin");
+  assert.equal(isolated.headers.get("cross-origin-embedder-policy"), "require-corp");
+  const normal = await fetch(base + "/load.html?game=casual");
+  assert.equal(normal.headers.get("cross-origin-embedder-policy"), null);
+});
