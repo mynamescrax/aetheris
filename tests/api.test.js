@@ -70,8 +70,8 @@ before(async () => {
     let body = "";
     req.on("data", (chunk) => (body += chunk));
     req.on("end", () => {
-      // model "upstream-NNN" makes the fixture fail with that status
-      const fault = /"model":"upstream-(\d+)"/.exec(body);
+      // Prompt "upstream-NNN" makes the fixture fail with that status.
+      const fault = /"content":"upstream-(\d+)"/.exec(body);
       if (fault) {
         res.writeHead(Number(fault[1]), { "content-type": "application/json" });
         return res.end(
@@ -1046,8 +1046,8 @@ test("AI upstream auth errors are reported as server misconfiguration", async ()
       method: "POST",
       headers: headers(alice.data.token),
       body: JSON.stringify({
-        model: "upstream-401",
-        messages: [{ role: "user", content: "test" }],
+        model: "gpt-6-luna",
+        messages: [{ role: "user", content: "upstream-401" }],
         stream,
       }),
     });
@@ -1058,8 +1058,8 @@ test("AI upstream auth errors are reported as server misconfiguration", async ()
     method: "POST",
     headers: headers(alice.data.token),
     body: JSON.stringify({
-      model: "upstream-429",
-      messages: [{ role: "user", content: "test" }],
+      model: "gpt-6-luna",
+      messages: [{ role: "user", content: "upstream-429" }],
     }),
   });
   assert.equal(busy.status, 429);
