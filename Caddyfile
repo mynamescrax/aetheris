@@ -393,3 +393,19 @@ https:// {
 		reverse_proxy http://127.0.0.1:8080
 	}
 }
+
+
+# ---- b-cdn.net pull-zone origin (bcdnbot BYOD links) -----------------------
+# bunny.net proxies http://144.91.64.65 with Host: 144.91.64.65. The catch-all
+# https site above would 308 that to https://144.91.64.65, but an IP cannot get
+# a certificate (the on-demand ask endpoint denies IP identifiers), so the
+# browser showed SSL_ERROR_INTERNAL_ERROR_ALERT. Serve the main app over plain
+# HTTP for this host so the CDN terminates TLS and proxies normally.
+# X-Forwarded-Proto is pinned to https: the CDN already terminated TLS for the
+# end user, so the app must not try to upgrade the request again.
+http://144.91.64.65 {
+	encode zstd gzip
+	reverse_proxy http://127.0.0.1:8080 {
+		header_up X-Forwarded-Proto https
+	}
+}
