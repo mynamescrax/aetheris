@@ -104,16 +104,16 @@
     "hash": "ee4cfa0ec2c73130"
   },
   "js/movie-proxy-client.js": {
-    "stamp": "20261102.1",
-    "hash": "d70a67d7800a90e0"
+    "stamp": "20261124.1",
+    "hash": "f9bdf0e369897852"
   },
   "js/movie-sources.js": {
-    "stamp": "20261102.3",
-    "hash": "51be751b96aa5479"
+    "stamp": "20261124.4",
+    "hash": "bf2b499fdad78613"
   },
   "js/movies-ui.js": {
-    "stamp": "20261106.3",
-    "hash": "023bf318e9e15c40"
+    "stamp": "20261124.3",
+    "hash": "55853bcb51537b05"
   },
   "js/navigation.js": {
     "stamp": "20260907.1",

@@ -289,6 +289,50 @@ header change fixes it.
   second manual play click; it was not verified to deep-link TV episodes, so
   it stays out of `MOVIES_SOURCES` too.
 
+**2026-11-24**
+
+- Flixer (`flixer.su`) now permanently redirects to `flixer.gd`. The relay had
+  been matching only `flixer.su`, so after the redirect the `version.json`
+  cache, the local `/api/send` and `/cdn-cgi/rum` answers and the
+  "Share Flixer" suppression in `movie-proxy-client.js` all stopped matching.
+  `flixer.gd` is now in `FLIXER_DOMAINS` (and the client regex), which removes
+  ~12 upstream `version.json` polls per play and stops the share dialog.
+- VPS sweep through the production relay (iPad UA, Playwright, real
+  feature-length video check) on Fight Club 550, GoT 1399 S1E1 and Inside Out
+  2 1022789:
+  - **Flixer 0/3.** The page loads, but `dragonballzfans.xyz` answers every
+    fresh signed master and `/proxy?data=` segment with `400`, on the relay's
+    first attempt. Replaying the same freshly minted URLs from a residential
+    UK client (Node and Chromium, including a race where the residential
+    request left before the relay's) also gets `400` — the body differs
+    ("fuck you retard" for the VPS, `{"success":"false","reason":"Bad
+    request"}` for residential), but both are refused. So this is **not a
+    VPS-only IP block**: the CDN rejects out-of-context requests. hls.js adds
+    no media headers (`xhrSetup` only sets `withCredentials`/timeout) and the
+    APIs set no cookies, so there is no missing header/cookie to forward.
+    **Removed from `MOVIES_SOURCES`** on 2026-11-24; the `flixer.gd` relay
+    fixes and tests stay so re-adding is one entry if that changes.
+  - The separate `flixer.gd` **451** is a UK legal geo-block at Cloudflare;
+    the French relay loads the site and APIs fine. Don't confuse the two.
+  - **VidRock 3/3.** Ready in ~4.5s, played after a tap, sustained 70s with
+    the buffer ~70s ahead. New default.
+  - **2Embed 1/3** (Fight Club only; TV and Inside Out 2 had no ready video
+    within 80s). Rank 1.
+  - **VidAPI 0/2, VidSrc.su 0/2** (TV and Inside Out 2). Ranks 2 and 3.
+- A tagged watch-page failure now ends the attempt immediately. The movies UI
+  appends `&attempt=<aid>` to the outer player navigation; `/movie-proxy`
+  turns a 404/410/451/5xx page for that navigation into a small `no-store`
+  HTML page that posts `aetheris-movie-page-error` back. Assets, API calls and
+  nested frames ignore the tag, so they can never tear down a working player.
+  The UI switches source at once and beacons `legal`, `missing` or
+  `page-error` instead of waiting 45s. A UK client hitting Flixer's
+  Cloudflare 451 falls back in under a second with "unavailable in your region
+  (legal restriction)".
+- Relay cache fixes: the negative-cache lookup now happens after the shared
+  fetch settles, so coalesced waiters don't re-download a segment the first
+  request just learned is expired; extension-less `/proxy?data=` segment URLs
+  are captured/cached like `.ts` URLs instead of always streaming.
+
 ## Proxy (Scramjet) notes
 
 - Wisp runs through `lib/wisp-engine.js`: wispurr (Go) worker processes by

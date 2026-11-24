@@ -83,7 +83,7 @@ const NOISE_DOMAINS = [
   "histats.com",
 ];
 // Flixer and Hexa are two frontends on one backend.
-const FLIXER_DOMAINS = ["flixer.su", "hexa.su"];
+const FLIXER_DOMAINS = ["flixer.gd", "flixer.su", "hexa.su"];
 // Flixer's update checker polls version.json every few seconds per viewer
 // (~12 requests per play). One cached copy per host is plenty.
 const VERSION_CACHE_MS = 60_000;
@@ -560,7 +560,7 @@ function rewriteHtml(html, targetUrl, proxyOrigin) {
     }
   }
 
-  const scriptTag = `<script>window.__MOVIE_PROXY_TARGET__=${JSON.stringify(href).replace(/</g, "\\u003c")};window.__MOVIE_PROXY_ORIGIN__=${JSON.stringify(origin).replace(/</g, "\\u003c")};</script><script src="/js/movie-proxy-client.js?v=20261102.1"></script>`;
+  const scriptTag = `<script>window.__MOVIE_PROXY_TARGET__=${JSON.stringify(href).replace(/</g, "\\u003c")};window.__MOVIE_PROXY_ORIGIN__=${JSON.stringify(origin).replace(/</g, "\\u003c")};</script><script src="/js/movie-proxy-client.js?v=20261124.1"></script>`;
 
   // Some players (2vcdn.skin) call `$` without loading jQuery, which aborts
   // their boot. Inject full jQuery (they use $.ajax) when the page uses `$(`
@@ -1094,6 +1094,25 @@ export function registerMovieRelay(
 
       rawTarget = unwrapProxyUrl(rawTarget);
 
+      // Only the movies UI tags its outer watch-page navigation. Failed assets,
+      // API calls and nested frames must not tear down a working player.
+      const attemptId = req.method === "GET" &&
+        (!req.headers["sec-fetch-dest"] || req.headers["sec-fetch-dest"] === "iframe") &&
+        typeof req.query.attempt === "string" && /^[a-z0-9-]{1,80}$/.test(req.query.attempt)
+        ? req.query.attempt : null;
+      function sendFrameError(status, noticeUrl) {
+        const message = status === 451 ? "Unavailable for legal reasons (HTTP 451)." :
+          `The provider page could not load (HTTP ${status}).`;
+        // The untagged URL shows the provider's full original notice inside the
+        // frame on demand. The movies UI switches sources on the posted event;
+        // this page itself performs no retries.
+        const notice = noticeUrl ? ` <a href="${PROXY_ROUTE}?url=${encodeURIComponent(noticeUrl)}">Read the provider’s notice</a>` : "";
+        const event = { type: "aetheris-movie-page-error", aid: attemptId, status };
+        return reply.code(status).header("Cache-Control", "no-store")
+          .header("Content-Security-Policy", `default-src 'none'; script-src 'unsafe-inline'; frame-ancestors ${frameAncestors}`)
+          .type("text/html; charset=utf-8").send(`<!doctype html><meta charset="utf-8"><title>${message}</title><p>${message}${notice}</p><script>parent.postMessage(${JSON.stringify(event)}, "*")</script>`);
+      }
+
       if (isDecoyAdImage(rawTarget)) {
         reply.code(403).send("Blocked decoy media fragment");
         return;
@@ -1156,7 +1175,7 @@ export function registerMovieRelay(
         ...["accept", "accept-language", "user-agent", "sec-fetch-mode",
           "sec-fetch-site", "sec-fetch-dest"].map((name) => req.headers[name]),
       ]);
-      const cacheableRead = req.method === "GET" && !req.headers.range &&
+      const cacheableRead = req.method === "GET" && !attemptId && !req.headers.range &&
         !SIGNED_REQUEST_HEADERS.some((name) => req.headers[name] != null);
       let settleMediaFetch;
       if (cacheableRead) {
@@ -1167,15 +1186,6 @@ export function registerMovieRelay(
           serveCachedBody(reply, cached, "hit");
           return;
         }
-        const negative = negativeCacheGet(cacheKey);
-        if (negative) {
-          cacheStats.negativeHits++;
-          return reply
-            .code(negative.status)
-            .type("text/plain")
-            .header("Cache-Control", "no-store")
-            .send("Upstream declined this URL (cached).");
-        }
         const pending = inflight.get(cacheKey);
         if (pending) {
           const entry = await pending.catch(() => null);
@@ -1185,14 +1195,28 @@ export function registerMovieRelay(
             return;
           }
         }
+        // The shared fetch may have just populated the negative cache. Check
+        // after it settles so all waiters don't re-download an expired segment.
+        const negative = negativeCacheGet(cacheKey);
+        if (negative) {
+          cacheStats.negativeHits++;
+          return reply
+            .code(negative.status)
+            .type("text/plain")
+            .header("Cache-Control", "no-store")
+            .send("Upstream declined this URL (cached).");
+        }
       }
 
       if (reply.raw.destroyed) return;
       let currentUrl;
       try {
-        if (cacheableRead && SEGMENT_CACHE_BYTES > 0 &&
-            MEDIA_EXT_RE.test(new URL(rawTarget).pathname))
-          settleMediaFetch = trackMediaFetch(cacheKey, reply.raw);
+        if (cacheableRead && SEGMENT_CACHE_BYTES > 0) {
+          const target = new URL(rawTarget);
+          if (MEDIA_EXT_RE.test(target.pathname) ||
+              (target.pathname === "/proxy" && target.searchParams.has("data")))
+            settleMediaFetch = trackMediaFetch(cacheKey, reply.raw);
+        }
         currentUrl = await validateUrl(rawTarget, signal);
       } catch (err) {
         reply.code(403).send(`SSRF validation failed: ${err.message}`);
@@ -1319,6 +1343,7 @@ export function registerMovieRelay(
           console.warn(
             `[movie-proxy] upstream error ${currentUrl.host}${currentUrl.pathname}: ${err.message}`,
           );
+          if (attemptId) return sendFrameError(502);
           reply.header("Cache-Control", "no-store");
           reply.code(502).send(`Upstream request error: ${err.message}`);
           return;
@@ -1371,11 +1396,17 @@ export function registerMovieRelay(
       }
 
       if (redirectCount > MAX_REDIRECTS) {
+        if (attemptId) return sendFrameError(508);
         reply.code(508).send("Too many redirects");
         return;
       }
 
-      reply.code(upstreamRes.statusCode);
+      const status = upstreamRes.statusCode;
+      if (attemptId && ([404, 410, 451].includes(status) || status >= 500)) {
+        upstreamRes.destroy();
+        return sendFrameError(status, status === 451 ? currentUrl.href : null);
+      }
+      reply.code(status);
 
       const filterHeaders = [
         "x-frame-options",

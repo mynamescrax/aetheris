@@ -17,42 +17,17 @@ function relayUrl(upstream) {
   );
 }
 
+// Order here is the dropdown order; fallbackRank controls automatic retries:
+// VidRock -> 2Embed -> VidAPI -> VidSrc.su. Shared CDNs can still fail
+// together; these ranks reflect the 2026-11-24 VPS sweep, not independent
+// availability.
 var MOVIES_SOURCES = [
-  // Keep array indexes stable for old saved preferences. fallbackRank controls
-  // automatic retries: Flixer -> 2Embed -> VidAPI -> VidSrc.su -> VidRock.
-  // All remain selectable. Shared CDNs can still fail together; these ranks
-  // reflect the supplied Oct 12-14 reports, not independent availability.
   {
-    // Default source. Full watch pages, not an embed; needs the relay to
-    // forward its signed X-Api-Key/X-Request-* headers.
-    id: "flixer",
-    fallbackRank: 0,
-    name: "Flixer (flixer.su)",
-    url: function (t, id, s, e) {
-      return relayUrl(
-        "https://flixer.su/watch/" +
-          (t === "movie" ? "movie/" + id : "tv/" + id + "/" + s + "/" + e),
-      );
-    },
-  },
-  {
-    // Slow to start (~20-30s). Video from videm.xyz / vidsrc.buzz.
-    id: "2embed",
-    fallbackRank: 1,
-    name: "2Embed (2embed.cc)",
-    url: function (t, id, s, e) {
-      // 2Embed wants "&s=" here; "?s=" is ignored and always plays S1E1.
-      return relayUrl(
-        t === "movie"
-          ? "https://www.2embed.cc/embed/" + id
-          : "https://www.2embed.cc/embedtv/" + id + "&s=" + s + "&e=" + e,
-      );
-    },
-  },
-  {
-    // Video from boomchick.org; some titles hit hosts that 403 the VPS.
+    // Default source. Video from boomchick.org; started and sustained for
+    // movie and TV in the 2026-11-24 sweep.
     id: "vidrock",
-    fallbackRank: 4,
+    fallbackRank: 0,
+    default: true,
     name: "VidRock (vidrock.net)",
     url: function (t, id, s, e) {
       return relayUrl(
@@ -62,14 +37,17 @@ var MOVIES_SOURCES = [
     },
   },
   {
-    // Same dragonballzfans CDN as Flixer, but a different page/API.
-    id: "vidsrc-su",
-    fallbackRank: 3,
-    name: "VidSrc.su (vidsrc.su)",
+    // Fast start; worked for movie and TV in the sweep.
+    // Some titles hit hosts that 403 the VPS.
+    id: "2embed",
+    fallbackRank: 1,
+    name: "2Embed (2embed.cc)",
     url: function (t, id, s, e) {
+      // 2Embed wants "&s=" here; "?s=" is ignored and always plays S1E1.
       return relayUrl(
-        "https://vidsrc.su/embed/" +
-          (t === "movie" ? "movie/" + id : "tv/" + id + "/" + s + "/" + e),
+        t === "movie"
+          ? "https://www.2embed.cc/embed/" + id
+          : "https://www.2embed.cc/embedtv/" + id + "&s=" + s + "&e=" + e,
       );
     },
   },
@@ -86,6 +64,25 @@ var MOVIES_SOURCES = [
       );
     },
   },
+  {
+    // Different page/API on the same dragonballzfans CDN.
+    id: "vidsrc-su",
+    fallbackRank: 3,
+    name: "VidSrc.su (vidsrc.su)",
+    url: function (t, id, s, e) {
+      return relayUrl(
+        "https://vidsrc.su/embed/" +
+          (t === "movie" ? "movie/" + id : "tv/" + id + "/" + s + "/" + e),
+      );
+    },
+  },
+  // Flixer was removed on 2026-11-24. Its page and APIs still load from the
+  // VPS, but the dragonballzfans stream CDN answers 400 to the relay's fresh
+  // signed master and every segment; a residential replay fails too, so it is
+  // an anti-relay check rather than a VPS-only block. The relay still maps
+  // flixer.gd (version.json/RUM/share-dialog fixes) and tests cover it, so
+  // re-adding is one entry if that changes.
+  //
   // Not listed because they don't play from the VPS (2026-10-11 sweep):
   // VidSrc (vidsrcme.ru), VidSrc.to, VidSrc.pm, SmashyStream, VidLink,
   // Embed.su, VidEasy, AutoEmbed, VidSrc.cc, VidSrc.wtf, VidZee, Hexa,

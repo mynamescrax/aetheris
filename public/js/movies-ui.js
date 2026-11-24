@@ -575,7 +575,9 @@
   // Auto-fallback. movie-proxy-client.js reports when a feature-length video
   // is ready or playing; a source that hasn't done so within WATCHDOG_MS is
   // swapped for the next untried one for this title/episode. The iframe load
-  // event can't be used for this: it fires for error pages too.
+  // event can't be used for this: it fires for error pages too. The relay's
+  // own error pages (tagged with this attempt's aid) report immediately, so a
+  // legal block or dead watch page doesn't cost a 45-second wait.
   var WATCHDOG_MS = 45000;
   // The user clicked into the player (e.g. a play overlay): give it longer.
   var INTERACTION_MS = 60000;
@@ -630,6 +632,30 @@
     uiBeacon(params);
   }
 
+  // The relay answers a top-level provider navigation that failed with a
+  // small tagged page; this is the only message that can end an attempt
+  // before the watchdog fires. Nested frames and asset failures are ignored.
+  window.addEventListener("message", function (event) {
+    var data = event.data;
+    if (
+      !data ||
+      data.type !== "aetheris-movie-page-error" ||
+      !attempt ||
+      attempt.failed ||
+      data.aid !== attempt.aid ||
+      !fromPlayer(event.source)
+    )
+      return;
+    var status = Number(data.status);
+    playerStatus.textContent = "Loading fallback source…";
+    sourceFailed(
+      attempt,
+      status === 451 ? "legal" : status === 404 || status === 410
+        ? "missing"
+        : "page-error",
+    );
+  });
+
   function armWatchdog(ms, reason) {
     clearTimeout(playerTimer);
     var current = attempt;
@@ -650,12 +676,20 @@
     var provider = MOVIES_SOURCES[failed.index] || { name: "This source" };
     dbg("source FAILED (" + reason + "):", provider.name);
     attemptBeacon(reason, failed);
+    var problem =
+      reason === "legal"
+        ? " is unavailable in your region (legal restriction)"
+        : reason === "missing"
+          ? " has no copy of this title"
+          : "";
     var next = nextUntriedSource();
     if (next < 0) {
       playerStatus.classList.add("hidden");
-      hint.textContent = roundPlayed
-        ? "Playback couldn't recover. Pick a source to retry, or try again later."
-        : "No source could play this right now. Try again later, or pick a source to retry it.";
+      hint.textContent =
+        (problem ? provider.name + problem + ". " : "") +
+        (roundPlayed
+          ? "Playback couldn't recover. Pick a source to retry, or try again later."
+          : "No source could play this right now. Try again later, or pick a source to retry it.");
       if (!roundPlayed) attemptBeacon("exhausted", failed);
       return;
     }
@@ -663,9 +697,9 @@
     setIframe(true);
     hint.textContent =
       provider.name +
-      (failed.playing
-        ? " stopped playing, trying "
-        : " didn't start, trying ") +
+      (problem ||
+        (failed.playing ? " stopped playing, trying " : " didn't start, trying ")) +
+      (problem ? ", trying " : "") +
       MOVIES_SOURCES[next].name +
       "…";
   }
@@ -836,13 +870,19 @@
       auto === true ? "(auto)" : "",
     );
     attemptBeacon(auto === true ? "autoplay" : "play", current, urlHost(url));
+    // Tag only the outer watch-page navigation so the relay can turn a blocked
+    // or missing page into an immediate, attempt-scoped error message.
     player.onload = function () {
       if (attempt !== current) return;
       playerStatus.classList.add("hidden");
       dbg("player frame loaded:", urlHost(player.src));
       attemptBeacon("loaded", current);
     };
-    player.src = url;
+    player.src =
+      url +
+      (url.indexOf("?") >= 0 ? "&" : "?") +
+      "attempt=" +
+      encodeURIComponent(current.aid);
     armWatchdog(WATCHDOG_MS);
   }
 
@@ -875,10 +915,10 @@
     // Bumping sourceDefaultVersion resets everyone's saved source to the
     // default once.
     var defaultIndex = MOVIES_SOURCES.findIndex(function (provider) {
-      return /flixer/i.test(provider.name);
+      return provider.default === true;
     });
     if (defaultIndex < 0) defaultIndex = 0;
-    var sourceDefaultVersion = "flixer-default-20261011";
+    var sourceDefaultVersion = "vidrock-default-20261124b";
     var savedVersion = Aetheris.storage.getItem("movieSourceVersion");
     var savedId = Aetheris.storage.getItem("movieSourceId");
     var saved = MOVIES_SOURCES.findIndex(function (provider) {

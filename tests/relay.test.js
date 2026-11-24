@@ -1299,3 +1299,105 @@ test("lc-relay limits room-code guessing and message floods", async (t) => {
     assert.equal(await closed, 1008);
   });
 });
+
+test("movie relay fails a tagged provider page fast without touching other requests", async (t) => {
+  const hits = { legal: 0, script: 0, expired: 0, segment: 0 };
+  const upstream = http.createServer((req, res) => {
+    if (req.url.startsWith("/legal")) {
+      hits.legal++;
+      res.writeHead(451, { "content-type": "text/html" });
+      return res.end("<!doctype html><html><body>Legal notice body</body></html>");
+    }
+    if (req.url.startsWith("/asset.js")) {
+      hits.script++;
+      res.writeHead(200, { "content-type": "application/javascript" });
+      return res.end("window.asset = 1;");
+    }
+    if (req.url.startsWith("/expired.ts")) {
+      hits.expired++;
+      res.writeHead(400, { "content-type": "text/plain" });
+      return res.end("expired");
+    }
+    if (req.url.startsWith("/proxy")) {
+      hits.segment++;
+      res.writeHead(200, { "content-type": "video/mp4" });
+      return res.end(Buffer.alloc(2048, 3));
+    }
+    res.writeHead(404, { "content-type": "text/plain" });
+    res.end("nope");
+  });
+  await new Promise((resolve) => upstream.listen(0, "127.0.0.1", resolve));
+  const port = upstream.address().port;
+  const app = Fastify();
+  registerMovieRelay(app, {
+    resolveTarget: async (raw) => {
+      const url = new URL(raw);
+      if (url.hostname !== "relay-fixture.test" || url.port !== String(port))
+        throw new Error("Fixture host rejected.");
+      return { url, addresses: [{ address: "127.0.0.1", family: 4 }] };
+    },
+  });
+  await app.ready();
+  t.after(async () => {
+    await app.close();
+    upstream.closeAllConnections();
+    await new Promise((resolve) => upstream.close(resolve));
+  });
+  const path = (tail) =>
+    "/movie-proxy?url=" +
+    encodeURIComponent(`http://relay-fixture.test:${port}${tail}`);
+
+  await t.test("a tagged legal block answers immediately and posts an event", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: path("/legal") + "&attempt=abc123",
+      headers: { "sec-fetch-dest": "iframe" },
+    });
+    assert.equal(res.statusCode, 451);
+    assert.equal(res.headers["cache-control"], "no-store");
+    assert.ok(res.body.includes("aetheris-movie-page-error"));
+    assert.ok(res.body.includes('"aid":"abc123"'));
+    assert.ok(res.body.includes("Read the provider"));
+    assert.ok(!res.body.includes("Legal notice body"), "the provider page is not rendered");
+    assert.equal(hits.legal, 1);
+  });
+
+  await t.test("an untagged request still gets the provider page", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: path("/legal"),
+      headers: { "sec-fetch-dest": "iframe" },
+    });
+    assert.equal(res.statusCode, 451);
+    assert.ok(res.body.includes("Legal notice body"));
+  });
+
+  await t.test("the same attempt tag on an asset does not become an error page", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: path("/asset.js") + "&attempt=abc123",
+      headers: { "sec-fetch-dest": "script" },
+    });
+    assert.equal(res.statusCode, 200);
+    assert.ok(res.body.includes("window.asset = 1"));
+  });
+
+  await t.test("concurrent failures share one upstream fetch", async () => {
+    const [a, b] = await Promise.all([
+      app.inject(path("/expired.ts")),
+      app.inject(path("/expired.ts")),
+    ]);
+    assert.equal(a.statusCode, 400);
+    assert.equal(b.statusCode, 400);
+    assert.equal(hits.expired, 1, "the second waiter reads the negative cache");
+  });
+
+  await t.test("extension-less /proxy segments are cached", async () => {
+    const first = await app.inject(path("/proxy?data=signed"));
+    assert.equal(first.statusCode, 200);
+    const second = await app.inject(path("/proxy?data=signed"));
+    assert.equal(second.headers["x-movie-cache"], "hit");
+    assert.deepEqual(second.rawPayload, first.rawPayload);
+    assert.equal(hits.segment, 1);
+  });
+});

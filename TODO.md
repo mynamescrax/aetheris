@@ -5,6 +5,12 @@
 The relay work is done (see CLAUDE.md for provider findings). What's left is
 checking it on production:
 
+- [ ] After deploy: VidRock is the default for new and returning visitors
+      (the `movieSourceVersion` bump resets a saved choice), Flixer is gone
+      from the source list, and a broadcast movie starts without a manual
+      source change.
+- [ ] With a UK client, choosing Flixer shows the legal-restriction message and
+      falls back in about a second (not after the 45s watchdog).
 - [ ] Homepage still renders with movie-related cookies, local storage and a
       cached service worker present.
 - [ ] Regular pages and existing proxy/game routes are unaffected.

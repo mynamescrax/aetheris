@@ -210,6 +210,10 @@ test("movie proxy client repairs provider-prefixed absolute relay URLs", () => {
     "nested relay URLs in provider API params must be unwrapped (subtitle 500)",
   );
   assert.ok(
+    client.includes("flixer\\.(gd|su)"),
+    "the Flixer share-dialog suppression must match the current flixer.gd domain",
+  );
+  assert.ok(
     client.includes("retryPlay"),
     "aborted Safari play() calls must be retried with backoff",
   );
@@ -222,6 +226,11 @@ test("all movie providers are configured as proxy-only", () => {
   );
   assert.doesNotMatch(sources, /\bdirect\s*:\s*true\b/);
   assert.doesNotMatch(sources, /return\s+["']https?:\/\//);
+  assert.doesNotMatch(
+    sources,
+    /id:\s*"flixer"/,
+    "Flixer's CDN rejects relayed requests and must stay out of the list",
+  );
 });
 
 test("compression is decoded correctly and oversized/broken text is rejected", () => {
