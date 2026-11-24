@@ -44,6 +44,8 @@
       "settings.html": "settings",
       "./about.html": "about",
       "about.html": "about",
+      "./links.html": "links",
+      "links.html": "links",
     };
 
     var page = pagemap[link.getAttribute("href")];

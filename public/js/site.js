@@ -198,6 +198,7 @@
     search: "search.html",
     settings: "settings.html",
     about: "about.html",
+    links: "links.html",
     load: "load.html",
   };
   // #maths links from the short-lived rename keep working.
