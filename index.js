@@ -31,7 +31,6 @@ import {
 } from "./lib/tiktok-gateway.js";
 import { createmoviereport } from "./lib/movie-report.js";
 import { createRateLimiter } from "./lib/rate-limit.js";
-import { downloadPublicImage, resolvePublicUrl } from "./lib/public-network.js";
 import { registerImageProxy } from "./lib/image-proxy.js";
 import { registerGameCatalogs } from "./lib/game-catalogs.js";
 import { prepareJson, sendJson } from "./lib/cached-response.js";
@@ -2010,17 +2009,12 @@ const CRAX_GPT_KEY = process.env.CRAX_GPT_KEY || "";
 const CRAX_GPT_BASE = (
   process.env.CRAX_GPT_BASE_URL || "https://gpt.crax.lol/v1"
 ).replace(/\/+$/, "");
-// Optional overrides. When unset, the default is discovered from the provider's
-// /models endpoint so a renamed or retired model can't break chat.
+const AI_CHAT_MODELS = new Set(["claude-haiku-5-5", "gpt-6-luna"]);
 const CRAX_GPT_MODEL = process.env.CRAX_GPT_MODEL || "";
-const CRAX_GPT_IMG_MODEL = process.env.CRAX_GPT_IMAGE_MODEL || "";
-const MAX_GENERATED_IMAGE_BYTES = 20 * 1024 * 1024;
 const AI_MODELS_TIMEOUT_MS = 15 * 1000;
 // A game page is rewritten to opaque relay URLs only when it fits in memory.
 const MAX_HTML_REWRITE_BYTES = 2 * 1024 * 1024;
 const AI_CHAT_TIMEOUT_MS = 5 * 60 * 1000;
-const AI_IMAGE_TIMEOUT_MS = 3 * 60 * 1000;
-const AI_IMAGE_DOWNLOAD_TIMEOUT_MS = 30 * 1000;
 
 // Anonymous AI is allowed by default (AI_REQUIRE_LOGIN=true opts into a login
 // gate). These caps bound what one visitor can spend without an account:
@@ -2032,10 +2026,6 @@ const AI_MAX_CONCURRENT = 24;
 // The provider's model list changes over time, so it is cached briefly instead
 // of being pinned in code or re-fetched for every chat request.
 const AI_MODEL_CACHE_TTL_MS = 10 * 60 * 1000;
-const AI_IMAGE_MODEL_RE =
-  /image|img|dall|flux|sdxl|sd3(?:-|$)|banana|krea|recraft|ideogram/i;
-const AI_VIDEO_MODEL_RE = /video|sora|veo|kling|runway|pika/i;
-
 const aiactive = new Map(); // client ip -> in-flight upstream requests
 let aiactiveTotal = 0;
 
@@ -2157,7 +2147,7 @@ function aiModelId(entry) {
 }
 
 function aiDefaultModel(models, preferred) {
-  if (preferred) return preferred;
+  if (models.some((model) => aiModelId(model) === preferred)) return preferred;
   const first = models.find((model) => aiModelId(model));
   return first ? aiModelId(first) : "";
 }
@@ -2184,20 +2174,14 @@ async function aiModelCatalog() {
         error.data = data;
         throw error;
       }
-      const models = Array.isArray(data.data) ? data.data : [];
-      const chat = [];
-      const images = [];
-      for (const model of models) {
-        const id = aiModelId(model);
-        if (!id || AI_VIDEO_MODEL_RE.test(id)) continue;
-        if (AI_IMAGE_MODEL_RE.test(id)) images.push(model);
-        else chat.push(model);
-      }
+      const models = (Array.isArray(data.data) ? data.data : []).filter((model) =>
+        AI_CHAT_MODELS.has(aiModelId(model)),
+      );
       aiModelCache = {
         at: Date.now(),
         data: models,
-        default_model: aiDefaultModel(chat, CRAX_GPT_MODEL),
-        default_image_model: aiDefaultModel(images, CRAX_GPT_IMG_MODEL),
+        default_model: aiDefaultModel(models, CRAX_GPT_MODEL),
+        default_image_model: "",
       };
       return aiModelCache;
     } catch (error) {
@@ -2214,16 +2198,6 @@ async function aiModelCatalog() {
     }
   })();
   return aiModelInflight;
-}
-
-// Resolves the model for a request: the client's explicit choice, then the env
-// override, then whatever the provider currently lists.
-async function resolveAiModel(requested, kind) {
-  if (typeof requested === "string" && requested) return requested;
-  const override = kind === "image" ? CRAX_GPT_IMG_MODEL : CRAX_GPT_MODEL;
-  if (override) return override;
-  const catalog = await aiModelCatalog();
-  return kind === "image" ? catalog.default_image_model : catalog.default_model;
 }
 
 // Sends the error and returns false when AI is unavailable to this request.
@@ -2296,7 +2270,9 @@ fastify.post(
         return reply
           .code(400)
           .send({ ok: false, error: "Invalid model or stream option." });
-      const chosen = await resolveAiModel(model, "chat");
+      if (model && !AI_CHAT_MODELS.has(model))
+        return reply.code(400).send({ ok: false, error: "Unsupported AI model." });
+      const chosen = model || (await aiModelCatalog()).default_model;
       if (!chosen)
         return reply.code(503).send({
           ok: false,
@@ -2384,139 +2360,10 @@ fastify.get("/api/ai/models", async (req, reply) => {
   }
 });
 
-fastify.post(
-  "/api/ai/images",
-  { bodyLimit: 24 * 1024 * 1024 },
-  async (req, reply) => {
-    if (!(await aiallowed(req, reply))) return;
-    const clientip = getclientip(req);
-    if (!acquireAiSlot(clientip))
-      return reply.code(429).send({
-        ok: false,
-        error: "Too many AI requests in flight. Try again in a moment.",
-      });
-    try {
-      const { prompt, model, n, size, images } = req.body || {};
-      if (
-        typeof prompt !== "string" ||
-        !prompt.trim() ||
-        prompt.length > 4000
-      ) {
-        return reply.code(400).send({
-          ok: false,
-          error: "prompt must be a non-empty string (max 4000 chars).",
-        });
-      }
-      if (
-        (n !== undefined && (!Number.isInteger(n) || n < 1 || n > 4)) ||
-        (model !== undefined &&
-          (typeof model !== "string" || model.length > 200)) ||
-        (size !== undefined &&
-          (typeof size !== "string" || !/^(auto|\d{2,4}x\d{2,4})$/.test(size)))
-      ) {
-        return reply
-          .code(400)
-          .send({ ok: false, error: "Invalid image options (n must be 1–4)." });
-      }
-      if (images !== undefined && !Array.isArray(images)) {
-        return reply
-          .code(400)
-          .send({ ok: false, error: "images must be an array." });
-      }
-      const referenceImages = Array.isArray(images) ? images : [];
-      if (referenceImages.length > 4) {
-        return reply.code(400).send({
-          ok: false,
-          error: "A maximum of four reference images is allowed.",
-        });
-      }
-      for (const image of referenceImages) {
-        const match =
-          typeof image === "string" &&
-          image.match(
-            /^data:image\/(png|jpeg|webp|gif);base64,([A-Za-z0-9+/=]+)$/,
-          );
-        if (!match)
-          return reply.code(400).send({
-            ok: false,
-            error: "Every reference must be a PNG, JPG, WebP or GIF data URL.",
-          });
-        if (Buffer.from(match[2], "base64").length > 4 * 1024 * 1024) {
-          return reply.code(400).send({
-            ok: false,
-            error: "Reference images must be 4 MB or smaller.",
-          });
-        }
-      }
-      const chosenImage = await resolveAiModel(model, "image");
-      if (!chosenImage)
-        return reply.code(503).send({
-          ok: false,
-          error: "Image generation isn't available right now.",
-        });
-      const payload = {
-        model: chosenImage,
-        prompt: String(prompt),
-        ...(n ? { n } : {}),
-        ...(size ? { size } : {}),
-        ...(referenceImages.length ? { images: referenceImages } : {}),
-      };
-      const res = await fetch(`${CRAX_GPT_BASE}/images/generations`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${CRAX_GPT_KEY}`,
-        },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(AI_IMAGE_TIMEOUT_MS),
-      });
-      const data = await readAiResponse(res);
-      if (!res.ok) return sendUpstreamError(reply, res, data, "ai images");
-      // Inline URL results as base64: school filters often block the
-      // provider's image CDN while allowing this site.
-      if (Array.isArray(data.data)) {
-        data.data = await Promise.all(
-          data.data.map(async (image) => {
-            if (!image || image.b64_json || !image.url) return image;
-            try {
-              const { bytes, mime: contentType } = await downloadPublicImage(
-                image.url,
-                {
-                  maxBytes: MAX_GENERATED_IMAGE_BYTES,
-                  timeoutMs: AI_IMAGE_DOWNLOAD_TIMEOUT_MS,
-                },
-              );
-              const rest = { ...image };
-              delete rest.url;
-              return {
-                ...rest,
-                b64_json: bytes.toString("base64"),
-                mime_type: contentType,
-              };
-            } catch (error) {
-              // generation succeeded; fall back to the provider URL if it is public
-              console.warn(
-                "[ai] generated image relay failed; returning provider URL:",
-                error.message,
-              );
-              try {
-                await resolvePublicUrl(image.url);
-              } catch {
-                return { error: "The provider returned an unsafe image URL." };
-              }
-              return image;
-            }
-          }),
-        );
-      }
-      reply.send(data);
-    } catch (e) {
-      sendUpstreamFailure(reply, e, "ai images");
-    } finally {
-      releaseAiSlot(clientip);
-    }
-  },
-);
+fastify.post("/api/ai/images", async (req, reply) => {
+  if (!(await aiallowed(req, reply))) return;
+  return reply.code(400).send({ ok: false, error: "Image generation is unavailable." });
+});
 
 // --- tmdb passthrough (GET only, keeps the key out of client code) ---
 const TMDB_KEY = process.env.TMDB_API_KEY || "";

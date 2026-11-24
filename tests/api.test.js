@@ -56,7 +56,7 @@ before(async () => {
     if (req.url === "/v1/models") {
       res.setHeader("content-type", "application/json");
       return res.end(
-        JSON.stringify({ data: [{ id: "test-chat" }, { id: "test-image" }] }),
+        JSON.stringify({ data: [{ id: "claude-haiku-5-5" }, { id: "gpt-6-luna" }, { id: "ask-gpt-6-luna" }, { id: "test-image" }] }),
       );
     }
     if (req.url.startsWith("/3/search/test")) {
@@ -133,8 +133,7 @@ before(async () => {
       CRAX_GPT_KEY: "local-test-only",
       AI_REQUIRE_LOGIN: "true",
       CRAX_GPT_BASE_URL: `http://127.0.0.1:${provider.address().port}/v1`,
-      CRAX_GPT_MODEL: "test-chat",
-      CRAX_GPT_IMAGE_MODEL: "test-image",
+      CRAX_GPT_MODEL: "gpt-6-luna",
       TMDB_API_KEY: "local-test-only",
       TMDB_BASE_URL: `http://127.0.0.1:${provider.address().port}/3`,
       AETHERIS_RELEASE: "local-test-release",
@@ -481,7 +480,14 @@ test("AI login option, model defaults, and streaming work with a local provider 
   });
   assert.equal(res.status, 401);
   res = await api("/api/ai/models", { headers: headers(alice.data.token) });
-  assert.equal(res.data.default_model, "test-chat");
+  assert.equal(res.data.default_model, "gpt-6-luna");
+  assert.deepEqual(res.data.data.map(({ id }) => id), ["claude-haiku-5-5", "gpt-6-luna"]);
+  const guest = await api("/api/ai/chat", {
+    method: "POST",
+    headers: headers(alice.data.token),
+    body: JSON.stringify({ model: "ask-gpt-6-luna", messages: [{ role: "user", content: "test" }] }),
+  });
+  assert.equal(guest.status, 400);
   const stream = await fetch(base + "/api/ai/chat", {
     method: "POST",
     headers: headers(alice.data.token),
