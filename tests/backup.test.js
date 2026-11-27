@@ -29,6 +29,7 @@ function loadBackup(overrides = {}) {
   };
   context.window = context;
   context.window.addEventListener = () => {};
+  vm.runInNewContext(fs.readFileSync(new URL("../public/js/cache-reset.js", import.meta.url), "utf8"), context);
   vm.runInNewContext(
     fs.readFileSync(
       new URL("../public/js/data-transfer.js", import.meta.url),
@@ -127,7 +128,7 @@ test("export keeps the databases the browser reports", async () => {
   assert.ok(names.includes("/idbfs"), "must probe /idbfs");
 });
 
-test("export never includes download caches in the database list", async () => {
+test("export excludes known downloads but keeps unfamiliar cache-named databases", async () => {
   const context = loadBackup({
     indexedDB: {
       databases: async () => [
@@ -141,6 +142,6 @@ test("export never includes download caches in the database list", async () => {
   const names = await context.AetherisBackup.list();
   assert.ok(!names.includes("UnityCache"), "must skip UnityCache");
   assert.ok(!names.includes("aetheris-games-cache"), "must skip the site cache");
-  assert.ok(!names.includes("somegamecache"), "must skip cache-named databases");
+  assert.ok(names.includes("somegamecache"), "an unknown database can contain saves");
   assert.ok(names.includes("/idbfs"), "must keep /idbfs");
 });

@@ -153,6 +153,43 @@ test("proxied pages block ad networks the light list leaves out", () => {
   assert.equal(isadhost("game-cdn.poki.com"), false);
 });
 
+test("blocklist download is deferred until the first eligible proxy requests, which share it", async () => {
+  const events = {};
+  const origin = "https://site.test";
+  let downloads = 0;
+  const cache = {
+    match: async key => key === "/migration-version" ? new Response("999") : undefined,
+    keys: async () => [], put: async () => {},
+  };
+  const ctx = vm.createContext({
+    self: { location: new URL(origin), addEventListener: (name, fn) => events[name] = fn, skipWaiting() {} },
+    navigator: { userAgent: "Fixture" }, caches: { open: async () => cache },
+    fetch: async url => {
+      if (!String(url).includes("adblock-domains.txt")) return new Response("");
+      downloads++; return new Response("tracker.example\n");
+    },
+    $scramjetController: { shouldRoute: () => true }, URL, Response, Request, AbortController, setTimeout, clearTimeout,
+  });
+  vm.runInContext(fs.readFileSync(new URL("../public/sw.js", import.meta.url), "utf8"), ctx);
+  await ctx.settingsrestored;
+  let install;
+  events.install({ waitUntil: p => { install = p; } });
+  await install;
+  assert.equal(downloads, 0);
+  ctx.ensurecontrollerloaded = () => true;
+  function request(host) {
+    let response;
+    events.fetch({ request: new Request(origin + "/~/sj/1/" + encodeURIComponent("https://" + host + "/")),
+      respondWith: p => { response = p; } });
+    return response;
+  }
+  assert.equal((await request("doubleclick.net")).status, 204);
+  assert.equal(downloads, 0, "built-in rules work immediately");
+  const replies = await Promise.all([request("tracker.example"), request("sub.tracker.example")]);
+  assert.deepEqual(replies.map(r => r.status), [204, 204]);
+  assert.equal(downloads, 1);
+});
+
 function helpers(initial = {}, blocked = false) {
   const data = new Map(Object.entries(initial));
   const storage = {

@@ -692,21 +692,49 @@
     });
   }
 
-  function addmissingsave(db, storeName, key, value) {
+  function saveRequest(request) {
     return new Promise(function (resolve, reject) {
-      var tx = db.transaction(storeName, "readwrite");
-      var store = tx.objectStore(storeName);
-      var lookup = store.getKey(key);
-      lookup.onsuccess = function () {
-        if (lookup.result !== undefined) return;
-        if (store.keyPath === null) store.add(value, key);
-        else store.add(value);
-      };
+      request.onsuccess = function () { resolve(request.result); };
+      request.onerror = function () { reject(request.error); };
+    });
+  }
+
+  // Compare sorted keys in bounded pages. The destination keys themselves
+  // record what was copied; new/restored saves are still found on later runs.
+  async function* saveKeys(db, name) {
+    var range;
+    for (;;) {
+      var store = db.transaction(name).objectStore(name);
+      var keys = await saveRequest(store.getAllKeys(range, 256));
+      for (var key of keys) yield key;
+      if (keys.length < 256) return;
+      range = IDBKeyRange.lowerBound(keys[keys.length - 1], true);
+    }
+  }
+
+  async function copySaveBatch(from, to, name, keys) {
+    var source = from.transaction(name).objectStore(name);
+    var rows = await Promise.all(keys.map(function (key) {
+      return saveRequest(source.openCursor(key)).then(function (cursor) {
+        return cursor && { key: key, value: cursor.value };
+      });
+    }));
+    await new Promise(function (resolve, reject) {
+      var tx = to.transaction(name, "readwrite");
+      var dest = tx.objectStore(name);
+      rows.forEach(function (row) {
+        if (!row) return;
+        // Recheck inside the write transaction: another tab may have saved
+        // this key since our initial scan. Existing progress always wins.
+        var check = dest.getKey(row.key);
+        check.onsuccess = function () {
+          if (check.result !== undefined) return;
+          if (dest.keyPath === null) dest.add(row.value, row.key);
+          else dest.add(row.value);
+        };
+      });
       tx.oncomplete = resolve;
-      tx.onabort = function () {
-        reject(tx.error || new Error("Could not preserve a game save."));
-      };
-      tx.onerror = function () {};
+      tx.onabort = function () { reject(tx.error || new Error("Could not preserve a game save.")); };
     });
   }
 
@@ -725,39 +753,18 @@
           JSON.stringify(oldStore.keyPath) !== JSON.stringify(newStore.keyPath)
         )
           continue;
-        var writes = [];
-        await new Promise(function (resolve, reject) {
-          var tx = proxied.transaction(storeName);
-          var cursor = tx.objectStore(storeName).openCursor();
-          cursor.onsuccess = function () {
-            if (!cursor.result) return;
-            // Catch immediately: the read cursor can outlive a failed write.
-            writes.push(
-              addmissingsave(
-                legacy,
-                storeName,
-                cursor.result.key,
-                cursor.result.value,
-              ).then(
-                function () {
-                  return null;
-                },
-                function (error) {
-                  return error;
-                },
-              ),
-            );
-            cursor.result.continue();
-          };
-          tx.oncomplete = resolve;
-          tx.onabort = function () {
-            reject(
-              tx.error || new Error("Could not read the newer game saves."),
-            );
-          };
-        });
-        var errors = await Promise.all(writes);
-        for (var error of errors) if (error) throw error;
+        var destination = saveKeys(legacy, storeName);
+        var next = await destination.next();
+        var missing = [];
+        for await (var key of saveKeys(proxied, storeName)) {
+          while (!next.done && indexedDB.cmp(next.value, key) < 0) next = await destination.next();
+          if (next.done || indexedDB.cmp(next.value, key) !== 0) missing.push(key);
+          if (missing.length === 8) {
+            await copySaveBatch(proxied, legacy, storeName, missing);
+            missing = [];
+          }
+        }
+        if (missing.length) await copySaveBatch(proxied, legacy, storeName, missing);
       }
     } finally {
       if (legacy) legacy.close();

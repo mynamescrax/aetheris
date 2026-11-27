@@ -64,16 +64,16 @@
     "hash": "49bebe38bc015176"
   },
   "js/ai.js": {
-    "stamp": "20261104.1",
-    "hash": "135917a9749a04c7"
+    "stamp": "20261127.2",
+    "hash": "513402dde63ab065"
   },
   "js/apps.js": {
     "stamp": "20261118.1",
     "hash": "ec1db3aaa602ae66"
   },
   "js/cache-reset.js": {
-    "stamp": "20260924.1",
-    "hash": "beeeb18672bd83d0"
+    "stamp": "20261127.2",
+    "hash": "9f9561cbf152ac58"
   },
   "js/chat-notifications.js": {
     "stamp": "20261115.1",
@@ -84,20 +84,20 @@
     "hash": "66a1f9eebb6be898"
   },
   "js/data-transfer.js": {
-    "stamp": "20261020.1",
-    "hash": "e4c05c5119957722"
+    "stamp": "20261127.1",
+    "hash": "593b26fc5fd2ee10"
   },
   "js/dm-shared.js": {
     "stamp": "20261106.3",
     "hash": "cedf8d3cbb8daf46"
   },
   "js/dm-ui.js": {
-    "stamp": "20261115.1",
-    "hash": "3771b1b5287588ee"
+    "stamp": "20261127.2",
+    "hash": "2b3e214a1863282b"
   },
   "js/games.js": {
-    "stamp": "20261115.3",
-    "hash": "26bcbe9f8fa1b24c"
+    "stamp": "20261127.1",
+    "hash": "3f09fcc15bfc60d2"
   },
   "js/load.js": {
     "stamp": "20261122.2",
@@ -112,8 +112,8 @@
     "hash": "bf2b499fdad78613"
   },
   "js/movies-ui.js": {
-    "stamp": "20261124.3",
-    "hash": "55853bcb51537b05"
+    "stamp": "20261127.3",
+    "hash": "aad9eb3559e9767d"
   },
   "js/navigation.js": {
     "stamp": "20261124.1",
@@ -124,16 +124,16 @@
     "hash": "5bd355ead3be7e94"
   },
   "js/player-data.js": {
-    "stamp": "20261105.2",
-    "hash": "0fba4d29dea896b3"
+    "stamp": "20261127.1",
+    "hash": "c55a0fb33f4edb66"
   },
   "js/preload.js": {
     "stamp": "20261122.1",
     "hash": "bfdcb0a91c86712c"
   },
   "js/scramjet-init.js": {
-    "stamp": "20261108.3",
-    "hash": "c1a5b35684842f6c"
+    "stamp": "20261127.1",
+    "hash": "fcfc100324d5a270"
   },
   "js/settings.js": {
     "stamp": "20261103.1",

@@ -170,16 +170,19 @@ var ADBLOCK_CACHE = "aetheris-adblock";
 var adblockenabled = true;
 var adhosts = null;
 var adloading = null;
+var adRetryAt = 0;
 
 function loadadblocklist() {
-  if (adhosts) return Promise.resolve();
+  if (adhosts || Date.now() < adRetryAt) return Promise.resolve();
   if (adloading) return adloading;
+  var controller = new AbortController();
+  var timeout = setTimeout(function () { controller.abort(); }, 5000);
   adloading = caches
     .open(ADBLOCK_CACHE)
     .then(function (cache) {
       return cache.match(ADBLOCK_LIST_URL).then(function (hit) {
         if (hit) return hit.text();
-        return fetch(ADBLOCK_LIST_URL).then(function (r) {
+        return fetch(ADBLOCK_LIST_URL, { signal: controller.signal }).then(function (r) {
           if (!r.ok) throw new Error("HTTP " + r.status);
           var copy = r.clone();
           return cache
@@ -211,6 +214,9 @@ function loadadblocklist() {
     })
     .catch(function (e) {
       console.warn("[SW] adblock list unavailable:", (e && e.message) || e);
+      adRetryAt = Date.now() + 60000;
+    }).finally(function () {
+      clearTimeout(timeout);
       adloading = null;
     });
   return adloading;
@@ -390,11 +396,8 @@ var adblockrestored = new Promise(function (resolve) {
     })
     .then(function (v) {
       if (v !== null) adblockenabled = v === "1";
-      if (adblockenabled) loadadblocklist();
     })
-    .catch(function () {
-      loadadblocklist();
-    })
+    .catch(function () {})
     .then(resolve);
 });
 
@@ -634,7 +637,7 @@ var recoveryhtml =
   "  <h1>fixing stuff...</h1>" +
   "  <p>clearing your cache, won't take long.</p>" +
   "</div>" +
-  '<script src="/js/cache-reset.js?v=20260924.1"><\/script>' +
+  '<script src="/js/cache-reset.js?v=20261127.2"><\/script>' +
   "<script>" +
   'AetherisCache.reset().then(function(){ window.location.replace("/"); })' +
   '.catch(function(e){ document.querySelector("h1").textContent="Reset incomplete"; document.querySelector("p").textContent=e.message; });' +
@@ -1743,9 +1746,12 @@ self.addEventListener("fetch", function (event) {
           event.request.mode !== "navigate" ||
           event.request.destination === "iframe";
         if (adblockenabled && adtargetable) {
-          if (!adhosts) loadadblocklist();
           var adtarget = proxiedtargethost(url);
           if (isadhost(adtarget)) return blockedresponse(adtarget);
+          if (adtarget && !adhosts) {
+            await loadadblocklist();
+            if (adblockenabled && isadhost(adtarget)) return blockedresponse(adtarget);
+          }
         }
         return buildrouteevent(event)
           .then(function (re) {
@@ -1791,21 +1797,7 @@ self.addEventListener("fetch", function (event) {
 });
 
 self.addEventListener("install", function (event) {
-  event.waitUntil(
-    migrateifneeded()
-      .then(function () {
-        // warm the blocklist cache; never let it block the install
-        return Promise.race([
-          loadadblocklist(),
-          new Promise(function (r) {
-            setTimeout(r, 5000);
-          }),
-        ]);
-      })
-      .then(function () {
-        return self.skipWaiting();
-      }),
-  );
+  event.waitUntil(migrateifneeded().then(function () { return self.skipWaiting(); }));
 });
 
 self.addEventListener("activate", function (event) {
@@ -1846,6 +1838,5 @@ self.addEventListener("message", function (event) {
   if (event.data && event.data.type === "aetheris-set-adblock") {
     adblockenabled = event.data.enabled !== false;
     persistadblockstate(adblockenabled);
-    if (adblockenabled) loadadblocklist();
   }
 });

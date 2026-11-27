@@ -7,9 +7,7 @@
     "scramjet-config",
     "aetheris-games-cache",
   ];
-  // Disposable game-file stores. Mirrors the SKIP_DBS list in
-  // data-transfer.js (excluded from backups because they are re-downloadable)
-  // plus gameFilesDB, which holds downloaded bundles — never game saves.
+  // Explicit download-only stores, shared with backup export/import.
   // /idbfs and /userfs are deliberately NOT listed: Emscripten IDBFS mounts
   // there mix downloadable assets with real save files.
   var downloadDatabases = [
@@ -17,135 +15,12 @@
     "CachedXMLHttpRequests",
     "gameFilesDB",
   ];
-  // Generic download-cache detection, so newly added games are handled
-  // without editing this file. Keep in sync with data-transfer.js.
-  //  - Any database whose name contains "cache" (UnityCache,
-  //    amongus-web-cache, cachedb, ...) is deleted whole.
-  //  - In every other game database, records that are huge or are binary
-  //    data keyed by a URL are downloaded files and are deleted; small
-  //    records (saves) are kept.
-  var CACHE_DB_NAME = /cache/i;
-  var MAX_RECORD_BYTES = 16 * 1024 * 1024;
-  var URL_KEYED_BINARY_BYTES = 256 * 1024;
-  function isDownloadCacheDb(name) {
-    return downloadDatabases.indexOf(name) !== -1 || CACHE_DB_NAME.test(name);
-  }
-  function recordSize(value, depth, seen, acc) {
-    acc = acc || { bytes: 0, binary: 0 };
-    if (value === null || value === undefined) return acc;
-    if (typeof value === "string") {
-      acc.bytes += value.length;
-      return acc;
-    }
-    if (typeof value !== "object") {
-      acc.bytes += 8;
-      return acc;
-    }
-    var bin =
-      value instanceof Blob
-        ? value.size
-        : value instanceof ArrayBuffer || ArrayBuffer.isView(value)
-          ? value.byteLength
-          : -1;
-    if (bin >= 0) {
-      acc.bytes += bin;
-      acc.binary += bin;
-      return acc;
-    }
-    depth = depth || 0;
-    if (depth > 8) return acc;
-    seen = seen || new WeakSet();
-    if (seen.has(value)) return acc;
-    seen.add(value);
-    if (value instanceof Map) {
-      value.forEach(function (v, k) {
-        recordSize(k, depth + 1, seen, acc);
-        recordSize(v, depth + 1, seen, acc);
-      });
-    } else if (value instanceof Set || Array.isArray(value)) {
-      value.forEach(function (v) {
-        recordSize(v, depth + 1, seen, acc);
-      });
-    } else {
-      for (var key of Object.keys(value)) {
-        acc.bytes += key.length;
-        recordSize(value[key], depth + 1, seen, acc);
-      }
-    }
-    return acc;
-  }
-  function isDownloadRecord(key, size) {
-    return (
-      size.bytes > MAX_RECORD_BYTES ||
-      (typeof key === "string" &&
-        key.indexOf("://") !== -1 &&
-        size.binary >= URL_KEYED_BINARY_BYTES)
-    );
-  }
-  // Delete downloaded-file records from a mixed database (e.g. an
-  // Emscripten /idbfs mount holding both assets and saves). Never creates a
-  // database that does not exist. Resolves with the number deleted.
-  function pruneDownloadRecords(name) {
-    return new Promise(function (resolve, reject) {
-      var req;
-      try {
-        req = indexedDB.open(name);
-      } catch (error) {
-        reject(error);
-        return;
-      }
-      req.onupgradeneeded = function () {
-        req.transaction.abort(); // didn't exist: don't create it
-      };
-      req.onerror = function (event) {
-        if (req.error && req.error.name === "AbortError") {
-          if (event && event.preventDefault) event.preventDefault();
-          resolve(0);
-        } else reject(req.error || new Error("Could not open " + name));
-      };
-      req.onblocked = function () {
-        reject(new Error(name + " is open in another tab. Close it and retry."));
-      };
-      req.onsuccess = function () {
-        var db = req.result;
-        var stores = Array.from(db.objectStoreNames);
-        if (!stores.length) {
-          db.close();
-          resolve(0);
-          return;
-        }
-        var deleted = 0;
-        var tx;
-        try {
-          tx = db.transaction(stores, "readwrite");
-        } catch (error) {
-          db.close();
-          reject(error);
-          return;
-        }
-        tx.oncomplete = function () {
-          db.close();
-          resolve(deleted);
-        };
-        tx.onerror = tx.onabort = function () {
-          db.close();
-          reject(tx.error || new Error("Could not clean " + name));
-        };
-        stores.forEach(function (storeName) {
-          var cursorReq = tx.objectStore(storeName).openCursor();
-          cursorReq.onsuccess = function () {
-            var cursor = cursorReq.result;
-            if (!cursor) return;
-            if (isDownloadRecord(cursor.primaryKey, recordSize(cursor.value))) {
-              cursor.delete();
-              deleted++;
-            }
-            cursor.continue();
-          };
-        });
-      };
-    });
-  }
+  // Cache Storage names used by bundled game loaders. Unknown caches, large
+  // saves and mixed IndexedDB mounts cannot be safely classified by size/name.
+  var downloadCaches = new Set([
+    "-b-cache", "-3-cache", "20mins-cache", "gash-cache", "hksilksongcache-v2",
+    "jsab-cache", "st2d-cache", "tabs-cache", "cuphead-cache", "tmfds-dashiellbenton-ports-tmfds-default",
+  ]);
   function isProtectedCacheKey(key) {
     return key === "__sw_meta__" || /^aetheris[-_]/i.test(key);
   }
@@ -160,9 +35,9 @@
       }, 4000);
       try {
         var req = indexedDB.deleteDatabase(name);
-        req.onsuccess = function () {
+        req.onsuccess = function (event) {
           clearTimeout(timer);
-          resolve();
+          resolve(event.oldVersion > 0);
         };
         req.onerror = function () {
           clearTimeout(timer);
@@ -337,13 +212,12 @@
   async function resetDownloadedGames() {
     var deletedCaches = 0;
     var deletedDatabases = 0;
-    var deletedFiles = 0;
     var work = [];
     if (window.caches) {
       work.push(
         caches.keys().then(function (keys) {
           var targets = keys.filter(function (key) {
-            return !isProtectedCacheKey(key);
+            return downloadCaches.has(key);
           });
           return Promise.all(
             targets.map(function (key) {
@@ -356,42 +230,13 @@
       );
     }
     if (window.indexedDB) {
-      var names = await listAllDatabaseNames();
-      // Known names are tried even if the browser can't list databases.
       downloadDatabases.forEach(function (name) {
-        if (names.indexOf(name) === -1) names.push(name);
-      });
-      names.forEach(function (name) {
-        // Proxy/catalog databases are handled by reset(), not here.
-        if (databases.indexOf(name) !== -1) return;
-        if (isDownloadCacheDb(name)) {
-          work.push(
-            deleteDatabase(name).then(
-              function () {
-                deletedDatabases++;
-              },
-              function (error) {
-                // Missing databases reject on some browsers ("not found") —
-                // they simply were never downloaded, so don't fail the wipe.
-                if (
-                  error &&
-                  (error.name === "NotFoundError" ||
-                    /not found|does not exist/i.test(
-                      error.message || String(error),
-                    ))
-                )
-                  return;
-                throw error;
-              },
-            ),
-          );
-        } else {
-          work.push(
-            pruneDownloadRecords(name).then(function (count) {
-              deletedFiles += count;
-            }),
-          );
-        }
+        work.push(deleteDatabase(name).then(function (deleted) {
+          if (deleted) deletedDatabases++;
+        }, function (error) {
+          if (error && error.name === "NotFoundError") return;
+          throw error;
+        }));
       });
     }
     var results = await Promise.allSettled(work);
@@ -412,7 +257,6 @@
     return {
       caches: deletedCaches,
       databases: deletedDatabases,
-      files: deletedFiles,
     };
   }
   window.AetherisCache = {

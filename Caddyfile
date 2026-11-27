@@ -124,7 +124,7 @@ https:// {
 	@tiktokrelay host t.aetheris.win
 	handle @tiktokrelay {
 		header -X-Frame-Options
-		reverse_proxy http://127.0.0.1:8080 {
+		reverse_proxy http://127.0.0.1:{$AETHERIS_PORT:8080} {
 			header_up X-Aetheris-Relay tiktok
 		}
 	}
@@ -140,7 +140,7 @@ https:// {
 		header -X-Frame-Options
 		@relaypaths path /movie-proxy /movie-proxy/* /api.php /hls-resolve /movie-ping /js/movie-proxy-client.js /hls-player.html /js/vendor/hls.min.js
 		handle @relaypaths {
-			reverse_proxy http://127.0.0.1:8080
+			reverse_proxy http://127.0.0.1:{$AETHERIS_PORT:8080}
 		}
 		handle {
 			respond 404
@@ -369,20 +369,20 @@ https:// {
 	# opaque form of the same relay.
 	@game_assets path /game-assets/* /s/*
 	handle @game_assets {
-		reverse_proxy http://127.0.0.1:8080
+		reverse_proxy http://127.0.0.1:{$AETHERIS_PORT:8080}
 	}
 
 	# Online counter
 	@sse path /online
 	handle @sse {
-		reverse_proxy http://127.0.0.1:8080 {
+		reverse_proxy http://127.0.0.1:{$AETHERIS_PORT:8080} {
 			flush_interval -1
 		}
 	}
 
 	@online-count path /online-count
 	handle @online-count {
-		reverse_proxy http://127.0.0.1:8080
+		reverse_proxy http://127.0.0.1:{$AETHERIS_PORT:8080}
 	}
 
 	# Main app. Compression is scoped to this handler instead of the whole site:
@@ -390,7 +390,7 @@ https:// {
 	# wasm/data per install), and re-encoding those only burns origin CPU.
 	handle {
 		encode zstd gzip
-		reverse_proxy http://127.0.0.1:8080
+		reverse_proxy http://127.0.0.1:{$AETHERIS_PORT:8080}
 	}
 }
 
@@ -405,7 +405,7 @@ https:// {
 # end user, so the app must not try to upgrade the request again.
 http://144.91.64.65 {
 	encode zstd gzip
-	reverse_proxy http://127.0.0.1:8080 {
+	reverse_proxy http://127.0.0.1:{$AETHERIS_PORT:8080} {
 		header_up X-Forwarded-Proto https
 	}
 }

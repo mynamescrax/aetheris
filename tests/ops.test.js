@@ -48,7 +48,7 @@ test("wisp stream limits keep the per-host option disabled", () => {
 });
 
 test("1games assets and the split-file helper use a pinned jsDelivr upstream", () => {
-  const route = caddyfile.match(/handle @game_assets \{[^}]*\}/)[0];
+  const route = caddyfile.replaceAll("{$AETHERIS_PORT:8080}", "8080").match(/handle @game_assets \{[^}]*\}/)[0];
   assert.match(route, /reverse_proxy http:\/\/127\.0\.0\.1:8080/);
   assert.doesNotMatch(route, /raw\.githubusercontent\.com|rewrite/);
   assert.match(indexjs, /registerGameAssets\(fastify\)/);

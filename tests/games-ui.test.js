@@ -6,6 +6,7 @@ import vm from "node:vm";
 function library({
   games = [{ id: "primary", title: "Example", tags: [] }],
   state = null,
+  counts = null,
 } = {}) {
   const elements = new Map();
   function element() {
@@ -59,7 +60,7 @@ function library({
         key === "aetheris-games-state" ? JSON.stringify(state) : null,
       setItem() {},
     },
-    fetch: async () => ({ ok: false }),
+    fetch: async url => ({ ok: url === "/api/plays/counts" && !!counts, json: async () => counts }),
     setTimeout: (fn) => timers.push(fn),
     clearTimeout() {},
     Event: class {},
@@ -132,6 +133,22 @@ test("pagination retains existing card nodes and restores the saved page size", 
   elements.get("games-more").listeners.click();
   assert.equal(grid.children.length, 360);
   original.forEach((node, index) => assert.equal(grid.children[index], node));
+});
+
+test("popular and play-count sort sum distinct local IDs per merged card", async () => {
+  const ui = library({
+    games: [
+      { title: "Alpha", id: "a", sources: [{ name: "aetheris", id: "a" }] },
+      { title: "Delta", id: "external", sources: [
+        { name: "aetheris", id: "d1" }, { name: "aetheris", id: "d1" },
+        { name: "aetheris", id: "d2" }, { name: "truffled", id: "a" },
+      ] },
+      { title: "Zulu", id: "z", sources: [{ name: "aetheris", id: "z" }] },
+    ], counts: { a: 10, d1: 6, d2: 6, z: 15 },
+  });
+  await ui.elements.get("sort-plays-btn").listeners.click();
+  for (const grid of ["populargames", "gamecards"])
+    assert.deepEqual(ui.elements.get(grid).children.map(card => card.dataset.id), ["z", "external", "a"]);
 });
 
 test("indexed search and trimmed tags retain the original favorites grouping", () => {

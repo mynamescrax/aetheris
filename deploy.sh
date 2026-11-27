@@ -9,6 +9,7 @@ APP_DIR="$(cd "$APP_DIR" && pwd -P)"
 APP_NAME="${APP_NAME:-aetheris}"
 ENV_FILE="${ENV_FILE:-$APP_DIR/.env}"
 CADDY_CONFIG="${CADDY_CONFIG:-/etc/caddy/Caddyfile}"
+DEPLOY_HEALTH_HOST="${DEPLOY_HEALTH_HOST:-aetheris.win}"
 RELEASE_ROOT="$APP_DIR/.releases"
 ACTIVE_LINK="$APP_DIR/.current-release"
 LOCK="$APP_DIR/.deploy-lock"
@@ -18,6 +19,7 @@ prior_link=""
 
 cd "$APP_DIR"
 [[ "$APP_NAME" =~ ^[a-zA-Z0-9_-]+$ ]] || { echo "Invalid APP_NAME" >&2; exit 1; }
+[[ "$DEPLOY_HEALTH_HOST" =~ ^[A-Za-z0-9.-]+$ ]] || { echo "Invalid DEPLOY_HEALTH_HOST" >&2; exit 1; }
 for command in git tar pnpm node pm2 caddy curl; do
     command -v "$command" >/dev/null || { echo "Missing required command: $command" >&2; exit 1; }
 done
@@ -53,8 +55,14 @@ rollback() {
         set +e
         set_pointer "$prior_link"
         install -m 0644 "$state/Caddyfile" "$CADDY_CONFIG" || echo "!! Could not restore Caddyfile; use $state/Caddyfile manually." >&2
-        caddy reload --config "$CADDY_CONFIG" || echo "!! Caddy rollback reload failed." >&2
-        pm2 stop "$APP_NAME" >/dev/null 2>&1
+        caddy reload --adapter caddyfile --config "$CADDY_CONFIG" || echo "!! Caddy rollback reload failed." >&2
+        # A failed start may have left no app at all; an unsuccessful stop
+        # alone cannot distinguish that from a still-running database writer.
+        pm2 stop "$APP_NAME" >/dev/null 2>&1 || true
+        if ! pm2 jlist | node "$release/scripts/deploy-config.js" stopped "$APP_NAME"; then
+            echo "!! Could not verify the app is stopped; storage recovery and restart refused. Inspect PM2 and $state." >&2
+            exit "$code"
+        fi
         recovered=true
         node "$release/scripts/recover-storage.js" "$APP_DIR/database" || recovered=false
         if [ "$recovered" != true ]; then
@@ -95,7 +103,10 @@ echo "-> Installing and verifying staged release..."
         pnpm check
         pnpm test
     fi
-    caddy validate --adapter caddyfile --config "$release/Caddyfile" >/dev/null
+    # Freeze PORT in the installed file; a systemd restart may not have the
+    # deploy shell's environment. Validate the exact bytes we will install.
+    sed 's/{$AETHERIS_PORT:8080}/'"$PORT"'/g' Caddyfile > Caddyfile.rendered
+    caddy validate --adapter caddyfile --config "$release/Caddyfile.rendered" >/dev/null
 )
 
 # wispurr requires musl on Linux. A missing loader leaves the existing wisp-js
@@ -113,8 +124,8 @@ if [ -L "$ACTIVE_LINK" ]; then prior_link="$(readlink "$ACTIVE_LINK")"; fi
 
 activated=true
 set_pointer "$release"
-install -m 0644 "$release/Caddyfile" "$CADDY_CONFIG"
-caddy reload --config "$CADDY_CONFIG"
+install -m 0644 "$release/Caddyfile.rendered" "$CADDY_CONFIG"
+caddy reload --adapter caddyfile --config "$CADDY_CONFIG"
 # startOrRestart can retain an existing process's old pm_exec_path even when
 # the ecosystem file names a new script. Replace this one app explicitly so
 # both activation and rollback use the intended immutable release.
@@ -128,6 +139,8 @@ for _ in {1..40}; do
     sleep 0.5
 done
 if [ "$healthy" != true ]; then echo "!! New release did not become healthy." >&2; false; fi
+response="$(curl --noproxy '*' --resolve "$DEPLOY_HEALTH_HOST:443:127.0.0.1" -fsS --retry 3 --max-time 8 "https://$DEPLOY_HEALTH_HOST/healthz")"
+if [[ "$response" != *"\"release\":\"$revision\""* ]]; then echo "!! Caddy did not serve the new release." >&2; false; fi
 proxy_rc=0
 node "$release/scripts/wisp-check.js" "$PORT" || proxy_rc=$?
 if [ "$proxy_rc" -ne 0 ] && [ "$proxy_rc" -ne 2 ]; then echo "!! Proxy health check failed." >&2; false; fi

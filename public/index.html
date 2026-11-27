@@ -548,7 +548,6 @@
         }
       });
 
-      var navigationTimer = null;
       var fadeTimer = null;
       var requestedUrl = null;
       var navigating = false;
@@ -592,28 +591,21 @@
           }
           return;
         }
-        clearTimeout(navigationTimer);
         clearTimeout(fadeTimer);
         requestedUrl = route.url;
         navigating = true;
         mainframe.classList.add("fading");
         showNavLoading();
-        navigationTimer = setTimeout(
-          function () {
-            navigationTimer = null;
-            // Replace the child history entry; the shell owns menu history.
-            try {
-              mainframe.contentWindow.location.replace(route.url);
-            } catch (_) {
-              mainframe.src = route.url;
-            }
-            fadeTimer = setTimeout(function () {
-              mainframe.classList.remove("fading");
-              hideNavLoading();
-            }, 1500);
-          },
-          matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 100,
-        );
+        // Fetch during the fade. The shell owns menu history.
+        try {
+          mainframe.contentWindow.location.replace(route.url);
+        } catch (_) {
+          mainframe.src = route.url;
+        }
+        fadeTimer = setTimeout(function () {
+          mainframe.classList.remove("fading");
+          hideNavLoading();
+        }, 1500);
       }
       window.navigateApp = gopage;
       window.addEventListener("popstate", function () {
@@ -634,8 +626,6 @@
           if (navigating && route.url !== requestedUrl) return;
           navigating = false;
           // A card clicked inside the frame has its own history entry.
-          if (navigationTimer !== null) clearTimeout(navigationTimer);
-          navigationTimer = null;
           requestedUrl = route.url;
           history.replaceState(null, "", "#" + route.route);
           updateActiveNav(
@@ -798,6 +788,33 @@
           } catch (_) {}
           return null;
         }
+        // A signed-in chat frame already polls the inbox. Read that snapshot
+        // only from the expected same-origin window and matching session.
+        function inboxOwner(token) {
+          if (!token) return null;
+          try {
+            var page = mainframe.contentWindow;
+            if (page.location.pathname === "/load.html") {
+              page = page.document.getElementById("chat-iframe").contentWindow;
+              if (page.location.pathname !== "/minichat.html") return null;
+            } else if (page.location.pathname !== "/chat.html") return null;
+            return page.authtoken === token && page.inboxtimer != null ? page : null;
+          } catch (_) { return null; }
+        }
+        function renderUnread(convos, token) {
+          var active = activeConversation();
+          notifications.update(convos, token, active);
+          chatbadge(convos.reduce(function (sum, convo) {
+            var key = convo.group ? "g:" + convo.group : convo.with.toLowerCase();
+            return sum + (key === active ? 0 : Number(convo.unread) || 0);
+          }, 0));
+        }
+        window.addEventListener("message", function (event) {
+          if (event.origin !== location.origin || event.data?.type !== "chat-inbox-updated") return;
+          var token = Aetheris.getToken();
+          var owner = inboxOwner(token);
+          if (owner && event.source === owner) renderUnread(owner.inboxcache, token);
+        });
         async function checkunread() {
           // Hidden tabs skip the poll; visibilitychange catches up on return.
           if (document.hidden) return;
@@ -807,7 +824,7 @@
             notifications.clear();
             return;
           }
-          if (checking) return;
+          if (checking || inboxOwner(token)) return;
           checking = true;
           var controller = new AbortController();
           var timeout = setTimeout(function () { controller.abort(); }, 10000);
@@ -820,15 +837,9 @@
             if (r.status === 401) { notifications.clear(); chatbadge(0); return; }
             if (!r.ok) return;
             var d = await r.json();
-            if (!d.ok || token !== Aetheris.getToken()) return;
+            if (!d.ok || token !== Aetheris.getToken() || inboxOwner(token)) return;
             var convos = Array.isArray(d.conversations) ? d.conversations : [];
-            var active = activeConversation();
-            notifications.update(convos, token, active);
-            var total = convos.reduce(function (s, c) {
-              var key = c.group ? "g:" + c.group : c.with.toLowerCase();
-              return s + (key === active ? 0 : Number(c.unread) || 0);
-            }, 0);
-            chatbadge(total);
+            renderUnread(convos, token);
           } catch (_) {
           } finally {
             clearTimeout(timeout);

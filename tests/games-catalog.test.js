@@ -35,6 +35,7 @@ function catalog() {
     sandbox,
   );
   return {
+    sandbox,
     merge: get(mergeName),
     order: get("gamesourceorder"),
     normalize: get("normalizegame"),
@@ -590,4 +591,39 @@ test("the catalog script version matches in both loaders", () => {
   assert.ok(maths, "maths.html loads the catalog script");
   assert.ok(player, "player-data.js loads the catalog script");
   assert.equal(player[1], maths[1]);
+});
+
+test("retrying a partial cached library keeps usable cards and alternates through an outage", async () => {
+  const { sandbox: c, merge, normalize } = catalog();
+  const card = (source, name, href) => normalize({ title: name, id: href, url: href }, source);
+  const seed = merge([
+    [card("gnmath", "World", "https://gn.test/world"), card("gnmath", "Space", "https://gn.test/space")],
+    [card("velara", "World", "https://vel.test/world")],
+  ]);
+  const urls = ["assets/data/aetheris.json", "/api/games/catalog/truffled"];
+  c.getcachedgames = async () => ({ data: seed, errors: urls });
+  const writes = [];
+  c.setcachedgames = (data, errors) => writes.push({ data, errors: Array.from(errors) });
+  c.dispatchEvent = () => {};
+  c.console = { error() {} };
+  await c.loadgamesdata();
+  const calls = [];
+  let offline = true;
+  c.fetchjson = async url => {
+    calls.push(url);
+    if (offline || url !== urls[0]) throw new Error("offline");
+    return [{ id: "local-world", title: "World", html: "world.html" }];
+  };
+  await c.gamesretryfailed();
+  assert.equal(c.games, seed);
+  assert.equal(writes.length, 0);
+  offline = false;
+  await c.gamesretryfailed();
+  assert.deepEqual(calls, urls.concat(urls));
+  assert.equal(c.games.length, 2);
+  const world = c.games.find(g => g.title === "World");
+  assert.equal(world.id, "local-world");
+  assert.deepEqual(Array.from(world.sources, s => s.name), ["aetheris", "gnmath", "velara"]);
+  assert.equal(writes.at(-1).data, c.games);
+  assert.deepEqual(writes.at(-1).errors, [urls[1]]);
 });

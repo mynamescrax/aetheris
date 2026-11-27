@@ -844,7 +844,9 @@ function mergegames(lists) {
     if (entry) {
       // addalternate also folds in a provider's own repeated rows; a false
       // result means this exact URL is already on the card.
-      addalternate(entry, sourceentry(game), game);
+      (game.sources || [sourceentry(game)]).forEach(function (copy) {
+        addalternate(entry, copy, game);
+      });
       return;
     }
     entry = {};
@@ -855,7 +857,7 @@ function mergegames(lists) {
     entry.image = game.image || game.img || "";
     entry.tags = Array.isArray(game.tags) ? game.tags.slice() : [];
     entry.source = game.source;
-    entry.sources = [sourceentry(game)];
+    entry.sources = game.sources ? game.sources.slice() : [sourceentry(game)];
     bykey[key] = entry;
     merged.push(entry);
   });
@@ -909,9 +911,10 @@ window.gamehasid = gamehasid;
 
 var gamelistbyload = new Array(gamesources.length);
 var gameloadpromises = new Array(gamesources.length);
-// True while the library is the merged list read from IndexedDB: there are no
-// per-source records, so a retry has to reload every catalog.
-var gamesfromcache = false;
+// Keep the merged snapshot as the base when retrying missing providers. A
+// failed request must never evict working games or their alternate copies.
+var cachedBase = null;
+var cachedProviders = new Set();
 // No source is currently deferred: every catalog is small enough to load up
 // front. Keep the mechanism in case a large source is added again.
 var gamessourcesdeferred = [];
@@ -925,7 +928,7 @@ function updategamesloading() {
 // Publish each catalog as it arrives instead of leaving the library blank
 // until the slowest provider finishes downloading.
 function publishgames() {
-  window.games = mergegames(gamelistbyload);
+  window.games = mergegames(cachedBase ? [cachedBase].concat(gamelistbyload) : gamelistbyload);
   window.dispatchEvent(new Event("gamesupdated"));
 }
 
@@ -934,10 +937,10 @@ function publishgames() {
 // stored with it so the next visit can show the retry button (and a partial
 // list expires quickly).
 function maybecachegames() {
-  if (!window.games || !window.games.length) return;
+  if (!window.games || !window.games.length || window.games === cachedBase) return;
   var errors = window.gamesLoadErrors.slice();
   gamesources.forEach(function (source, index) {
-    if (!gamelistbyload[index] && errors.indexOf(source.url) === -1)
+    if (!cachedProviders.has(source.name) && !gamelistbyload[index] && errors.indexOf(source.url) === -1)
       errors.push(source.url);
   });
   setcachedgames(window.games, errors);
@@ -969,6 +972,9 @@ function catalogitems(data) {
 }
 
 function loadgamesource(source, index) {
+  if (cachedProviders.has(source.name)) return Promise.resolve(cachedBase.filter(function (game) {
+    return game.sources.some(function (copy) { return copy.name === source.name; });
+  }));
   if (gamelistbyload[index]) return Promise.resolve(gamelistbyload[index]);
   if (gameloadpromises[index]) return gameloadpromises[index];
 
@@ -1014,8 +1020,10 @@ function loadgamesource(source, index) {
 async function loadgamesdata() {
   var cached = await getcachedgames();
   if (cached) {
-    gamesfromcache = true;
-    window.games = cached.data;
+    window.games = cachedBase = cached.data;
+    gamesources.forEach(function (source) {
+      if (cached.errors.indexOf(source.url) === -1) cachedProviders.add(source.name);
+    });
     // The list may have been built while a provider was down. Keep those
     // failures so the library can show (and act on) the retry button.
     window.gamesLoadErrors = cached.errors.slice();
@@ -1067,16 +1075,6 @@ window.gamesloadall = function () {
 };
 
 window.gamesretryfailed = function () {
-  if (gamesfromcache) {
-    // A cached list has no per-source records to merge a retried catalog into,
-    // so start the whole merge over instead of replacing the library with the
-    // one source that answered.
-    gamesfromcache = false;
-    gamelistbyload = new Array(gamesources.length);
-    window.games = [];
-    window.gamesLoadErrors = [];
-    return window.gamesloadall();
-  }
   var failed = [];
   gamesources.forEach(function (source, index) {
     if (
@@ -1090,7 +1088,7 @@ window.gamesretryfailed = function () {
 
 window.gameshasloaded = function (name) {
   for (var i = 0; i < gamesources.length; i++)
-    if (gamesources[i].name === String(name)) return !!gamelistbyload[i];
+    if (gamesources[i].name === String(name)) return cachedProviders.has(gamesources[i].name) || !!gamelistbyload[i];
   return false;
 };
 

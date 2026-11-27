@@ -48,7 +48,7 @@
     <!-- scramjet bundles are loaded on demand by scramjet-init.js the first
          time a proxied frame is needed; a noProxy item skips ~245KB of JS
          parsing. -->
-    <script src="/js/scramjet-init.js?v=20261108.3"></script>
+    <script src="/js/scramjet-init.js?v=20261127.1"></script>
     <script src="./js/dm-shared.js?v=20261106.3"></script>
 
     <script>
@@ -430,7 +430,7 @@
     </div>
 
     <script defer src="./register-sw.js?v=20260907.1"></script>
-    <script defer src="./js/player-data.js?v=20261105.2"></script>
+    <script defer src="./js/player-data.js?v=20261127.1"></script>
     <script defer src="./js/load.js?v=20261122.2"></script>
 
     <script>
@@ -529,6 +529,8 @@
             chatloaded = true;
           }
           panel.style.display = "block";
+          var mini = document.getElementById("chat-iframe").contentWindow;
+          if (typeof mini.refreshChatView === "function") mini.refreshChatView();
           requestAnimationFrame(function () {
             requestAnimationFrame(function () {
               panel.classList.add("open");

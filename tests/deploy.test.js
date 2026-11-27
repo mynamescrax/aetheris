@@ -68,6 +68,8 @@ for (const scenario of [
   "reload",
   "restart",
   "health",
+  "caddy-health",
+  "stop-unverified",
   "proxy",
   "recovery",
 ]) {
@@ -85,10 +87,10 @@ for (const scenario of [
       join(app, "deploy.sh"),
     );
     if (scenario === "bootstrap") copyFileSync(join(app, "deploy.sh"), join(dir, "bootstrap.sh"));
-    writeFileSync(join(app, ".env"), "PORT=8080\n");
+    writeFileSync(join(app, ".env"), "PORT=8181\n");
     writeFileSync(join(app, "index.js"), "old code");
     writeFileSync(join(payload, "index.js"), "new code");
-    writeFileSync(join(payload, "Caddyfile"), "new config");
+    writeFileSync(join(payload, "Caddyfile"), "new config {$AETHERIS_PORT:8080}");
     writeFileSync(join(dir, "caddy.conf"), "old config");
     const stub = (name, body) =>
       writeFileSync(
@@ -114,11 +116,11 @@ for (const scenario of [
     );
     stub(
       "node",
-      `if [[ "$2" == snapshot ]]; then echo '{}' > "$4"; elif [[ "$2" == release ]]; then echo '{}' > "$9"; elif [[ ( "$SCENARIO" == proxy || "$SCENARIO" == recovery ) && "$1" == *wisp-check.js ]]; then exit 1; elif [[ "$SCENARIO" == recovery && "$1" == *recover-storage.js ]]; then exit 1; fi`,
+      `if [[ "$2" == snapshot ]]; then cat >/dev/null; echo '{}' > "$4"; elif [[ "$2" == release ]]; then echo '{}' > "$9"; elif [[ "$2" == stopped ]]; then cat >/dev/null; [[ "$SCENARIO" != stop-unverified ]] || exit 1; elif [[ ( "$SCENARIO" == proxy || "$SCENARIO" == recovery || "$SCENARIO" == stop-unverified ) && "$1" == *wisp-check.js ]]; then exit 1; elif [[ "$SCENARIO" == recovery && "$1" == *recover-storage.js ]]; then exit 1; fi`,
     );
     stub(
       "curl",
-      `if [[ "$SCENARIO" == health && "$*" == *healthz* ]]; then echo '{"release":"wrong"}'; else echo '{"release":"0000000000000000000000000000000000000001"}'; fi`,
+      `if [[ ( "$SCENARIO" == health && "$*" == *healthz* ) || ( "$SCENARIO" == caddy-health && "$*" == *--resolve* ) ]]; then echo '{"release":"wrong"}'; else echo '{"release":"0000000000000000000000000000000000000001"}'; fi`,
     );
     stub("ln", `printf '%s' "$2" > "$3"`);
     stub("sleep", `exit 0`);
@@ -134,6 +136,8 @@ for (const scenario of [
       env: {
         ...process.env,
         APP_DIR: posix(app),
+        PORT: "",
+        DEPLOY_HEALTH_HOST: "fixture.example",
         STUBS: posix(bin),
         APP_SCRIPT: posix(scenario === "bootstrap" ? join(dir, "bootstrap.sh") : join(app, "deploy.sh")),
         PAYLOAD: posix(payload),
@@ -154,7 +158,8 @@ for (const scenario of [
       "staging never writes into the live source files",
     );
     if (scenario === "success" || scenario === "bootstrap") {
-      assert.equal(readFileSync(join(dir, "caddy.conf"), "utf8"), "new config");
+      assert.equal(readFileSync(join(dir, "caddy.conf"), "utf8"), "new config 8181");
+      assert.match(trace, /--resolve fixture\.example:443:127\.0\.0\.1.*https:\/\/fixture\.example\/healthz/);
       assert.match(trace, /git merge --ff-only/);
       assert.match(trace, /pm2 delete aetheris[\s\S]*pm2 start .*\.releases\//);
     } else {
@@ -162,7 +167,10 @@ for (const scenario of [
       assert.doesNotMatch(trace, /git merge --ff-only/);
       if (scenario === "checks" || scenario === "validate")
         assert.doesNotMatch(trace, /pm2 start /);
-      else if (scenario === "recovery") {
+      else if (scenario === "stop-unverified") {
+        assert.doesNotMatch(trace, /node .*recover-storage\.js|pm2 start .*previous-pm2.json/);
+        assert.match(result.stderr, /Could not verify the app is stopped/);
+      } else if (scenario === "recovery") {
         assert.doesNotMatch(trace, /pm2 start .*previous-pm2.json/);
         assert.match(result.stderr, /app left stopped/);
       } else assert.match(trace, /pm2 start .*previous-pm2.json/);

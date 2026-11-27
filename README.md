@@ -13,7 +13,7 @@
 - **movies & tv**: TMDB search plus a few embed sources
 - **tiktok**: a gateway with the real web app, feed and playback, with optional dedicated-origin isolation
 - **chat**: DMs and group chats with accounts and brief message notifications
-- **ai**: chat and image gen through any OpenAI-compatible API
+- **ai**: chat through an OpenAI-compatible API; set `AI_CHAT_MODELS` to your provider's allowed chat model IDs. Image generation is unavailable.
 - **cheats**: bookmarklets
 - **tab cloak**: fake the tab title and icon (Google, Drive, Classroom...)
 - **panic key**: one key sends you somewhere safe
@@ -64,8 +64,13 @@ database, caches and `.env`), but serves code/assets from the staged release.
 Only after release-identity and Wisp checks pass does the source checkout advance.
 
 ```bash
-./deploy.sh
+DEPLOY_HEALTH_HOST=your-site.example ./deploy.sh
 ```
+
+Use your main HTTPS hostname (`DEPLOY_HEALTH_HOST` defaults to `aetheris.win`).
+Deployment installs the validated Caddyfile with the app's `PORT` baked in,
+then checks the release through local Caddy with that hostname and TLS certificate.
+For a manual Caddy install on a non-default port, set `AETHERIS_PORT` in Caddy's environment.
 
 Failures after activation restore the previous PM2 configuration, active-release
 pointer and Caddyfile. Pending storage journals are recovered while the app is
@@ -107,6 +112,12 @@ pnpm bench:backend # offline rate-limiter, chat cursor and metadata-cache benchm
 pnpm bench:storage # local JSON storage throughput, disk reads and event-loop delay
 ```
 
+The default Wisp tests exercise local routing and worker recovery. Run
+`WISP_NETWORK_TESTS=1 node --test tests/wisp-engine.test.js` to also check public
+TCP egress, or start the Checks workflow manually. The browser save regression
+runs in CI; locally, with Python Playwright and Chromium installed, run
+`python tests/browser/save_cleanup.py`.
+
 The backend benchmark compares the optimized hot paths with their previous
 full-scan implementations. It uses synthetic data and a local fetch fixture;
 the timings measure those operations, not whole-page or production latency.
@@ -137,7 +148,12 @@ fixture records and removes them afterward.
 
 DM delivery writes both accounts as one journaled batch. Reads wait for its
 commit; an interrupted pending batch rolls back at startup, while an already
-committed batch is replayed. If rollback or journal cleanup fails, storage refuses
+committed batch is replayed. The app and the recovery command take the same
+exclusive local database lock before reading journals. Stop the current app
+before starting another with the same database, even on a different port.
+On platforms other than Linux and Windows, a crash can leave `database/.writer.sock`;
+remove it only after confirming no process is using the database.
+If rollback or journal cleanup fails, storage refuses
 new work with 503 until recovery rather than exposing divergent conversations.
 Keep `database/.transactions/` with the database in backups; do not delete journals.
 

@@ -2,25 +2,7 @@
   "use strict";
   var busy = false;
   var downloadUrl = null;
-  var SKIP_DBS = new Set([
-    "$scramjet",
-    "__scramjet_controller",
-    "scramjet-config",
-    "aetheris-games-cache",
-    "UnityCache",
-    "CachedXMLHttpRequests",
-  ]);
-  // Generic download-cache detection, so newly added games are handled
-  // without editing this file. Keep in sync with cache-reset.js.
-  //  - Any database whose name contains "cache" holds re-downloadable game
-  //    files (UnityCache, amongus-web-cache, cachedb, ...), never saves.
-  //  - In other databases, a record is a downloaded file (not a save) when
-  //    it is huge, or when it is binary data keyed by a URL.
-  var CACHE_DB_NAME = /cache/i;
-  // Saves are tiny; a single record this large is a downloaded game asset
-  // (e.g. a Unity bundle inside an Emscripten /idbfs mount).
-  var MAX_RECORD_BYTES = 16 * 1024 * 1024;
-  var URL_KEYED_BINARY_BYTES = 256 * 1024;
+  var SKIP_DBS = new Set(AetherisCache.databaseNames.concat(AetherisCache.downloadDatabaseNames));
   // Raw data budget for a whole backup. Base64 inflates binary by 4/3, so
   // this keeps the file under the 128 MB import limit.
   var MAX_EXPORT_BYTES = 90 * 1024 * 1024;
@@ -324,19 +306,15 @@
         }),
     );
     return Array.from(all).filter(function (name) {
-      return !isDownloadCacheDb(name);
+      return !SKIP_DBS.has(name);
     });
   }
 
-  function isDownloadCacheDb(name) {
-    return SKIP_DBS.has(name) || CACHE_DB_NAME.test(name);
-  }
-
-  // Rough in-memory size of a stored value: total bytes and the part that is
-  // binary (Blob/ArrayBuffer/typed arrays). Used to classify downloaded
-  // files and enforce the export budget.
+  // Estimate raw bytes before encoding, including repeated references that
+  // encode() will serialize separately. Never silently omit an oversized save.
   function measure(value, depth, seen, acc) {
-    acc = acc || { bytes: 0, binary: 0 };
+    acc = acc || { bytes: 0 };
+    if (acc.bytes > MAX_EXPORT_BYTES) return acc;
     if (value === null || value === undefined) return acc;
     if (typeof value === "string") {
       acc.bytes += value.length;
@@ -354,13 +332,12 @@
           : -1;
     if (bin >= 0) {
       acc.bytes += bin;
-      acc.binary += bin;
       return acc;
     }
     depth = depth || 0;
-    if (depth > 8) return acc;
+    if (depth > 256) throw new Error("Save data is too deeply nested to back up safely.");
     seen = seen || new WeakSet();
-    if (seen.has(value)) return acc;
+    if (seen.has(value)) throw new Error("Circular save data cannot be backed up safely.");
     seen.add(value);
     if (value instanceof Map) {
       value.forEach(function (v, k) {
@@ -377,23 +354,15 @@
         measure(value[key], depth + 1, seen, acc);
       }
     }
+    seen.delete(value);
     return acc;
-  }
-
-  function isDownloadRecord(key, size) {
-    return (
-      size.bytes > MAX_RECORD_BYTES ||
-      (typeof key === "string" &&
-        key.indexOf("://") !== -1 &&
-        size.binary >= URL_KEYED_BINARY_BYTES)
-    );
   }
 
   // Read one bounded batch with a cursor instead of getAll(), so a huge
   // store is never fully materialized in memory at once.
   function readBatch(db, storeName, afterKey, hasAfter) {
     return new Promise(function (resolve, reject) {
-      var result = { keys: [], values: [], bytes: 0, skipped: 0, done: true };
+      var result = { keys: [], values: [], bytes: 0, done: true };
       var tx = db.transaction(storeName, "readonly");
       tx.oncomplete = function () {
         resolve(result);
@@ -407,14 +376,15 @@
         var cursor = req.result;
         if (!cursor) return;
         result.lastKey = cursor.primaryKey;
-        var size = measure(cursor.value);
-        if (isDownloadRecord(cursor.primaryKey, size)) {
-          result.skipped++;
-        } else {
-          result.keys.push(cursor.primaryKey);
-          result.values.push(cursor.value);
-          result.bytes += size.bytes;
+        try {
+          result.bytes += measure(cursor.value).bytes + measure(cursor.primaryKey).bytes;
+        } catch (error) {
+          reject(error);
+          tx.abort();
+          return;
         }
+        result.keys.push(cursor.primaryKey);
+        result.values.push(cursor.value);
         if (
           result.values.length >= BATCH_RECORDS ||
           result.bytes >= BATCH_BYTES
@@ -428,7 +398,7 @@
   }
 
   async function dumpDatabase(name, budget) {
-    budget = budget || { bytes: 0, skipped: 0 };
+    budget = budget || { bytes: 0 };
     var db;
     try {
       db = await openDatabase(name);
@@ -465,7 +435,6 @@
           hasLast = false;
         while (true) {
           var batch = await readBatch(db, storeName, lastKey, hasLast);
-          budget.skipped += batch.skipped;
           budget.bytes += batch.bytes;
           if (budget.bytes > MAX_EXPORT_BYTES)
             throw new Error(
@@ -473,7 +442,7 @@
                 name +
                 " is too large to export safely (over " +
                 Math.round(MAX_EXPORT_BYTES / 1024 / 1024) +
-                " MB). Use \u201cDelete downloaded games\u201d to free space, then retry.",
+                " MB). No backup was created.",
             );
           // No awaits inside an IDB transaction (especially on Safari):
           // encode only after the batch transaction has completed.
@@ -519,7 +488,7 @@
       // JSON.stringify string, so peak memory stays near one database.
       var headerJson = JSON.stringify(header);
       var parts = [headerJson.slice(0, -1) + ',"indexedDB":{'];
-      var budget = { bytes: 0, skipped: 0 };
+      var budget = { bytes: 0 };
       var first = true;
       var exported = [];
       var saveRecords = 0;
@@ -560,13 +529,6 @@
           " databases, " +
           saveRecords +
           " saved records). " +
-          (budget.skipped
-            ? "Skipped " +
-              budget.skipped +
-              " downloaded game file" +
-              (budget.skipped === 1 ? "" : "s") +
-              " (not saves). "
-            : "") +
           (saveRecords
             ? ""
             : "No game saves were found - this browser could not read its game databases. ") +

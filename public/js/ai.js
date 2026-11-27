@@ -116,12 +116,6 @@
       });
   }
 
-  function isImageModel(id) {
-    return /image|img|dall|flux|sdxl|sd3(?:-|$)|banana|krea|recraft|ideogram|mai-image/i.test(
-      id,
-    );
-  }
-
   function makeProviderIcon(model) {
     var icon = document.createElement("span");
     icon.className = "ai-provider-icon";
@@ -274,13 +268,10 @@
   }
 
   function applyModels(list) {
-    var normalized = normalizeModels(list);
-    chatModels = normalized.filter(function (model) {
-      return !isImageModel(model.id) && !/video/i.test(model.id);
-    });
-    imageModels = normalized.filter(function (model) {
-      return isImageModel(model.id) && !/video/i.test(model.id);
-    });
+    // The server has already filtered the catalog to configured chat IDs.
+    // Multimodal chat models can legitimately include "image" in their name.
+    chatModels = normalizeModels(list);
+    imageModels = [];
     // A configured default only fills in when the provider list is missing one.
     if (!chatModels.length && defaultModel)
       chatModels = normalizeModels([{ id: defaultModel }]);
@@ -567,44 +558,37 @@
     }
   }
 
-  // The chat route caps bodies at 20 MB. Strip images from the oldest
-  // messages (keeping their text and the current turn) until we fit.
-  function shrinkConvos() {
-    // Bigger than one full message (3 x 4 MiB images as base64).
-    var LIMIT = 17 * 1024 * 1024;
-    function imageBytes() {
-      var size = 0;
-      convos.forEach(function (message) {
-        if (!Array.isArray(message.content)) return;
-        message.content.forEach(function (part) {
-          if (part && part.type === "image_url" && part.image_url)
-            size += String(part.image_url.url || "").length;
-        });
-      });
-      return size;
+  // Build a request from the current prompt and the most recent complete
+  // exchanges. Keep the visible transcript and the retry draft intact.
+  function chatWindow(history) {
+    var textLeft = 200000;
+    var imageLeft = 17 * 1024 * 1024; // leaves room in the route's 20 MiB body
+    function fit(message, current) {
+      var content = message.content;
+      if (Array.isArray(content)) {
+        var images = content.reduce(function (sum, part) {
+          return sum + (part.type === "image_url" ? part.image_url.url.length : 0);
+        }, 0);
+        if (images > imageLeft) {
+          if (current) throw new Error("These images are too large. Remove an attachment and retry.");
+          content = content.filter(function (part) { return part.type !== "image_url"; });
+          if (!content.length) content = "[Earlier image omitted]";
+        } else imageLeft -= images;
+      }
+      textLeft -= typeof content === "string" ? content.length : content.reduce(function (sum, part) {
+        return sum + (part.text || "").length;
+      }, 0);
+      return { role: message.role, content: content };
     }
-    var withImages = [];
-    convos.forEach(function (message, index) {
-      if (!Array.isArray(message.content)) return;
-      var hasImage = message.content.some(function (part) {
-        return part && part.type === "image_url";
-      });
-      if (hasImage) withImages.push(index);
-    });
-    // The newest image-bearing message is the current turn: never strip it.
-    for (var i = 0; i < withImages.length - 1 && imageBytes() > LIMIT; i++) {
-      var index = withImages[i];
-      var content = convos[index].content;
-      var kept = content.filter(function (part) {
-        return !part || part.type !== "image_url";
-      });
-      if (!kept.length)
-        kept.push({
-          type: "text",
-          text: "[image attachment omitted to keep the request under the size limit]",
-        });
-      convos[index] = { role: convos[index].role, content: kept };
+    var result = [fit(history[history.length - 1], true)];
+    if (textLeft < 0) throw new Error("Your message exceeds 200,000 characters. Shorten it and retry.");
+    for (var i = history.length - 2; i >= 1 && result.length + 2 <= 200; i -= 2) {
+      var answer = fit(history[i], false);
+      var prompt = fit(history[i - 1], false);
+      if (textLeft < 0) break;
+      result.push(answer, prompt);
     }
+    return result.reverse();
   }
 
   async function sendChat() {
@@ -655,11 +639,11 @@
     var bubble = null;
 
     try {
-      shrinkConvos();
+      var messages = chatWindow(convos);
       var response = await fetch("/api/ai/chat", {
         method: "POST",
         headers: apiHeaders(),
-        body: JSON.stringify({ model: model, messages: convos, stream: true }),
+        body: JSON.stringify({ model: model, messages: messages, stream: true }),
         signal: controller.signal,
       });
       if (!response.ok) {

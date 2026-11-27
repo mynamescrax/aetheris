@@ -20,8 +20,8 @@
     <script src="register-sw.js?v=20260907.1" defer></script>
     <script defer src="./js/preload.js?v=20261122.1"></script>
     <script defer src="./js/settings.js?v=20261103.1"></script>
-    <script defer src="./js/data-transfer.js?v=20261020.1"></script>
-    <script defer src="./js/cache-reset.js?v=20260924.1"></script>
+    <script defer src="./js/cache-reset.js?v=20261127.2"></script>
+    <script defer src="./js/data-transfer.js?v=20261127.1"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <script src="./js/navigation.js?v=20261124.1"></script>
@@ -498,9 +498,8 @@
 
         <h2>Downloaded games</h2>
         <h4>
-          Delete downloaded game files to free space: per-game offline packs,
-          game download caches, and large downloaded files stored alongside
-          saves. Settings, favorites, game saves, and chat sign-ins are kept.
+          Clear known game download caches to free space. Files stored alongside
+          saves are kept, even when they are large.
         </h4>
         <div class="form-row">
           <button onclick="resetdownloadedgames(this)" class="secondary">
@@ -578,15 +577,8 @@
             result.databases +
               (result.databases === 1 ? " download store" : " download stores"),
           );
-          parts.push(
-            result.files +
-              (result.files === 1 ? " downloaded file" : " downloaded files"),
-          );
           status.textContent =
-            "Deleted " +
-            parts.slice(0, -1).join(", ") +
-            " and " +
-            parts[parts.length - 1] +
+            "Cleared " + parts.join(" and ") +
             ". Settings, favorites, and game saves were kept.";
         } catch (error) {
           status.textContent = error.message;

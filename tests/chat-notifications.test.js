@@ -229,7 +229,7 @@ test("chat deep links open only a conversation present in the authenticated inbo
     "utf8",
   );
   const loadInbox = source.slice(
-    source.indexOf("async function loadinbox()"),
+    source.indexOf("var inboxRequestToken"),
     source.indexOf("function filterinbox()"),
   );
   for (const requested of ["friend", "g:Abcdefgh1234", "unknown"]) {
@@ -238,6 +238,7 @@ test("chat deep links open only a conversation present in the authenticated inbo
       authtoken: "session",
       requestedConversation: requested,
       document: { hidden: false },
+      window: {}, AbortController, setTimeout, clearTimeout,
       authheaders: () => ({}),
       filterinbox() {},
       convokey: (c) => (c.group ? "g:" + c.group : c.with.toLowerCase()),
@@ -253,6 +254,7 @@ test("chat deep links open only a conversation present in the authenticated inbo
         }),
       }),
     };
+    context.window.top = context.window;
     vm.runInNewContext(loadInbox, context);
     await context.loadinbox();
     assert.equal(context.requestedConversation, null);

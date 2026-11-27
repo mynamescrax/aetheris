@@ -12,7 +12,8 @@
   var limit = PAGE_SIZE;
   var sortByPlays = false;
   var playCounts = null;
-  var popularIds = [];
+  var cardPlays = new Map();
+  var popularGames = [];
   var activeTags = new Set();
   var search = document.getElementById("search-box");
   var main = document.getElementById("gamecards");
@@ -167,13 +168,7 @@
   function renderPopular() {
     if (!popular) return;
     var show = !search.value.trim() && !activeTags.size;
-    var games = show
-      ? popularIds
-          .map(function (id) {
-            return byId[id];
-          })
-          .filter(Boolean)
-      : [];
+    var games = show ? popularGames : [];
     syncGrid(popular, games);
     document.getElementById("popular-label").style.display = games.length
       ? "block"
@@ -251,7 +246,7 @@
     if (sortByPlays && playCounts) {
       filtered.sort(function (a, b) {
         return (
-          (playCounts[b.id] || 0) - (playCounts[a.id] || 0) ||
+          (cardPlays.get(b) || 0) - (cardPlays.get(a) || 0) ||
           String(a.title || "").localeCompare(String(b.title || ""))
         );
       });
@@ -264,7 +259,11 @@
     searchIndex = new WeakMap();
     byId = Object.create(null);
     catalog.forEach(function (game) {
-      byId[game.id] = game;
+      // The server counts launches by local source ID. A merged card may
+      // have several of these, even when its primary copy is external.
+      (game.sources || [{ name: game.source || "aetheris", id: game.id }]).forEach(function (copy) {
+        if (copy.name === "aetheris" && copy.id != null) byId[copy.id] = game;
+      });
       searchIndex.set(game, {
         title: String(game.title || game.name || "").toLowerCase(),
         tags: new Set(
@@ -278,6 +277,20 @@
         ),
       });
     });
+    updateCardPlays();
+  }
+
+  function updateCardPlays() {
+    cardPlays.clear();
+    Object.keys(playCounts || {}).forEach(function (id) {
+      var game = byId[id];
+      var count = playCounts[id];
+      if (game && Number.isFinite(count) && count > 0)
+        cardPlays.set(game, (cardPlays.get(game) || 0) + count);
+    });
+    popularGames = Array.from(cardPlays.keys()).sort(function (a, b) {
+      return cardPlays.get(b) - cardPlays.get(a) || a.title.localeCompare(b.title);
+    }).slice(0, 10);
   }
 
   function renderTags() {
@@ -334,19 +347,7 @@
     indexCatalog();
     restoreState();
     renderTags();
-    if (sortByPlays && !playCounts) {
-      fetchPlayCounts().then(
-        function () {
-          applyFilters(false);
-        },
-        function () {
-          applyFilters(false);
-        },
-      );
-      applyFilters(false);
-    } else {
-      applyFilters(false);
-    }
+    applyFilters(false);
     if (restoredScroll !== null) {
       requestAnimationFrame(function () {
         window.scrollTo(0, restoredScroll);
@@ -356,21 +357,18 @@
     document.dispatchEvent(new Event("gamesrendered"));
   }
 
-  async function fetchPlayCounts() {
-    var response = await fetch("/api/plays/counts");
-    if (!response.ok) throw new Error("Could not load play counts.");
-    playCounts = await response.json();
-    filterKey = null;
-  }
-
-  async function loadPopular() {
-    try {
-      var response = await fetch("/api/plays/top");
-      if (!response.ok) return;
-      var data = await response.json();
-      popularIds = Array.isArray(data) ? data.slice(0, 10).map(String) : [];
-      renderPopular();
-    } catch (_) {}
+  var countsRequest;
+  function fetchPlayCounts() {
+    if (countsRequest) return countsRequest;
+    countsRequest = fetch("/api/plays/counts").then(function (response) {
+      if (!response.ok) throw new Error("Could not load play counts.");
+      return response.json();
+    }).then(function (data) {
+      playCounts = data;
+      updateCardPlays();
+      filterKey = null;
+    }).finally(function () { countsRequest = null; });
+    return countsRequest;
   }
 
   var searchTimer;
@@ -521,5 +519,7 @@
     window.addEventListener("gamesupdated", onupdate);
     window.addEventListener("gamesloaded", onupdate);
   }
-  loadPopular();
+  fetchPlayCounts().then(function () {
+    if (built) applyFilters(false);
+  }).catch(function () {});
 })();

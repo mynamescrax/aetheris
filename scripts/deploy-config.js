@@ -70,7 +70,12 @@ if (
     const [name, out] = args;
     config = previousConfig(JSON.parse(readFileSync(0, "utf8")), name);
     destination = out;
-  } else throw new Error("Use release or snapshot.");
+  } else if (mode === "stopped") {
+    const rows = JSON.parse(readFileSync(0, "utf8"));
+    if (!Array.isArray(rows) || !rows.every(entry => typeof entry?.name === "string" &&
+        (entry.name !== args[0] || (entry.pid === 0 && entry.pm2_env?.status === "stopped"))))
+      throw new Error("PM2 did not confirm all app processes were stopped or absent.");
+  } else throw new Error("Use release, snapshot or stopped.");
   if (config)
     writeFileSync(destination, JSON.stringify(config), { mode: 0o600 });
 }

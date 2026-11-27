@@ -53,7 +53,7 @@ test("concurrent movie catalogue requests share a fetch, compression and cached 
 test("cache keys normalize parameter order but keep language, page and query distinct", async () => {
   let calls = 0;
   const client = createTmdbClient({
-    fetcher: async () => json({ count: ++calls }),
+    fetcher: async () => json({ results: [{ id: ++calls }] }),
   });
   await client.request(url("&language=en&page=1"), path);
   assert.equal(
@@ -88,7 +88,7 @@ test("expiry and LRU limits refetch metadata instead of serving it indefinitely"
     now: () => time,
     ttl: 100,
     maxEntries: 2,
-    fetcher: async () => json({ count: ++calls }),
+    fetcher: async () => json({ results: [{ id: ++calls }] }),
   });
   await client.request(url("&page=1"), path);
   await client.request(url("&page=2"), path);
@@ -116,15 +116,20 @@ test("upstream failures and malformed JSON are retried, not stored as successful
     json({ error: "temporary" }, 503),
     new Response("bad json"),
     json({ success: false }),
+    json({ results: null }),
     json({ results: [] }),
   ];
   const client = createTmdbClient({ fetcher: async () => responses[calls++] });
   assert.equal((await client.request(url(), path)).status, 503);
-  assert.equal((await client.request(url(), path)).prepared, undefined);
-  assert.equal((await client.request(url(), path)).prepared, undefined);
+  for (let i = 0; i < 3; i++) {
+    const invalid = await client.request(url(), path);
+    assert.equal(invalid.status, 502);
+    assert.equal(invalid.ok, false);
+    assert.equal(invalid.prepared, undefined);
+  }
   assert.ok((await client.request(url(), path)).prepared);
   assert.equal((await client.request(url(), path)).cache, "hit");
-  assert.equal(calls, 4);
+  assert.equal(calls, 5);
 });
 
 test("concurrency pressure and rejected fetches release slots for later requests", async () => {

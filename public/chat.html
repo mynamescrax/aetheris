@@ -90,6 +90,7 @@
           <input type="checkbox" id="keep-chk" /> Keep me logged in</label
         >
         <div id="auth-err" class="auth-err" role="alert"></div>
+        <button type="button" id="auth-resume" hidden onclick="resumesession()">Retry saved session</button>
         <button class="abtn" id="auth-submit" onclick="submitauth()">
           Log in
         </button>
@@ -274,7 +275,7 @@
     </dialog>
 
     <script src="./js/dm-shared.js?v=20261106.3"></script>
-    <script src="./js/dm-ui.js?v=20261115.1"></script>
+    <script src="./js/dm-ui.js?v=20261127.2"></script>
     <script src="./js/chat.js?v=20261106.1"></script>
   </body>
 </html>

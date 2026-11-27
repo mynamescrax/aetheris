@@ -41,6 +41,7 @@ import { uniqueOnlineCount } from "./lib/online.js";
 import { createPresence } from "./lib/presence.js";
 import { messagesAfter, countUnread, latestUnread } from "./lib/chat-history.js";
 import { createJsonStore } from "./lib/json-store.js";
+import { lockDatabase } from "./lib/database-lock.js";
 import {
   createGroupStore,
   cleanGroupName,
@@ -150,6 +151,7 @@ function gettoken(req) {
 // --- per-user file database (database/<username>.json) ---
 
 const dbdir = join(process.cwd(), "database");
+const releaseDatabase = await lockDatabase(dbdir);
 const users = await createJsonStore(dbdir);
 
 function readuser(username) {
@@ -2009,7 +2011,8 @@ const CRAX_GPT_KEY = process.env.CRAX_GPT_KEY || "";
 const CRAX_GPT_BASE = (
   process.env.CRAX_GPT_BASE_URL || "https://gpt.crax.lol/v1"
 ).replace(/\/+$/, "");
-const AI_CHAT_MODELS = new Set(["claude-haiku-5-5", "gpt-6-luna"]);
+const AI_CHAT_MODELS = new Set((process.env.AI_CHAT_MODELS ?? "claude-haiku-5-5,gpt-6-luna")
+  .split(",").map(id => id.trim()).filter(Boolean));
 const CRAX_GPT_MODEL = process.env.CRAX_GPT_MODEL || "";
 const AI_MODELS_TIMEOUT_MS = 15 * 1000;
 // A game page is rewritten to opaque relay URLs only when it fits in memory.
@@ -2998,6 +3001,7 @@ async function shutdown() {
   setTimeout(() => process.exit(0), 3000).unref();
   await wispengine.stop();
   await fastify.close();
+  await releaseDatabase();
   process.exit(0);
 }
 process.on("SIGINT", shutdown);

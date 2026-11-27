@@ -70,6 +70,7 @@ function authheaders(token, json) {
 }
 
 function showapp() {
+  document.getElementById("auth-resume").hidden = true;
   dmel("auth").style.display = "none";
   dmel("app").style.display = dmui.appDisplay;
   dmhook("onShowApp");
@@ -114,28 +115,64 @@ async function logout() {
 
 async function resumesession() {
   if (!authtoken) return;
+  var token = authtoken;
+  var retry = document.getElementById("auth-resume");
+  if (retry.disabled) return;
+  retry.disabled = true;
+  var error = document.getElementById("auth-err");
+  var controller = new AbortController();
+  var timer = setTimeout(function () { controller.abort(); }, 15000);
   try {
     var r = await fetch("/api/accounts/me", {
-      headers: authheaders(authtoken),
+      headers: authheaders(token), signal: controller.signal,
     });
-    var d = await r.json();
-    if (d.ok) {
-      myusername = d.username;
-      Aetheris.storage.setItem("dmUsername", myusername);
-      showapp();
-    } else {
+    if (token !== authtoken) return;
+    if (r.status === 401) {
       cleartoken();
       Aetheris.storage.removeItem("dmUsername");
       myusername = "";
+      retry.hidden = true;
+      error.textContent = "Your session has expired. Sign in again.";
+      return;
     }
-  } catch (_) {}
+    var d = r.ok && await r.json();
+    if (token !== authtoken) return;
+    if (!d || !d.ok || typeof d.username !== "string") throw new Error();
+    myusername = d.username;
+    Aetheris.storage.setItem("dmUsername", myusername);
+    error.textContent = "";
+    showapp();
+  } catch (_) {
+    if (token !== authtoken) return;
+    error.textContent = "Could not check your saved session. Try again when the connection is available.";
+    retry.hidden = false;
+  } finally {
+    clearTimeout(timer);
+    retry.disabled = false;
+  }
 }
 
+function conversationVisible() {
+  return !document.hidden && (!dmui.isOpen || dmui.isOpen());
+}
+
+function refreshChatView() {
+  if (!authtoken || !conversationVisible()) return;
+  loadinbox();
+  loadmsgs();
+  refreshpresence();
+}
+
+var inboxRequestToken = null;
 async function loadinbox() {
   if (!authtoken || document.hidden) return;
   var token = authtoken;
+  if (inboxRequestToken === token) return;
+  inboxRequestToken = token;
+  var controller = new AbortController();
+  var timeout = setTimeout(function () { controller.abort(); }, 10000);
   try {
-    var r = await fetch("/api/dm-inbox", { headers: authheaders(token) });
+    var r = await fetch("/api/dm-inbox", { headers: authheaders(token), signal: controller.signal });
     var d = await r.json();
     if (token !== authtoken) return;
     if (r.status === 401) {
@@ -145,13 +182,18 @@ async function loadinbox() {
     }
     if (!d.ok) return;
     inboxcache = Array.isArray(d.conversations) ? d.conversations : [];
+    if (window.top !== window) window.top.postMessage({ type: "chat-inbox-updated" }, location.origin);
     filterinbox();
     if (requestedConversation) {
       var requested = inboxcache.find(function (conversation) { return convokey(conversation) === requestedConversation; });
       requestedConversation = null;
       if (requested) openconvo(convokey(requested), requested.with);
     }
-  } catch (_) {}
+  } catch (_) {
+  } finally {
+    clearTimeout(timeout);
+    if (inboxRequestToken === token) inboxRequestToken = null;
+  }
 }
 
 function filterinbox() {
@@ -169,12 +211,14 @@ function filterinbox() {
 function renderinbox(cs) {
   var cls = dmui.inbox;
   var el = dmel("list");
-  el.innerHTML = "";
+  var visible = conversationVisible();
   var totalunread = inboxcache.reduce(function (total, convo) {
     return (
-      total + (convokey(convo) === activeconvo ? 0 : Number(convo.unread) || 0)
+      total + (visible && convokey(convo) === activeconvo ? 0 : Number(convo.unread) || 0)
     );
   }, 0);
+  if (!visible) { notifybadge(totalunread); return; }
+  el.innerHTML = "";
   if (!cs.length) {
     el.innerHTML = dmui.emptyInbox;
     notifybadge(totalunread);
@@ -325,7 +369,7 @@ function groupgone() {
 }
 
 async function loadmsgs() {
-  if (!activeconvo || document.hidden) return;
+  if (!activeconvo || !conversationVisible()) return;
   var convo = activeconvo,
     version = conversationVersion,
     token = authtoken;
@@ -338,7 +382,7 @@ async function loadmsgs() {
     });
     var msgs = await r.json();
     if (
-      convo !== activeconvo ||
+      !conversationVisible() || convo !== activeconvo ||
       version !== conversationVersion ||
       token !== authtoken
     )
@@ -480,7 +524,7 @@ async function senddm() {
 // --- presence ---
 
 async function refreshpresence() {
-  if (!activeconvo || document.hidden) return;
+  if (!activeconvo || !conversationVisible()) return;
   var key = activeconvo,
     version = conversationVersion,
     token = authtoken;
@@ -881,12 +925,6 @@ function startdm(config) {
     .addEventListener("keydown", function (e) {
       if (e.key === "Escape") closemodal("modal-newdm");
     });
-  document.addEventListener("visibilitychange", function () {
-    if (!document.hidden && authtoken) {
-      loadinbox();
-      loadmsgs();
-      refreshpresence();
-    }
-  });
+  document.addEventListener("visibilitychange", refreshChatView);
   resumesession();
 }

@@ -55,7 +55,14 @@
     }
   }
 
-  function rememberItem(id, type) {
+  function savedEpisode(id) {
+    var record = recentItems.find(function (entry) { return entry.id === id && entry.media_type === "tv"; });
+    var saved = record && record.resume;
+    return saved && Number.isInteger(saved.season) && saved.season >= 0 &&
+      Number.isInteger(saved.episode) && saved.episode > 0 ? saved : null;
+  }
+
+  function rememberItem(id, type, playingEpisode) {
     var item = items.concat(recentItems).find(function (entry) {
       return (
         entry.id === id &&
@@ -63,6 +70,7 @@
       );
     });
     if (!item) return;
+    var resume = type === "tv" && (playingEpisode || savedEpisode(id));
     recentItems = recentItems.filter(function (entry) {
       return entry.id !== id || entry.media_type !== type;
     });
@@ -74,6 +82,7 @@
       poster_path: item.poster_path,
       backdrop_path: item.backdrop_path,
       vote_average: item.vote_average,
+      ...(resume ? { resume: resume } : {}),
     });
     recentItems = recentItems.slice(0, 20);
     Aetheris.storage.setItem("moviesRecent", JSON.stringify(recentItems));
@@ -91,7 +100,10 @@
       var card = document.createElement("button");
       card.type = "button";
       card.className = "card recent-card";
-      card.setAttribute("aria-label", "Watch " + item.title + " again");
+      card.dataset.recentKey = item.media_type + ":" + item.id;
+      var resume = item.media_type === "tv" && savedEpisode(item.id);
+      var action = resume ? "Resume S" + resume.season + " E" + resume.episode : "Watch again";
+      card.setAttribute("aria-label", resume ? item.title + ": " + action : "Watch " + item.title + " again");
       var image = document.createElement("img");
       image.alt = "";
       image.loading = "lazy";
@@ -113,7 +125,7 @@
       var meta = document.createElement("div");
       meta.className = "card-meta";
       meta.textContent =
-        (item.media_type === "tv" ? "TV series" : "Movie") + " · Watch again";
+        (item.media_type === "tv" ? "TV series" : "Movie") + " · " + action;
       info.append(title, meta);
       card.append(image, info);
       card.addEventListener("click", function () {
@@ -400,7 +412,8 @@
     try {
       var data = await json(url, controller);
       if (version !== listingVersion) return;
-      var rows = Array.isArray(data.results) ? data.results : [];
+      if (!data || !Array.isArray(data.results)) throw new Error("Invalid movie listing.");
+      var rows = data.results;
       dbg("listing ok:", rows.length, "raw,", data.total_pages + " pages");
       rows = rows.filter(function (item) {
         return item && item.id && item.media_type !== "person";
@@ -496,7 +509,9 @@
           s.season_number === 0 ? "Specials" : "Season " + s.season_number;
         season.appendChild(option);
       });
-      season.value = seasons.some(function (s) {
+      var resume = savedEpisode(item.id);
+      season.value = resume && seasons.some(s => s.season_number === resume.season)
+        ? String(resume.season) : seasons.some(function (s) {
         return s.season_number === 1;
       })
         ? "1"
@@ -559,7 +574,12 @@
         });
         episodes.appendChild(button);
       });
-      if (list.length) episodes.querySelector("button").click();
+      if (list.length) {
+        var resume = savedEpisode(item.id);
+        var index = resume && resume.season === selectedSeason
+          ? list.findIndex(ep => ep.episode_number === resume.episode) : -1;
+        episodes.children[Math.max(0, index)].click();
+      }
       else {
         dbg("no episodes for tmdb=" + item.id, "season=" + selectedSeason);
         episodes.textContent = "No episodes are available for this season.";
@@ -781,6 +801,7 @@
         clearTimeout(playerTimer);
         hint.textContent = "";
         attemptBeacon("playing", current, data.host);
+        if (current.kind === "tv") rememberItem(current.id, "tv", { season: current.season, episode: current.episode });
         // Remember the source that actually worked.
         Aetheris.storage.setItem("movieSourceIdx", String(current.index));
         Aetheris.storage.setItem(
@@ -932,8 +953,9 @@
       MOVIES_SOURCES[saved]
         ? String(saved)
         : String(defaultIndex);
-    Aetheris.storage.setItem("movieSourceVersion", sourceDefaultVersion);
+    Aetheris.storage.setItem("movieSourceId", MOVIES_SOURCES[Number(source.value)].id);
     Aetheris.storage.setItem("movieSourceIdx", source.value);
+    Aetheris.storage.setItem("movieSourceVersion", sourceDefaultVersion);
     source.disabled = type === "tv";
     document.getElementById("epBar").classList.toggle("visible", type === "tv");
     hint.textContent = "";
@@ -961,16 +983,16 @@
     document.body.style.overflow = overflowBeforeModal;
     currentItem = null;
     currentEpisode = null;
-    var recentLabel =
+    var recentKey =
       focusBeforeModal && focusBeforeModal.classList.contains("recent-card")
-        ? focusBeforeModal.getAttribute("aria-label")
+        ? focusBeforeModal.dataset.recentKey
         : null;
     renderRecent();
-    if (recentLabel) {
+    if (recentKey) {
       var recentButton = Array.from(
         document.getElementById("recent-rail").children,
       ).find(function (button) {
-        return button.getAttribute("aria-label") === recentLabel;
+        return button.dataset.recentKey === recentKey;
       });
       if (recentButton) recentButton.focus();
     } else if (focusBeforeModal && focusBeforeModal.isConnected) {

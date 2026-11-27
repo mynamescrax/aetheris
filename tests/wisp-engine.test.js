@@ -78,38 +78,56 @@ async function withengine(engineName, fn) {
   }
 }
 
-const online = process.env.WISP_NETWORK_TESTS !== "0";
+const online = process.env.WISP_NETWORK_TESTS === "1";
 const GET = "GET / HTTP/1.0\r\nHost: example.com\r\n\r\n";
 
 for (const name of ["wispurr", "wisp-js"]) {
-  test(`${name}: relays TCP and refuses blocked hosts and ports`, { skip: !online }, async () => {
+  test(`${name}: refuses blocked destinations without internet access`, async t => {
+    await withengine(name, async (url, engine) => {
+      if (name === "wispurr" && engine.status().engine !== name && !online) {
+        t.skip("native worker unavailable on this host");
+        return;
+      }
+      assert.equal(engine.status().engine, name);
+      assert.match(await wispget(url, "127.0.0.1", 22), /^closed:/);
+      assert.match(await wispget(url, "198.51.100.1", 25), /^closed:/);
+    });
+  });
+  test(`${name}: live public TCP smoke`, { skip: !online }, async () => {
     await withengine(name, async (url, engine) => {
       assert.equal(engine.status().engine, name);
       const ok = await wispget(url, "example.com", 80, GET);
       assert.match(ok, /^HTTP\/1\.[01] \d{3}/);
       assert.match(await wispget(url, "pornhub.com", 443), /^closed:/);
-      assert.match(await wispget(url, "example.com", 25), /^closed:/);
-      assert.match(await wispget(url, "127.0.0.1", 22), /^closed:/);
     });
   });
 }
 
-test("wispurr: a crashed worker falls back to wisp-js, then respawns", { skip: !online }, async () => {
+test("wispurr: a crashed worker falls back to wisp-js, then respawns", async t => {
   await withengine("wispurr", async (url, engine) => {
     const first = engine.status().workers[0];
+    if (!first?.up && !online) {
+      t.skip("native worker unavailable on this host");
+      return;
+    }
     assert.equal(first.up, true);
     process.kill(first.pid, "SIGKILL");
     await new Promise((r) => setTimeout(r, 300));
     assert.equal(engine.status().workers[0].up, false);
     // still served, by the in-process fallback
-    assert.match(await wispget(url, "example.com", 80, GET), /^HTTP\/1\.[01]/);
+    assert.match(await wispget(url, "127.0.0.1", 22), /^closed:/);
+    if (online) assert.match(await wispget(url, "example.com", 80, GET), /^HTTP\/1\.[01]/);
     assert.ok(engine.status().fallbacks >= 1);
     const deadline = Date.now() + 8000;
     while (!engine.status().workers[0].up && Date.now() < deadline)
       await new Promise((r) => setTimeout(r, 100));
     const again = engine.status().workers[0];
     assert.equal(again.up, true);
-    assert.notEqual(again.pid, first.pid);
-    assert.match(await wispget(url, "example.com", 80, GET), /^HTTP\/1\.[01]/);
+    // Windows may immediately reuse the dead worker's PID. Verify routing
+    // has actually switched back from the fallback instead of comparing PIDs.
+    const fallbacks = engine.status().fallbacks;
+    assert.match(await wispget(url, "127.0.0.1", 22), /^closed:/);
+    if (online) assert.match(await wispget(url, "example.com", 80, GET), /^HTTP\/1\.[01]/);
+    assert.equal(engine.status().fallbacks, fallbacks);
   });
 });
